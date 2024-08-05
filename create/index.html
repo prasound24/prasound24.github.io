@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Prasound Images</title>
+    <link rel="icon" type="image/png" href="/img/favicon_256.png" />
+    <link rel="stylesheet" href="/style.css"/>
+    <link rel="stylesheet" href="create.css"/>
+  </head>
+  <body>
+    <h1 style="margin-bottom:0; display:flex">
+      <a style="flex:1" href="/">Prasound</a>
+      <img src="/img/ico/cart.png">
+      <img style="padding-left:0.5em" src="/img/ico/menu.png">
+    </h1>
+
+    <h2>Step 1</h2>
+
+    <div class="buttons">
+      <button id="record"><img src="/img/ico/mic.png"> Record Mic</button>
+    </div>
+    <p id="upload"><u>Upload Audio</u></p>
+    <p id="file_error"></p>
+
+    <h2>Step 2</h2>
+
+    <canvas id="wave" width="1024" height="128"></canvas>
+    <div id="wave_bounds">
+      <div id="wave_start" style="width:10vw">
+        <div class="ptr lt"></div>
+        <div class="ptr lb"></div>
+      </div>
+      <div id="wave_end" style="width:15vw">
+        <div class="ptr rt"></div>
+        <div class="ptr rb"></div>
+      </div>
+    </div>
+    <p id="audio_name"></p>
+    <p id="audio_info"></p>
+    <div class="buttons" style="margin: 1em 0">
+      <button id="play_sound"><img src="/img/ico/play.png"> Play Sound</button>
+    </div>
+    <p id="download_audio"><u>Download Audio</u></p>
+
+    <h2>Step 3</h2>
+    <canvas id="rect" width="1024" height="1024"></canvas>
+
+    <h2>Step 4</h2>
+    <canvas id="disk" width="1024" height="1024"></canvas>
+
+    <h2>Step 5</h2>
+    <div class="buttons">
+      <a href="/preview">Buy a high-res version</a>
+    </div>
+    <p id="download_image"><u>Download Preview</u></p>
+
+    <div id="footer">
+      <p>&#xa9; 2024 Prasound, Inc.
+    </div>
+
+    <script src="dat.gui.js"></script>
+    <script type="module" src="create.js"></script>
+  </body>
+</html>

@@ -1,0 +1,12 @@
+.stage img {
+  width: 100vw;
+  height: 100vw;
+}
+
+#wall_art {
+  padding-bottom: 1em;
+}
+
+#wall_art img {
+  width: 100%;
+}
