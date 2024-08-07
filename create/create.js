@@ -1,7 +1,7 @@
 import * as utils from '../utils.js';
 import { StringOscillator } from './oscillator.js';
 
-const { $, lanczos, sleep, DB } = utils;
+const { $, lanczos, sleep, interpolate, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 
@@ -12,15 +12,20 @@ conf.frameSize = 1024;
 conf.numFrames = 1024;
 conf.diskSize = 1024;
 conf.strLengthMsec = 8;
-conf.brightness = 5.0;
+conf.brightness = 1.0;
 conf.volume = 1.0;
 conf.damping = 75.0;
-conf.expDecay = 0.95;
+conf.expDecay = 5;
 conf.numReps = 2;
-conf.exposure = 0.60;
+conf.exposure = 0.95;
 conf.maxFileSize = 50000;
 conf.silenceThreshold = 0.01;
-conf.color = [85, 28, 255];
+conf.flame_color = {
+  b: [0, 1.00, 1.00, 1.00, 1],
+  g: [0, 0.50, 1.00, 1.00, 1],
+  r: [0, 0.25, 0.50, 0.75, 1],
+};
+
 let is_drawing = false;
 
 let mem = {
@@ -63,7 +68,6 @@ function initDebugGUI() {
   gui.add(conf, 'expDecay', 0.0, 1.0, 0.001);
   gui.add(conf, 'exposure', 0.0, 1.0, 0.01);
   gui.add(conf, 'numReps', 0, 6, 1);
-  gui.addColor(conf, 'color');
   conf.redraw = () => hardRefresh();
   gui.add(conf, 'redraw');
 }
@@ -129,9 +133,10 @@ async function drawWaveform() {
       amax = Math.max(amax, mem.audio_signal[i]);
     }
 
-    for (let i = 0; i < mem.audio_signal.length; i++) {
-      let a = (mem.audio_signal[i] - amin) / (amax - amin);
-      let x = i / mem.audio_signal.length * cw;
+    for (let t = 0; t < 1.0; t += 1.0 / mem.audio_signal.length) {
+      let s = subsampleAudio(mem.audio_signal, t);
+      let a = (s - amin) / (amax - amin);
+      let x = t * cw;
       let y = a * ch;
 
       x = utils.clamp(Math.round(x), 0, cw - 1);
@@ -219,7 +224,7 @@ function findSilenceLeft(signal, threshold = 0.001) {
   return signal.length;
 }
 
-function interpolate(sig, t) {
+function subsampleAudio(sig, t) {
   if (t < 0.0 || t >= 1.0)
     return 0.0;
 
@@ -237,16 +242,14 @@ function interpolate(sig, t) {
 
 async function drawStringOscillations(signal = mem.audio_signal_inner) {
   let width = conf.frameSize; // oscillating string length
-  let oscillator = new StringOscillator({ width });
+  let oscillator = new StringOscillator({ width, height: 1 });
   oscillator.dx = conf.strLengthMsec / 1000 / conf.frameSize;
-  oscillator.dt = oscillator.dx; // otherwise the diff scheme is unstable
+  oscillator.dt = oscillator.dx * conf.frameSize / conf.numFrames; // otherwise the diff scheme is unstable
   oscillator.k2 = conf.damping;
   console.log('dx = dt =', oscillator.dt.toExponential(2));
 
   mem.img_rect = new utils.Float32Tensor([conf.numFrames, conf.frameSize]);
 
-  let wave_min = new Float32Array(width);
-  let wave_max = new Float32Array(width);
   let wave_sum = new Float32Array(width);
   let y_curr = 0;
   let last_draw = Date.now();
@@ -257,41 +260,34 @@ async function drawStringOscillations(signal = mem.audio_signal_inner) {
   let img = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
   // img.data.fill(0);
-  wave_min.fill(Infinity);
-  wave_max.fill(-Infinity);
   wave_sum.fill(0);
 
   let steps = signal.length * Math.max(1, 1 / conf.sampleRate / oscillator.dt) | 0;
   let vol = 10 ** conf.volume;
+  let decay = Math.exp(-oscillator.dt * 10 ** conf.expDecay);
   console.log('steps:', steps, 'vs sig length:', signal.length);
 
   for (let t = 0; t < steps; t++) {
-    let sig = interpolate(signal, t / steps);
-    oscillator.wave[0] = sig * vol;
+    let sig = subsampleAudio(signal, t / steps);
+    for (let y = 0; y < oscillator.height; y++)
+      oscillator.wave[y * oscillator.width] = sig * vol;
     oscillator.update();
 
     let y = t / steps * canvas.height | 0;
 
     for (let x = 0; x < width; x++) {
-      wave_min[x] = Math.min(wave_min[x], oscillator.wave[x]);
-      wave_max[x] = Math.max(wave_max[x], oscillator.wave[x]);
-      wave_sum[x] = utils.sqr(oscillator.wave[x]) + wave_sum[x] * conf.expDecay;
+      wave_sum[x] *= decay;
+      for (let y = 0; y < oscillator.height; y++)
+        wave_sum[x] += utils.sqr(oscillator.wave[y * oscillator.width + x]);
     }
 
     if (y > y_curr) {
       y_curr = y;
 
-      for (let x = 0; x < width; x++) {
-        let amp = wave_sum[x];
-        if (!Number.isFinite(amp))
-          amp = Infinity;
-        mem.img_rect.data[y * width + x] = amp;
-      }
+      for (let x = 0; x < width; x++)
+        mem.img_rect.data[y * width + x] = wave_sum[x];
 
       drawImgData(img, mem.img_rect, [y, y]);
-
-      wave_min.fill(Infinity);
-      wave_max.fill(-Infinity);
     }
 
     if (t == steps - 1 || Date.now() > last_draw + 250) {
@@ -304,7 +300,7 @@ async function drawStringOscillations(signal = mem.audio_signal_inner) {
   adjustBrightness(mem.img_rect);
   drawImgData(img, mem.img_rect, [0, img.height - 1]);
   ctx.putImageData(img, 0, 0);
-  await sleep(10);
+  await sleep(0);
 }
 
 async function drawDiskImage(smooth = false) {
@@ -338,15 +334,15 @@ function drawImgData(canvas_img, amps, [ymin, ymax] = [0, canvas_img.height - 1]
 
   let brightness = conf.brightness;
   let width = canvas_img.width;
-  let [rr, gg, bb] = conf.color;
+  let color = conf.flame_color;
 
   for (let y = ymin; y <= ymax; y++) {
     for (let x = 0; x < width; x++) {
       let i = y * width + x;
-      let amp = amps.data[i];
-      canvas_img.data[i * 4 + 0] = amp * rr * brightness;
-      canvas_img.data[i * 4 + 1] = amp * gg * brightness;
-      canvas_img.data[i * 4 + 2] = amp * bb * brightness;
+      let amp = amps.data[i] * brightness;
+      canvas_img.data[i * 4 + 0] = interpolate(amp, color.r) * 255;
+      canvas_img.data[i * 4 + 1] = interpolate(amp, color.g) * 255;
+      canvas_img.data[i * 4 + 2] = interpolate(amp, color.b) * 255;
       canvas_img.data[i * 4 + 3] = 255;
     }
   }

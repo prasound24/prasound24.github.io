@@ -1,6 +1,14 @@
-.stage img {
-  width: 100vw;
-  height: 100vw;
+.preview img {
+  width: 100%;
+}
+
+.preview {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+p {
+  text-align: center;
 }
 
 #wall_art {

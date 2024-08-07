@@ -94,28 +94,6 @@ export class Float32Tensor {
   }
 }
 
-export function sumTensors(...tensors) {
-  let res = tensors[0].clone();
-
-  for (let t = 1; t < tensors.length; t++) {
-    let src = tensors[0];
-    dcheck(src instanceof Float32Tensor);
-    dcheck(src.array.length == res.array.length);
-    for (let i = 0; i < src.array.length; i++)
-      res.array[i] += src.array[i];
-  }
-
-  return res;
-}
-
-export function re2reim(src, res = new Float32Array(src.length * 2)) {
-  let n = src.length;
-  dcheck(res.length == 2 * n);
-  for (let i = n - 1; i >= 0; i--)
-    res[2 * i] = src[i], res[2 * i + 1] = 0;
-  return res;
-}
-
 // (1, 0) -> (1, 0)
 // (-1, +0) -> (1, +PI)
 // (-1, -0) -> (1, -PI)
@@ -720,4 +698,13 @@ export function approxPercentile(values, pctile, sample_size = 1000) {
     a[i] = values[Math.round(Math.random() * (n - 1))];
   a.sort();
   return a[Math.round(pctile * (a.length - 1))];
+}
+
+export function interpolate(t, list) {
+  dcheck(list.length >= 1);
+  let n = list.length;
+  let i0 = clamp(t, 0, 1) * (n - 1);
+  let i1 = Math.floor(i0);
+  let i2 = Math.ceil(i0);
+  return mix(list[i1], list[i2], i0 - i1);
 }
