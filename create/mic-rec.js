@@ -12,6 +12,8 @@ class MicRecWorklet extends AudioWorkletProcessor {
   }
 
   async onmessage(e) {
+    if (e.data != 'fetch-all')
+      return;
     let buffers = this.chunks.map((a) => a.buffer);
     this.port.postMessage({ channels: [buffers] }, buffers);
     this.chunks = [];
@@ -26,13 +28,17 @@ class MicRecWorklet extends AudioWorkletProcessor {
       let num_channels = Math.min(input.length, output.length);
 
       for (let ch = 0; ch < num_channels; ch++) {
-        let num_samples = input[ch].length;
-        for (let i = 0; i < num_samples; i++)
-          output[ch][i] = input[ch][i];
+        let output_ch = output[ch];
+        let input_ch = input[ch];
+        for (let i = 0; i < input_ch.length; i++)
+          output_ch[i] = input_ch[i];
       }
 
-      if (num_channels > 0)
-        this.chunks.push(input[0].slice(0));
+      if (num_channels > 0) {
+        let chunk = input[0].slice(0);
+        this.chunks.push(chunk);
+        this.port.postMessage({ chunk });
+      }
     }
 
     return true;

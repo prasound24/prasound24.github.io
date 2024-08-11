@@ -2,6 +2,30 @@ canvas {
   width: 100%;
 }
 
+p {
+  text-align: center;
+}
+
+.extras {
+  color: #888;
+}
+
+#stop_recording {
+  display: none;
+}
+
+body.recording #stop_recording {
+  display: inherit;
+}
+
+body.recording #record {
+  display: none;
+}
+
+#stop_recording {
+  background-color: #811;
+}
+
 #upload, #download_image, #download_audio {
   text-align: center;
   cursor: pointer;
@@ -22,60 +46,85 @@ canvas {
   padding: 1em;
 }
 
+#show_disk {
+  color: #888;
+}
+canvas#disk {
+  display: none;
+}
+body.show_disk canvas#disk {
+  display: inherit;
+}
+body.show_disk canvas#rect {
+  display: none;
+}
+body.show_disk #show_disk {
+  color: inherit;
+}
+body.show_disk #show_rect {
+  color: #888;
+}
+
+#wave_wrapper {
+  margin: 0;
+}
+
+canvas#wave {
+  background: #335;
+  height: 12.5vw;
+}
+
 #wave_bounds {
   height: 0;
   position: relative;
-  opacity: 0.5;
 }
 
 #wave_bounds > * {
   position: absolute;
-  top: -12.5vw;
+  top: 0;
   height: 12.5vw;
-  background: #4444;
+  background: #112c;
 }
 
 #wave_start {
-  border-right: 3px solid #fff;
-  background: #888;
   left: 0;
 }
 
 #wave_end {
-  border-left: 3px solid #fff;
-  background: #888;
   right: 0;
 }
 
 #wave_bounds .ptr {
+  cursor: pointer;
   position: absolute;
-  font-size: 3vw;
+  font-size: 1vw;
   width: 1em;
-  height: 1em;
-  background: #fff;
-  border-radius: 50%;
+  height: 100%;
+  background: #446;
+  opacity: 0.8;
+  border-radius: 1em;
+  display: flex;
+  align-items: center;
 }
 
-#wave_bounds .ptr.lt {
-  right: -3px;
-  top: -1em;
+#wave_bounds .ptr span {
+  width: 100%;
+  text-align: center;
+  font-weight: 900;
+}
+
+#wave_bounds .ptr:hover {
+  opacity: 1.0;
+}
+
+#wave_bounds .ptr.left {
+  right: 0;
+  border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
 
-#wave_bounds .ptr.rt {
-  left: -3px;
-  top: -1em;
-  border-bottom-left-radius: 0;
-}
-
-#wave_bounds .ptr.lb {
-  right: -3px;
-  top: 100%;
-  border-top-right-radius: 0;
-}
-
-#wave_bounds .ptr.rb {
-  left: -3px;
-  top: 100%;
+#wave_bounds .ptr.right {
+  left: 0;
   border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }

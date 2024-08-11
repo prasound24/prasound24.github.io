@@ -13,45 +13,47 @@
       <img style="padding-left:0.5em" src="/img/ico/menu.png">
     </h1>
 
-    <h2>Step 1</h2>
+    <p>Click the button to start recording.</p>
 
     <div class="buttons">
-      <button id="record"><img src="/img/ico/mic.png"> Record Mic</button>
+      <button id="record"><img src="/img/ico/mic.png">&nbsp;Record Mic</button>
+      <button id="stop_recording"><img src="/img/ico/stop.png">&nbsp;<span>00:00</span></button>
     </div>
-    <p id="upload"><u>Upload Audio</u></p>
+    <p id="upload" class="extras"><u>Upload Audio</u></p>
     <p id="file_error"></p>
 
-    <h2>Step 2</h2>
-
-    <canvas id="wave" width="1024" height="128"></canvas>
-    <div id="wave_bounds">
-      <div id="wave_start" style="width:10vw">
-        <div class="ptr lt"></div>
-        <div class="ptr lb"></div>
+    <div id="wave_wrapper">
+      <div id="wave_bounds">
+        <div id="wave_start" style="width:10vw">
+          <div class="ptr left"><span>&#x22EE;</span></div>
+        </div>
+        <div id="wave_end" style="width:15vw">
+          <div class="ptr right"><span>&#x22EE;</span></div>
+        </div>
       </div>
-      <div id="wave_end" style="width:15vw">
-        <div class="ptr rt"></div>
-        <div class="ptr rb"></div>
-      </div>
+      <canvas id="wave" width="1024" height="128"></canvas>
     </div>
+  
     <div class="buttons" style="margin: 1em 0">
-      <button id="play_sound"><img src="/img/ico/play.png"> Play Sound</button>
+      <button id="play_sound"><img src="/img/ico/play.png">&nbsp;Play Sound</button>
     </div>
-    <p id="download_audio"><u>Download Audio</u></p>
+    <p id="audio_name" class="extras"></p>
+    <p id="audio_info" class="extras"></p>
+    <p id="download_audio" class="extras"><u>Download Audio</u></p>
 
-    <h2>Step 3</h2>
+    <h2>Preview</h2>
+
+    <div class="buttons" style="margin: 1em 0">
+      <b id="show_rect">Flat</b>
+      <b id="show_disk">Disk</b>
+    </div>
     <canvas id="rect" width="1024" height="1024"></canvas>
-
-    <h2>Step 4</h2>
     <canvas id="disk" width="1024" height="1024"></canvas>
-    <p id="audio_name"></p>
-    <p id="audio_info"></p>
 
-    <h2>Step 5</h2>
-    <div class="buttons">
+    <div class="buttons" style="margin-top:2em">
       <a href="/preview">Buy a high-res version</a>
     </div>
-    <p id="download_image"><u>Download Preview</u></p>
+    <p id="download_image" class="extras"><u>Download Preview</u></p>
 
     <div id="footer">
       <p>&#xa9; 2024 Prasound, Inc.

@@ -18,14 +18,17 @@ conf.damping = 75.0;
 conf.expDecay = 5;
 conf.numReps = 2;
 conf.exposure = 0.95;
+conf.maxDuration = 1.5; // sec
 conf.maxFileSize = 50000;
 conf.silenceThreshold = 0.01;
 conf.flame_color = {
-  b: [0, 1.00, 1.00, 1.00, 1],
+  r: [0, 1.00, 1.00, 1.00, 1],
   g: [0, 0.50, 1.00, 1.00, 1],
-  r: [0, 0.25, 0.50, 0.75, 1],
+  b: [0, 0.25, 0.50, 0.75, 1],
 };
 
+let recorder = null;
+let rec_timer = null;
 let is_drawing = false;
 
 let mem = {
@@ -46,6 +49,9 @@ async function init() {
   initDebugGUI();
   $('#upload').onclick = () => uploadAudio();
   $('#record').onclick = () => recordAudio();
+  $('#show_disk').onclick = () => document.body.classList.add('show_disk');
+  $('#show_rect').onclick = () => document.body.classList.remove('show_disk');
+  $('#stop_recording').onclick = () => stopRecording();
   $('#download_image').onclick = () => downloadImage();
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
@@ -120,36 +126,15 @@ async function drawWaveform() {
     $('#audio_info').textContent = (mem.audio_signal.length / conf.sampleRate).toFixed(2) + ' s, '
       + (conf.sampleRate / 1000) + ' kHz, ' + (mem.audio_file.size / 1024).toFixed(1) + ' KB';
 
-    let canvas = $('canvas#wave');
-    let cw = canvas.width;
-    let ch = canvas.height;
-    let ctx = canvas.getContext('2d', { willReadFrequently: true });
-    let img = ctx.getImageData(0, 0, cw, ch);
-    img.data.fill(0);
-
+    let drawer = initWaveformDrawer();
     let amin = Infinity, amax = -Infinity;
+
     for (let i = 0; i < mem.audio_signal.length; i++) {
       amin = Math.min(amin, mem.audio_signal[i]);
       amax = Math.max(amax, mem.audio_signal[i]);
     }
 
-    for (let t = 0; t < 1.0; t += 1.0 / mem.audio_signal.length) {
-      let s = subsampleAudio(mem.audio_signal, t);
-      let a = (s - amin) / (amax - amin);
-      let x = t * cw;
-      let y = a * ch;
-
-      x = utils.clamp(Math.round(x), 0, cw - 1);
-      y = utils.clamp(Math.round(y), 0, ch - 1);
-
-      let p = (y * cw + x) * 4;
-      img.data[p + 0] = 255;
-      img.data[p + 1] = 255;
-      img.data[p + 2] = 255;
-      img.data[p + 3] = 255;
-    }
-
-    ctx.putImageData(img, 0, 0);
+    drawer.draw(mem.audio_signal, [0, 1], [amin, amax]);
     await sleep(50);
   } finally {
     is_drawing = false;
@@ -167,6 +152,40 @@ async function drawWaveform() {
   console.log('done in', Date.now() - time, 'ms');
 }
 
+function initWaveformDrawer(canvas = $('canvas#wave')) {
+  let cw = canvas.width;
+  let ch = canvas.height;
+  let ctx = canvas.getContext('2d', { willReadFrequently: true });
+  let img = ctx.getImageData(0, 0, cw, ch);
+  let img_data_i32 = new Int32Array(img.data.buffer);
+
+  img_data_i32.fill(0);
+  ctx.putImageData(img, 0, 0);
+
+  function draw(sig, [xmin, xmax] = [0, 1], [amin, amax] = [-1, 1]) {
+    if (xmax < 0.0 || xmin > 1.0)
+      return;
+
+    for (let t = 0; t < 1.0; t += 1.0 / sig.length) {
+      let s = subsampleAudio(sig, t);
+      let a = (s - amin) / (amax - amin);
+      let x = Math.round(cw * utils.mix(xmin, xmax, t));
+      let y = Math.round(ch * a);
+
+      if (x < 0 || x >= cw || y < 0 || y >= ch)
+        continue;
+
+      img_data_i32[y * cw + x] = -1;
+    }
+
+    let dirty_xmin = Math.floor(xmin * cw);
+    let dirty_xmax = Math.ceil(xmax * cw);
+    ctx.putImageData(img, 0, 0, dirty_xmin, 0, dirty_xmax - dirty_xmin + 1, ch);
+  }
+
+  return { draw };
+}
+
 async function redrawImg() {
   if (is_drawing || !mem.audio_signal)
     return;
@@ -175,9 +194,14 @@ async function redrawImg() {
   is_drawing = true;
 
   try {
+    document.body.classList.remove('show_disk');
     await drawStringOscillations();
+    await sleep(10);
     await drawDiskImage(false);
+    document.body.classList.add('show_disk');
+    await sleep(10);
     await drawDiskImage(true);
+    await sleep(10);
     await saveDiskImage();
   } finally {
     is_drawing = false;
@@ -320,6 +344,7 @@ async function drawDiskImage(smooth = false) {
   adjustBrightness(mem.img_rect);
   drawImgData(img, mem.img_disk, [0, img.height - 1]);
   ctx.putImageData(img, 0, 0);
+  await sleep(0);
 }
 
 function adjustBrightness(img) {
@@ -394,8 +419,45 @@ async function loadAudioSignal() {
   }
 }
 
+async function stopRecording() {
+  if (!recorder) 
+    return;
+  try {
+    clearInterval(rec_timer);
+    recorder.stop();
+  } finally {
+    document.body.classList.remove('recording');
+    recorder = null;
+  }
+}
+
 async function recordAudio() {
-  let blob = await utils.recordMic({ sample_rate: conf.sampleRate });
+  document.body.classList.add('recording');
+  recorder = await utils.recordMic({ sample_rate: conf.sampleRate });
+  let wave_drawer = initWaveformDrawer();
+  let num_samples = 0, duration_sec = '';
+
+  updateButton();
+  recorder.onaudiochunk = (chunk) => {
+    let xmin = num_samples / conf.sampleRate / conf.maxDuration;
+    let xlen = chunk.length / conf.sampleRate / conf.maxDuration;
+    wave_drawer.draw(chunk, [xmin, xmin + xlen]);
+    num_samples += chunk.length;
+    updateButton();
+    if (xmin + xlen > 1.0)
+      stopRecording();
+  };
+
+  function updateButton() {
+    let ts = '00:' + ('00' + (num_samples / conf.sampleRate).toFixed(1)).slice(-4);
+    if (ts == duration_sec)
+      return;
+    duration_sec = ts;
+    $('#stop_recording span').textContent = ts;
+  }
+
+  // wait for the full recording ready
+  let blob = await recorder.blob();
   let date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   let name = 'microphone_' + date + '_' + blob.size;
   mem.audio_file = new File([blob], name, { type: blob.type });

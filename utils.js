@@ -169,6 +169,7 @@ export class AudioRecorder {
     this.stream = stream;
     this.sample_rate = sample_rate;
     this.onaudiodata = null;
+    this.onaudiochunk = null;
 
     this.audio_blob = null;
     this.audio_ctx = null;
@@ -201,7 +202,7 @@ export class AudioRecorder {
             clearInterval(timer);
             console.debug('Stopped the !stream.active timer');
           }
-        }, 25);
+        }, 50);
       }
     });
 
@@ -223,6 +224,11 @@ export class AudioRecorder {
     await this.audio_ctx.audioWorklet.addModule('/create/mic-rec.js');
     this.worklet = new AudioWorkletNode(this.audio_ctx, 'mic-rec');
     // this.worklet.onprocessorerror = (e) => console.error('mic-rec worklet:', e);
+    this.worklet.port.onmessage = (e) => {
+      // usually it's 128 samples per chunk
+      if (e.data.chunk && this.onaudiochunk)
+        this.onaudiochunk(e.data.chunk);
+    };
 
     this.mss = this.audio_ctx.createMediaStreamSource(this.stream);
     this.mss.connect(this.worklet);
@@ -232,9 +238,13 @@ export class AudioRecorder {
   async fetch() {
     if (!this.worklet) return;
     log('Fetching audio data from the worklet');
-    this.worklet.port.postMessage('foo');
-    let { channels } = await new Promise((resolve) =>
-      this.worklet.port.onmessage = (e) => resolve(e.data));
+    this.worklet.port.postMessage('fetch-all');
+    let { channels } = await new Promise((resolve) => {
+      this.worklet.port.onmessage = (e) => {
+        if (e.data.channels)
+          resolve(e.data);
+      }
+    });;
 
     dcheck(channels.length > 0);
     let blob = new Blob(channels[0]);
@@ -624,14 +634,15 @@ export async function resampleDisk(src, res, { ctoken, fs_full = false, r_zoom =
     coords_fn: (a, r) => {
       let coords = [];
       for (let i = 0; i < num_reps; i++) {
-        let rad = (r + 0.5) / src_r;
-        let arg = (a + 0.5) / src_a;
+        let rad = (r + Math.random()) / src_r;
+        let arg = (a + Math.random()) / src_a;
         // dcheck(arg >= 0 && arg <= 1);
         // dcheck(rad >= 0 && rad <= 1);
         if (fs_full)
           rad = arg > 0.5 ? rad * 2 : 1 - rad * 2;
         rad = rad * r_zoom;
-        arg = (0.5 + arg + i) * 2 * PI / num_reps;
+        // arg = (0.0 + arg + i) * 2 * PI / num_reps;
+        arg = (0.0 + arg + i) * 2 * PI / num_reps;
         let x = (rad * Math.sin(arg) * 0.5 + 0.5) * res_w;
         let y = (rad * Math.cos(arg) * 0.5 + 0.5) * res_h;
         coords.push([x, y]);
@@ -643,22 +654,27 @@ export async function resampleDisk(src, res, { ctoken, fs_full = false, r_zoom =
 
 // Returns a Promise<Blob>.
 export async function recordMic({ sample_rate = 48000 } = {}) {
-  let mic_stream;
-  let on_complete;
-  let audio_file = new Promise((resolve) => {
-    on_complete = resolve;
+  let mic_stream, resolve, reject;
+  let audio_file = new Promise((_resolve, _reject) => {
+    resolve = _resolve;
+    reject = _reject;
   });
+  let ctx = {
+    blob: () => audio_file,
+    stop: () => stopRecording(),
+    onaudiochunk: null,
+  };
 
   async function getMicStream() {
-    await showStatus('Requesting mic access');
+    console.log('Requesting mic access');
     return navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
         sampleSize: 16,
         sampleRate: { exact: sample_rate },
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
+        //echoCancellation: false,
+        //noiseSuppression: false,
+        //autoGainControl: false,
       }
     });
   }
@@ -667,27 +683,34 @@ export async function recordMic({ sample_rate = 48000 } = {}) {
     mic_stream = await getMicStream();
 
     try {
-      await showStatus('Initializing AudioRecorder');
+      console.log('Initializing AudioRecorder');
       let recorder = new AudioRecorder(mic_stream, sample_rate);
-      recorder.onaudiodata = (blob) => on_complete(blob);
+      recorder.onaudiodata = (blob) => resolve(blob);
+      recorder.onaudiochunk = (chunk) => ctx.onaudiochunk?.(chunk);
       await recorder.start();
-      await showStatus('Recording...', { 'Stop': stopRecording });
+      console.log('Started recording...');
     } catch (err) {
       await stopRecording();
       throw err;
     }
   }
 
+  // can be invoked multiple times
   function stopRecording() {
     if (!mic_stream) return;
-    console.log('Releasing the mic MediaStream');
-    mic_stream.getTracks().map((t) => t.stop());
+    console.log('Releasing the mic stream');
+    let tracks = mic_stream.getTracks();
+    tracks.map((t) => t.stop());
     mic_stream = null;
-    showStatus('');
   }
 
-  await startRecording();
-  return audio_file;
+  try {
+    await startRecording();
+  } catch (err) {
+    reject(err);
+  }
+
+  return ctx;
 }
 
 export function approxPercentile(values, pctile, sample_size = 1000) {
