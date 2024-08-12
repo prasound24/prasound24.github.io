@@ -15,43 +15,49 @@
 
     <p>Click the button to start recording.</p>
 
-    <div class="buttons">
+    <div style="display:flex; flex-direction: row; justify-content: center;">
       <button id="record"><img src="/img/ico/mic.png">&nbsp;Record Mic</button>
       <button id="stop_recording"><img src="/img/ico/stop.png">&nbsp;<span>00:00</span></button>
+      <p id="upload" class="extras"><u>Upload Audio</u></p>
     </div>
-    <p id="upload" class="extras"><u>Upload Audio</u></p>
+
     <p id="file_error"></p>
 
     <div id="wave_wrapper">
       <div id="wave_bounds">
         <div id="wave_start" style="width:10vw">
-          <div class="ptr left"><span>&#x22EE;</span></div>
+          <div id="ptr_start" class="ptr left"><span>&#x22EE;</span></div>
         </div>
         <div id="wave_end" style="width:15vw">
-          <div class="ptr right"><span>&#x22EE;</span></div>
+          <div id="ptr_end" class="ptr right"><span>&#x22EE;</span></div>
         </div>
       </div>
       <canvas id="wave" width="1024" height="128"></canvas>
     </div>
   
-    <div class="buttons" style="margin: 1em 0">
-      <button id="play_sound"><img src="/img/ico/play.png">&nbsp;Play Sound</button>
+    <div id="wave_play_info" style="display:flex; flex-direction:row">
+      <div>
+        <p id="play_sound" class="extras"><u>Play Sound</u></p>
+      </div>
+      <div style="flex:1"></div>
+      <div>
+        <p id="download_audio" class="extras"><u>Download Audio</u></p>
+      </div>
     </div>
-    <p id="audio_name" class="extras"></p>
-    <p id="audio_info" class="extras"></p>
-    <p id="download_audio" class="extras"><u>Download Audio</u></p>
-
-    <h2>Preview</h2>
 
     <div class="buttons" style="margin: 1em 0">
       <b id="show_rect">Flat</b>
       <b id="show_disk">Disk</b>
     </div>
+    <div style="position:relative; height:0; font-size:0.75rem; width:100%">
+      <p id="audio_name" class="extras"></p>
+      <p id="audio_info" class="extras"></p>
+    </div>
     <canvas id="rect" width="1024" height="1024"></canvas>
     <canvas id="disk" width="1024" height="1024"></canvas>
 
     <div class="buttons" style="margin-top:2em">
-      <a href="/preview">Buy a high-res version</a>
+      <a href="/preview"><img src="/img/ico/cart.png">&nbsp;Buy a high-res version</a>
     </div>
     <p id="download_image" class="extras"><u>Download Preview</u></p>
 

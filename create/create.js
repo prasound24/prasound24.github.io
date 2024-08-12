@@ -1,7 +1,7 @@
 import * as utils from '../utils.js';
 import { StringOscillator } from './oscillator.js';
 
-const { $, lanczos, sleep, interpolate, DB } = utils;
+const { $, lanczos, sleep, clamp, interpolate, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 
@@ -35,7 +35,11 @@ let mem = {
   audio_name: '',
   audio_file: null,
   audio_signal: null,
+
   audio_signal_inner: null,
+  sig_start: 0,
+  sig_end: 0,
+
   img_rect: null,
   img_disk: null,
 };
@@ -47,6 +51,7 @@ utils.setUncaughtErrorHandlers();
 
 async function init() {
   initDebugGUI();
+  initMouseMove();
   $('#upload').onclick = () => uploadAudio();
   $('#record').onclick = () => recordAudio();
   $('#show_disk').onclick = () => document.body.classList.add('show_disk');
@@ -55,9 +60,49 @@ async function init() {
   $('#download_image').onclick = () => downloadImage();
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
+
   if (await loadAudioSignal()) {
     await drawWaveform();
     await redrawImg();
+  }
+}
+
+function initMouseMove() {
+  let moving = null;
+  let wrapper = $('#wave_wrapper');
+
+  wrapper.onmousedown = onmouse;
+  wrapper.onmousemove = onmouse;
+  wrapper.onmouseup = onmouse;
+  wrapper.onmouseleave = onmouse;
+
+  function onmouse(e) {
+    switch (e.type) {
+      case 'mousedown':
+        if (e.target.classList.contains('ptr'))
+          moving = e.target.id;
+        break;
+      case 'mouseup':
+      case 'mouseleave':
+      case 'mouseout':
+        if (moving) {
+          moving = null;
+          redrawImg();
+        }
+        break;
+      case 'mousemove':
+        if (moving)
+          move(e.movementX);
+        break;
+    }
+  }
+
+  function move(dx) {
+    let diff = dx / wrapper.clientWidth * mem.audio_signal.length | 0;
+    if (moving == 'ptr_start')
+      setSilenceMarks(mem.sig_start + diff, mem.sig_end);
+    if (moving == 'ptr_end')
+      setSilenceMarks(mem.sig_start, mem.sig_end + diff);
   }
 }
 
@@ -141,15 +186,30 @@ async function drawWaveform() {
   }
 
   let [sleft, sright] = findSilenceMarks(mem.audio_signal, conf.silenceThreshold);
-  // sleft = 0; sright = mem.audio_signal.length - 1;
-  mem.audio_signal_inner = mem.audio_signal.slice(sleft, sright);
-  sleft *= 100 / mem.audio_signal.length;
-  sright *= 100 / mem.audio_signal.length;
-  sright = Math.max(sright, sleft);
-  $('#wave_start').style.width = sleft.toFixed(2) + 'vw';
-  $('#wave_end').style.width = (100 - sright).toFixed(2) + 'vw';
-
+  setSilenceMarks(sleft, sright);
   console.log('done in', Date.now() - time, 'ms');
+}
+
+function padAudioWithSilence() {
+  let a = mem.audio_signal_inner;
+  let n = a.length;
+  let b = new Float32Array(n * 1.5);
+  b.set(a, (b.length - a.length) / 2);
+  mem.audio_signal_inner = b;
+}
+
+function setSilenceMarks(sleft, sright) {
+  sright = Math.max(sright, sleft);
+  sleft = clamp(sleft, 0, mem.audio_signal.length - 1);
+  sright = clamp(sright, 0, mem.audio_signal.length - 1);
+  mem.sig_start = sleft;
+  mem.sig_end = sright;
+  mem.audio_signal_inner = mem.audio_signal.subarray(mem.sig_start, mem.sig_end);
+  padAudioWithSilence();
+  let l = mem.sig_start * 100 / mem.audio_signal.length;
+  let r = mem.sig_end * 100 / mem.audio_signal.length;
+  $('#wave_start').style.width = l.toFixed(2) + 'vw';
+  $('#wave_end').style.width = (100 - r).toFixed(2) + 'vw';
 }
 
 function initWaveformDrawer(canvas = $('canvas#wave')) {
@@ -411,16 +471,14 @@ async function loadAudioSignal() {
   try {
     console.log('loading audio signal from DB');
     mem.audio_file = await DB.get(DB_PATH_AUDIO);
-    if (!mem.audio_file) return;
-    mem.audio_signal = await utils.decodeWavFile(mem.audio_file);
-    return true;
+    return mem.audio_file;
   } catch (err) {
     console.error(err);
   }
 }
 
 async function stopRecording() {
-  if (!recorder) 
+  if (!recorder)
     return;
   try {
     clearInterval(rec_timer);

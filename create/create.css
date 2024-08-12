@@ -26,18 +26,26 @@ body.recording #record {
   background-color: #811;
 }
 
-#upload, #download_image, #download_audio {
+#upload,
+#play_sound,
+#download_image,
+#download_audio {
   text-align: center;
   cursor: pointer;
 }
 
 #audio_name {
-  color: #fff;
-  text-align: center;
+  margin: 0;
+  position: absolute;
+  top: 1em;
+  left: 0;
 }
 
 #audio_info {
-  text-align: center;
+  margin: 0;
+  position: absolute;
+  top: 1em;
+  right: 0;
 }
 
 #file_error:not(:empty) {
@@ -49,18 +57,23 @@ body.recording #record {
 #show_disk {
   color: #888;
 }
+
 canvas#disk {
   display: none;
 }
+
 body.show_disk canvas#disk {
   display: inherit;
 }
+
 body.show_disk canvas#rect {
   display: none;
 }
+
 body.show_disk #show_disk {
   color: inherit;
 }
+
 body.show_disk #show_rect {
   color: #888;
 }
@@ -79,7 +92,7 @@ canvas#wave {
   position: relative;
 }
 
-#wave_bounds > * {
+#wave_bounds>* {
   position: absolute;
   top: 0;
   height: 12.5vw;
@@ -101,10 +114,10 @@ canvas#wave {
   width: 1em;
   height: 100%;
   background: #446;
-  opacity: 0.8;
   border-radius: 1em;
   display: flex;
   align-items: center;
+  user-select: none;
 }
 
 #wave_bounds .ptr span {
@@ -114,7 +127,8 @@ canvas#wave {
 }
 
 #wave_bounds .ptr:hover {
-  opacity: 1.0;
+  background: #888;
+  color: #000;
 }
 
 #wave_bounds .ptr.left {
