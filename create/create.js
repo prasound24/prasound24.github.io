@@ -16,11 +16,11 @@ conf.brightness = 1.0;
 conf.volume = 1.0;
 conf.damping = 75.0;
 conf.expDecay = 5;
-conf.numReps = 2;
+conf.numReps = 1;
 conf.exposure = 0.95;
 conf.maxDuration = 1.5; // sec
 conf.maxFileSize = 50000;
-conf.silenceThreshold = 0.01;
+conf.silenceThreshold = 1e-3;
 conf.flame_color = {
   r: [0, 1.00, 1.00, 1.00, 1],
   g: [0, 0.50, 1.00, 1.00, 1],
@@ -36,7 +36,6 @@ let mem = {
   audio_file: null,
   audio_signal: null,
 
-  audio_signal_inner: null,
   sig_start: 0,
   sig_end: 0,
 
@@ -164,8 +163,9 @@ async function drawWaveform() {
       (mem.audio_file.size / 1024).toFixed(1) + ' KB');
     mem.audio_name = mem.audio_file.name.replace(/\.\w+$/, '');
     mem.audio_signal = await utils.decodeAudioFile(mem.audio_file, conf.sampleRate);
-    normalizeAudioSignal(mem.audio_signal);
     await saveAudioSignal();
+    // normalizeAudioSignal(mem.audio_signal);
+    mem.audio_signal = padAudioWithSilence(mem.audio_signal);
 
     $('#audio_name').textContent = mem.audio_name;
     $('#audio_info').textContent = (mem.audio_signal.length / conf.sampleRate).toFixed(2) + ' s, '
@@ -190,12 +190,11 @@ async function drawWaveform() {
   console.log('done in', Date.now() - time, 'ms');
 }
 
-function padAudioWithSilence() {
-  let a = mem.audio_signal_inner;
+function padAudioWithSilence(a) {
   let n = a.length;
-  let b = new Float32Array(n * 1.5);
+  let b = new Float32Array(n * 1.1);
   b.set(a, (b.length - a.length) / 2);
-  mem.audio_signal_inner = b;
+  return b;
 }
 
 function setSilenceMarks(sleft, sright) {
@@ -204,12 +203,14 @@ function setSilenceMarks(sleft, sright) {
   sright = clamp(sright, 0, mem.audio_signal.length - 1);
   mem.sig_start = sleft;
   mem.sig_end = sright;
-  mem.audio_signal_inner = mem.audio_signal.subarray(mem.sig_start, mem.sig_end);
-  padAudioWithSilence();
   let l = mem.sig_start * 100 / mem.audio_signal.length;
   let r = mem.sig_end * 100 / mem.audio_signal.length;
   $('#wave_start').style.width = l.toFixed(2) + 'vw';
   $('#wave_end').style.width = (100 - r).toFixed(2) + 'vw';
+}
+
+function getSelectedAudio() {
+  return mem.audio_signal.subarray(mem.sig_start, mem.sig_end);
 }
 
 function initWaveformDrawer(canvas = $('canvas#wave')) {
@@ -282,13 +283,13 @@ function normalizeAudioSignal(sig) {
     sig[i] /= sq2;
 }
 
-function findSilenceMarks(signal, threshold = 0.001) {
+function findSilenceMarks(signal, threshold) {
   let right = signal.length - findSilenceLeft(signal.reverse(), threshold);
   let left = findSilenceLeft(signal.reverse(), threshold);
   return [left, right];
 }
 
-function findSilenceLeft(signal, threshold = 0.001) {
+function findSilenceLeft(signal, threshold) {
   let n = signal.length;
   let smin = signal[0], smax = signal[0];
 
@@ -308,23 +309,24 @@ function findSilenceLeft(signal, threshold = 0.001) {
   return signal.length;
 }
 
+// TODO: The result is too sensitive on subsampling.
 function subsampleAudio(sig, t) {
-  if (t < 0.0 || t >= 1.0)
+  if (t < 0.0 || t > 1.0)
     return 0.0;
 
-  let width = 2; // lanczos kernel width
-  let i0 = t * sig.length;
-  let imin = Math.max(0, Math.floor(i0) - width);
-  let imax = Math.min(sig.length - 1, Math.ceil(i0) + width);
+  let kernel_size = 3;
+  let i0 = t * (sig.length - 1);
+  let imin = Math.max(0, Math.floor(i0 - kernel_size));
+  let imax = Math.min(sig.length - 1, Math.ceil(i0 + kernel_size));
   let sum = 0.0;
 
   for (let i = imin; i <= imax; i++)
-    sum += sig[i] * lanczos(i - i0, width);
+    sum += sig[i] * lanczos(i - i0, kernel_size);
 
   return sum;
 }
 
-async function drawStringOscillations(signal = mem.audio_signal_inner) {
+async function drawStringOscillations(signal = getSelectedAudio()) {
   let width = conf.frameSize; // oscillating string length
   let oscillator = new StringOscillator({ width, height: 1 });
   oscillator.dx = conf.strLengthMsec / 1000 / conf.frameSize;
@@ -451,8 +453,8 @@ async function downloadAudio() {
 }
 
 async function playAudioSignal() {
-  utils.dcheck(mem.audio_signal_inner);
-  await utils.playSound(mem.audio_signal_inner, conf.sampleRate);
+  if (mem.audio_signal)
+    await utils.playSound(getSelectedAudio(), conf.sampleRate);
 }
 
 async function saveAudioSignal() {
