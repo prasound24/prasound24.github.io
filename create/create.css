@@ -111,7 +111,7 @@ canvas#wave {
   cursor: pointer;
   position: absolute;
   font-size: 1vw;
-  width: 1em;
+  width: 3em;
   height: 100%;
   background: #446;
   border-radius: 1em;

@@ -1,4 +1,4 @@
-class MicRecWorklet extends AudioWorkletProcessor {
+class MicRecorder extends AudioWorkletProcessor {
   static get parameterDescriptors() {
     return [
       { name: 'channel', defaultValue: 0 },
@@ -45,4 +45,4 @@ class MicRecWorklet extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor('mic-rec', MicRecWorklet);
+registerProcessor('mic_thread', MicRecorder);

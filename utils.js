@@ -221,9 +221,9 @@ export class AudioRecorder {
     log('Initializing the mic recorder @', this.sample_rate, 'Hz');
     this.audio_ctx = new AudioContext({ sampleRate: this.sample_rate });
 
-    await this.audio_ctx.audioWorklet.addModule('/create/mic-rec.js');
-    this.worklet = new AudioWorkletNode(this.audio_ctx, 'mic-rec');
-    // this.worklet.onprocessorerror = (e) => console.error('mic-rec worklet:', e);
+    await this.audio_ctx.audioWorklet.addModule('/create/mic_thread.js');
+    this.worklet = new AudioWorkletNode(this.audio_ctx, 'mic_thread');
+    // this.worklet.onprocessorerror = (e) => console.error('mic_thread worklet:', e);
     this.worklet.port.onmessage = (e) => {
       // usually it's 128 samples per chunk
       if (e.data.chunk && this.onaudiochunk)
