@@ -1,4 +1,4 @@
-import { FFT } from 'https://soundshader.github.io/webfft.js';
+import { FFT } from './webfft.js';
 
 let { min, max, sin, cos, abs, PI } = Math;
 
