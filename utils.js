@@ -731,3 +731,20 @@ export function interpolate(t, list) {
   let i2 = Math.ceil(i0);
   return mix(list[i1], list[i2], i0 - i1);
 }
+
+// TODO: The result is too sensitive on subsampling.
+export function subsampleAudio(sig, t) {
+  if (t < 0.0 || t > 1.0)
+    return 0.0;
+
+  let kernel_size = 3;
+  let i0 = t * (sig.length - 1);
+  let imin = Math.max(0, Math.floor(i0 - kernel_size));
+  let imax = Math.min(sig.length - 1, Math.ceil(i0 + kernel_size));
+  let sum = 0.0;
+
+  for (let i = imin; i <= imax; i++)
+    sum += sig[i] * lanczos(i - i0, kernel_size);
+
+  return sum;
+}

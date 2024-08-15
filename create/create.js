@@ -1,7 +1,6 @@
 import * as utils from '../utils.js';
-import { StringOscillator } from './oscillator.js';
 
-const { $, lanczos, sleep, clamp, interpolate, DB } = utils;
+const { $, sleep, clamp, interpolate, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 
@@ -27,6 +26,7 @@ conf.flame_color = {
   b: [0, 0.25, 0.50, 0.75, 1],
 };
 
+let bg_thread = null;
 let recorder = null;
 let rec_timer = null;
 let is_drawing = false;
@@ -51,6 +51,7 @@ utils.setUncaughtErrorHandlers();
 async function init() {
   initDebugGUI();
   initMouseMove();
+
   $('#upload').onclick = () => uploadAudio();
   $('#record').onclick = () => recordAudio();
   $('#show_disk').onclick = () => document.body.classList.add('show_disk');
@@ -164,7 +165,7 @@ async function drawWaveform() {
     mem.audio_name = mem.audio_file.name.replace(/\.\w+$/, '');
     mem.audio_signal = await utils.decodeAudioFile(mem.audio_file, conf.sampleRate);
     await saveAudioSignal();
-    // normalizeAudioSignal(mem.audio_signal);
+    normalizeAudioSignal(mem.audio_signal);
     mem.audio_signal = padAudioWithSilence(mem.audio_signal);
 
     $('#audio_name').textContent = mem.audio_name;
@@ -228,7 +229,7 @@ function initWaveformDrawer(canvas = $('canvas#wave')) {
       return;
 
     for (let t = 0; t < 1.0; t += 1.0 / sig.length) {
-      let s = subsampleAudio(sig, t);
+      let s = utils.subsampleAudio(sig, t);
       let a = (s - amin) / (amax - amin);
       let x = Math.round(cw * utils.mix(xmin, xmax, t));
       let y = Math.round(ch * a);
@@ -253,6 +254,9 @@ async function redrawImg() {
 
   let time = Date.now();
   is_drawing = true;
+
+  bg_thread?.terminate();
+  bg_thread = null;
 
   try {
     document.body.classList.remove('show_disk');
@@ -309,35 +313,13 @@ function findSilenceLeft(signal, threshold) {
   return signal.length;
 }
 
-// TODO: The result is too sensitive on subsampling.
-function subsampleAudio(sig, t) {
-  if (t < 0.0 || t > 1.0)
-    return 0.0;
-
-  let kernel_size = 3;
-  let i0 = t * (sig.length - 1);
-  let imin = Math.max(0, Math.floor(i0 - kernel_size));
-  let imax = Math.min(sig.length - 1, Math.ceil(i0 + kernel_size));
-  let sum = 0.0;
-
-  for (let i = imin; i <= imax; i++)
-    sum += sig[i] * lanczos(i - i0, kernel_size);
-
-  return sum;
+function initWorker() {
+  if (!bg_thread)
+    bg_thread = new Worker('./bg_thread.js', { type: 'module' });
 }
 
 async function drawStringOscillations(signal = getSelectedAudio()) {
   let width = conf.frameSize; // oscillating string length
-  let oscillator = new StringOscillator({ width, height: 1 });
-  oscillator.dx = conf.strLengthMsec / 1000 / conf.frameSize;
-  oscillator.dt = oscillator.dx * conf.frameSize / conf.numFrames; // otherwise the diff scheme is unstable
-  oscillator.k2 = conf.damping;
-  console.log('dx = dt =', oscillator.dt.toExponential(2));
-
-  mem.img_rect = new utils.Float32Tensor([conf.numFrames, conf.frameSize]);
-
-  let wave_sum = new Float32Array(width);
-  let y_curr = 0;
   let last_draw = Date.now();
   let canvas = $('canvas#rect');
   canvas.width = conf.frameSize;
@@ -345,41 +327,38 @@ async function drawStringOscillations(signal = getSelectedAudio()) {
   let ctx = canvas.getContext('2d', { willReadFrequently: true });
   let img = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  // img.data.fill(0);
-  wave_sum.fill(0);
+  mem.img_rect = new utils.Float32Tensor([conf.numFrames, conf.frameSize]);
+  initWorker();
 
-  let steps = signal.length * Math.max(1, 1 / conf.sampleRate / oscillator.dt) | 0;
-  let vol = 10 ** conf.volume;
-  let decay = Math.exp(-oscillator.dt * 10 ** conf.expDecay);
-  console.log('steps:', steps, 'vs sig length:', signal.length);
+  await new Promise((resolve) => {
+    bg_thread.onmessage = (e) => {
+      console.log('received  response:', e.data.type);
+      switch (e.data.type) {
+        case 'data':
+          updateImg(e.data.data, e.data.rows);
+          break;
+        case 'done':
+          resolve();
+          break;
+        default:
+          console.warn('unknown response:', e.data.type);
+      }
+    };
+    let config = {};
+    for (let i in conf)
+      if (typeof conf[i] != 'function')
+        config[i] = conf[i];
+    bg_thread.postMessage({ type: 'wave1d', signal, config });
+  });
 
-  for (let t = 0; t < steps; t++) {
-    let sig = subsampleAudio(signal, t / steps);
-    for (let y = 0; y < oscillator.height; y++)
-      oscillator.wave[y * oscillator.width] = sig * vol;
-    oscillator.update();
-
-    let y = t / steps * canvas.height | 0;
-
-    for (let x = 0; x < width; x++) {
-      wave_sum[x] *= decay;
-      for (let y = 0; y < oscillator.height; y++)
-        wave_sum[x] += utils.sqr(oscillator.wave[y * oscillator.width + x]);
-    }
-
-    if (y > y_curr) {
-      y_curr = y;
-
+  function updateImg(data, [ymin, ymax]) {
+    utils.dcheck(data.length == (ymax - ymin + 1) * width);
+    for (let y = ymin; y <= ymax; y++)
       for (let x = 0; x < width; x++)
-        mem.img_rect.data[y * width + x] = wave_sum[x];
-
-      drawImgData(img, mem.img_rect, [y, y]);
-    }
-
-    if (t == steps - 1 || Date.now() > last_draw + 250) {
+        mem.img_rect.data[y * width + x] = data[(y - ymin) * width + x];
+    if (Date.now() > last_draw + 250) {
       last_draw = Date.now();
       ctx.putImageData(img, 0, 0);
-      await sleep(0);
     }
   }
 
@@ -390,16 +369,26 @@ async function drawStringOscillations(signal = getSelectedAudio()) {
 }
 
 async function drawDiskImage(smooth = false) {
+  initWorker();
+
+  await new Promise((resolve) => {
+    bg_thread.onmessage = (e) => {
+      utils.dcheck(e.data.type == 'disk');
+      mem.img_disk = new utils.Float32Tensor([conf.diskSize, conf.diskSize], e.data.data);
+      resolve();
+    };
+    let config = { smooth };
+    for (let i in conf)
+      if (typeof conf[i] != 'function')
+        config[i] = conf[i];
+    bg_thread.postMessage({ type: 'disk', rect: mem.img_rect.data, config });
+  });
+
   let canvas = $('canvas#disk');
   canvas.width = conf.diskSize;
   canvas.height = conf.diskSize;
   let cw = canvas.width;
   let ch = canvas.height;
-
-  mem.img_disk = new utils.Float32Tensor([ch, cw]);
-  let resample = smooth ? utils.resampleDisk : utils.reverseDiskMapping;
-  await resample(mem.img_rect, mem.img_disk, { num_reps: conf.numReps });
-
   let ctx = canvas.getContext('2d', { willReadFrequently: true });
   let img = ctx.getImageData(0, 0, cw, ch);
 
