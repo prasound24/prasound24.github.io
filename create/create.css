@@ -1,3 +1,7 @@
+body:not(.debug) .dg.ac {
+  display: none;
+}
+
 canvas {
   width: 100%;
 }
@@ -85,6 +89,10 @@ body.show_disk #show_rect {
 canvas#wave {
   background: #335;
   height: 12.5vw;
+}
+
+body.recording #wave_bounds {
+  display: none;
 }
 
 #wave_bounds {

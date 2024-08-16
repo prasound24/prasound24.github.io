@@ -7,15 +7,15 @@ const DB_PATH_IMAGE = 'user_samples/_last/image';
 let gui = new dat.GUI();
 let conf = {};
 conf.sampleRate = 48000;
-conf.frameSize = 512;
+conf.frameSize = 1024;
 conf.numFrames = 512;
 conf.diskSize = 1024;
 conf.brightness = 1.0;
 conf.damping = -3.25;
 conf.numReps = 2;
-conf.exposure = 0.95;
+conf.exposure = 0.99;
 conf.maxDuration = 1.5; // sec
-conf.maxFileSize = 50000;
+conf.maxFileSize = 1e6;
 conf.silenceThreshold = 1e-3;
 conf.silencePadding = 2.0;
 conf.flame_color = {
@@ -105,6 +105,7 @@ function initMouseMove() {
 function initDebugGUI() {
   if (!utils.DEBUG)
     return;
+  document.body.classList.add('debug');
   gui.close();
   gui.add(conf, 'sampleRate', 4000, 48000, 4000);
   gui.add(conf, 'frameSize', 256, 8192, 256);
@@ -190,7 +191,6 @@ async function drawWaveform() {
 
   let [sleft, sright] = findSilenceMarks(mem.audio_signal, conf.silenceThreshold);
   setSilenceMarks(sleft, sright);
-  console.log('done in', Date.now() - time, 'ms');
 }
 
 function padAudioWithSilence(a) {
@@ -221,25 +221,24 @@ function initWaveformDrawer(canvas = $('canvas#wave')) {
   let ch = canvas.height;
   let ctx = canvas.getContext('2d', { willReadFrequently: true });
   let img = ctx.getImageData(0, 0, cw, ch);
-  let img_data_i32 = new Int32Array(img.data.buffer);
 
-  img_data_i32.fill(0);
+  new Int32Array(img.data.buffer).fill(0x00FFFFFF);
   ctx.putImageData(img, 0, 0);
 
   function draw(sig, [xmin, xmax] = [0, 1], [amin, amax] = [-1, 1]) {
     if (xmax < 0.0 || xmin > 1.0)
       return;
 
-    for (let t = 0; t < 1.0; t += 1.0 / sig.length) {
-      let s = utils.subsampleAudio(sig, t);
+    for (let t = 0; t < sig.length; t++) {
+      let s = sig[t];
       let a = (s - amin) / (amax - amin);
-      let x = Math.round(cw * utils.mix(xmin, xmax, t));
+      let x = Math.round(cw * utils.mix(xmin, xmax, t / (sig.length - 1)));
       let y = Math.round(ch * a);
 
       if (x < 0 || x >= cw || y < 0 || y >= ch)
         continue;
 
-      img_data_i32[y * cw + x] = -1;
+      img.data[(y * cw + x) * 4 + 3] += 255 * cw / sig.length * 25;
     }
 
     let dirty_xmin = Math.floor(xmin * cw);
@@ -274,7 +273,7 @@ async function redrawImg() {
     is_drawing = false;
   }
 
-  console.log('done in', Date.now() - time, 'ms');
+  console.log('image ready:', Date.now() - time, 'ms');
 }
 
 // normalized: avg sig[t]^2 = 1.0
@@ -318,6 +317,7 @@ function findSilenceLeft(signal, threshold) {
 function initWorker() {
   if (bg_thread)
     return;
+  console.log('starting bg_thread.js');
   bg_thread = new Worker('./bg_thread.js', { type: 'module' });
 }
 

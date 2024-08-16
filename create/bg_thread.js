@@ -1,7 +1,7 @@
 import { StringOscillator } from './oscillator.js';
 import * as utils from '/utils.js';
 
-let { dcheck, resampleDisk, reverseDiskMapping, Float32Tensor } = utils;
+let { dcheck, clamp, resampleDisk, reverseDiskMapping, Float32Tensor } = utils;
 
 let img_rect = null;
 
@@ -90,6 +90,7 @@ function adjustBrightness(img, { exposure }) {
 function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.height - 1], conf) {
   dcheck(canvas_img.data);
   dcheck(temperature.data);
+  dcheck(conf.brightness > 0.0);
 
   let width = canvas_img.width;
   let color = conf.flame_color;
@@ -98,9 +99,9 @@ function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.heig
     for (let x = 0; x < width; x++) {
       let i = y * width + x;
       let temp = Math.abs(temperature.data[i]) * conf.brightness;
-      canvas_img.data[i * 4 + 0] = utils.interpolate(temp, color.r) * 255;
-      canvas_img.data[i * 4 + 1] = utils.interpolate(temp, color.g) * 255;
-      canvas_img.data[i * 4 + 2] = utils.interpolate(temp, color.b) * 255;
+      canvas_img.data[i * 4 + 0] = 255 * clamp(temp * 4); // utils.interpolate(temp, color.r) * 255;
+      canvas_img.data[i * 4 + 1] = 255 * clamp(temp * 2); // utils.interpolate(temp, color.g) * 255;
+      canvas_img.data[i * 4 + 2] = 255 * clamp(temp * 1); // utils.interpolate(temp, color.b) * 255;
       canvas_img.data[i * 4 + 3] = 255;
     }
   }

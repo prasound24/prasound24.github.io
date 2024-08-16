@@ -732,19 +732,30 @@ export function interpolate(t, list) {
   return mix(list[i1], list[i2], i0 - i1);
 }
 
-// TODO: The result is too sensitive on subsampling.
-export function subsampleAudio(sig, t) {
-  if (t < 0.0 || t > 1.0)
-    return 0.0;
+export function subsample(sig, t, kernel_size = 2, wrap = false) {
+  if (t < 0.0 || t > 1.0) {
+    if (!wrap)
+      return 0.0;
+    t = (t + 1.0) % 1.0;
+  }
 
-  let kernel_size = 3;
-  let i0 = t * (sig.length - 1);
-  let imin = Math.max(0, Math.floor(i0 - kernel_size));
-  let imax = Math.min(sig.length - 1, Math.ceil(i0 + kernel_size));
+  let n = sig.length;
+  let i0 = t * (n - 1);
+  let imin = Math.floor(i0 - kernel_size);
+  let imax = Math.ceil(i0 + kernel_size);
   let sum = 0.0;
 
-  for (let i = imin; i <= imax; i++)
-    sum += sig[i] * lanczos(i - i0, kernel_size);
+  for (let i = imin; i <= imax; i++) {
+    let j = !wrap ? clamp(i, 0, n - 1) : (i & (n - 1));
+    sum += sig[j] * lanczos(i - i0, kernel_size);
+  }
 
+  return sum;
+}
+
+export function sumArray(a) {
+  let sum = 0.0;
+  for (let i = 0; i < a.length; i++)
+    sum += a[i];
   return sum;
 }
