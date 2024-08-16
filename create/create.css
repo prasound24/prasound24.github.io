@@ -16,6 +16,7 @@ p {
 
 #record,
 #stop_recording {
+  z-index: 1;
   background: #211;
   padding: 0.5em;
   opacity: 0.9;
