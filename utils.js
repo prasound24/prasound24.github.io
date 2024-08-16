@@ -723,7 +723,7 @@ export function approxPercentile(values, pctile, sample_size = 1000) {
   return a[Math.round(pctile * (a.length - 1))];
 }
 
-export function interpolate(t, list) {
+export function interpolateLinear(t, list) {
   dcheck(list.length >= 1);
   let n = list.length;
   let i0 = clamp(t, 0, 1) * (n - 1);
@@ -732,7 +732,7 @@ export function interpolate(t, list) {
   return mix(list[i1], list[i2], i0 - i1);
 }
 
-export function subsample(sig, t, kernel_size = 2, wrap = false) {
+export function interpolateSmooth(sig, t, kernel_size = 2, wrap = false) {
   if (t < 0.0 || t > 1.0) {
     if (!wrap)
       return 0.0;

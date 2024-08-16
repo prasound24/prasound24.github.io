@@ -14,15 +14,11 @@ conf.brightness = 1.0;
 conf.damping = -3.25;
 conf.numReps = 2;
 conf.exposure = 0.99;
-conf.maxDuration = 1.5; // sec
+conf.maxDuration = 10.0; // sec
 conf.maxFileSize = 1e6;
 conf.silenceThreshold = 1e-3;
 conf.silencePadding = 2.0;
-conf.flame_color = {
-  r: [0, 1.00, 1.00, 1.00, 1],
-  g: [0, 0.50, 1.00, 1.00, 1],
-  b: [0, 0.25, 0.50, 0.75, 1],
-};
+conf.flame_color = null;
 
 let bg_thread = null;
 let recorder = null;
@@ -46,7 +42,8 @@ utils.setUncaughtErrorHandlers();
 
 async function init() {
   initDebugGUI();
-  initMouseMove();
+  initMouseEvents();
+  initFlameColor();
 
   $('#upload').onclick = () => uploadAudio();
   $('#record').onclick = () => recordAudio();
@@ -63,41 +60,75 @@ async function init() {
   }
 }
 
-function initMouseMove() {
-  let moving = null;
+function initFlameColor() {
+  let n = 4, r = [], g = [], b = [];
+
+  for (let i = 0; i <= n; i++) {
+    r[i] = clamp(i / n * 4);
+    g[i] = clamp(i / n * 2);
+    b[i] = clamp(i / n * 1);
+  }
+
+  conf.flame_color = { r, g, b };
+}
+
+function initMouseEvents() {
+  let target = null, touch = null, moved = false;
   let wrapper = $('#wave_wrapper');
 
-  wrapper.onmousedown = onmouse;
-  wrapper.onmousemove = onmouse;
-  wrapper.onmouseup = onmouse;
-  wrapper.onmouseleave = onmouse;
+  wrapper.addEventListener('mousedown', ontouch);
+  wrapper.addEventListener('mousemove', ontouch);
+  wrapper.addEventListener('mouseup', ontouch);
+  wrapper.addEventListener('mouseleave', ontouch);
+  wrapper.addEventListener('touchstart', ontouch);
+  wrapper.addEventListener('touchend', ontouch);
+  wrapper.addEventListener('touchcancel', ontouch);
+  wrapper.addEventListener('touchmove', ontouch);
 
-  function onmouse(e) {
+  function ontouch(e) {
+    e.preventDefault();
     switch (e.type) {
       case 'mousedown':
-        if (e.target.classList.contains('ptr'))
-          moving = e.target.id;
+      case 'touchstart':
+        if (e.touches && e.touches.length != 1)
+          break;
+        if (e.target.classList.contains('ptr')) {
+          target = e.target;
+          touch = e.touches?.[0];
+        }
         break;
       case 'mouseup':
       case 'mouseleave':
       case 'mouseout':
-        if (moving) {
-          moving = null;
-          redrawImg();
+      case 'touchend':
+      case 'touchcancel':
+        if (target) {
+          if (moved)
+            redrawImg();
+          target = null;
+          touch = null;
         }
         break;
       case 'mousemove':
-        if (moving)
-          move(e.movementX);
+      case 'touchmove':
+        if (target) {
+          let t = e.touches?.[0];
+          let dx = t ? t.clientX - touch.clientX : e.movementX;
+          if (dx) {
+            move(dx);
+            moved = true;
+          }
+          touch = t;
+        }
         break;
     }
   }
 
   function move(dx) {
     let diff = dx / wrapper.clientWidth * mem.audio_signal.length | 0;
-    if (moving == 'ptr_start')
+    if (target.id == 'ptr_start')
       setSilenceMarks(mem.sig_start + diff, mem.sig_end);
-    if (moving == 'ptr_end')
+    if (target.id == 'ptr_end')
       setSilenceMarks(mem.sig_start, mem.sig_end + diff);
   }
 }
@@ -210,6 +241,11 @@ function setSilenceMarks(sleft, sright) {
   let r = mem.sig_end * 100 / mem.audio_signal.length;
   $('#wave_start').style.width = l.toFixed(2) + 'vw';
   $('#wave_end').style.width = (100 - r).toFixed(2) + 'vw';
+  $('#wave_label').textContent = getSelectedDuration().toFixed(2) + ' s';
+}
+
+function getSelectedDuration() {
+  return (mem.sig_end - mem.sig_start) / conf.sampleRate;
 }
 
 function getSelectedAudio() {
@@ -455,12 +491,14 @@ async function stopRecording() {
 }
 
 async function recordAudio() {
-  document.body.classList.add('recording');
   recorder = await utils.recordMic({ sample_rate: conf.sampleRate });
   let wave_drawer = initWaveformDrawer();
   let num_samples = 0, duration_sec = '';
+  let label = $('#stop_recording span');
 
   updateButton();
+  document.body.classList.add('recording');
+  
   recorder.onaudiochunk = (chunk) => {
     let xmin = num_samples / conf.sampleRate / conf.maxDuration;
     let xlen = chunk.length / conf.sampleRate / conf.maxDuration;
@@ -472,11 +510,11 @@ async function recordAudio() {
   };
 
   function updateButton() {
-    let ts = '00:' + ('00' + (num_samples / conf.sampleRate).toFixed(1)).slice(-4);
+    let ts = '00:' + ('0' + (num_samples / conf.sampleRate).toFixed(2)).slice(-6);
     if (ts == duration_sec)
       return;
     duration_sec = ts;
-    $('#stop_recording span').textContent = ts;
+    label.textContent = ts;
   }
 
   // wait for the full recording ready

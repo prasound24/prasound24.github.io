@@ -14,6 +14,39 @@ p {
   color: #888;
 }
 
+#record, #stop_recording {
+  background: #211;
+  padding: 0.5em;
+  border-radius: 2.5em;
+  font-family: monospace;
+  transition: all 250ms;
+}
+
+#stop_recording span {
+  padding: 0 0.5em;
+}
+
+#record img, #stop_recording img {
+  background: #711;
+  border-radius: 50%;
+  padding: 0.5em;
+  transition: all 250ms;
+}
+
+#record:hover {
+  background: #311;
+  padding: 0.3em;
+}
+
+#record:hover img {
+  padding: 0.7em;
+  background: #911;
+}
+
+#stop_recording:hover img {
+  background: #911;
+}
+
 #stop_recording {
   display: none;
 }
@@ -24,10 +57,6 @@ body.recording #stop_recording {
 
 body.recording #record {
   display: none;
-}
-
-#stop_recording {
-  background-color: #811;
 }
 
 #upload,
@@ -115,17 +144,31 @@ body.recording #wave_bounds {
   right: 0;
 }
 
+#wave_end #wave_label {
+  position: absolute;
+  color: #fff;
+  background: #112;
+  opacity: 0.5;
+  border-radius: 0.5em;
+  font-size: 0.75rem;
+  padding: 0.5em;
+  left: -0.5em;
+  top: 0.5em;
+  transform: translateX(-100%);
+}
+
 #wave_bounds .ptr {
   cursor: pointer;
   position: absolute;
   font-size: 1vw;
-  width: 3em;
+  width: 5em;
   height: 100%;
-  background: #446;
+  background: no-repeat center/100% url("/img/ico/vert.png"), #446;
   border-radius: 1em;
   display: flex;
   align-items: center;
   user-select: none;
+  transition: all 250ms;
 }
 
 #wave_bounds .ptr span {
@@ -135,7 +178,7 @@ body.recording #wave_bounds {
 }
 
 #wave_bounds .ptr:hover {
-  background: #888;
+  background-color: #888;
   color: #000;
 }
 

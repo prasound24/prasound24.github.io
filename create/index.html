@@ -8,17 +8,16 @@
   </head>
   <body>
     <h1 style="margin-bottom:0; display:flex">
-      <a style="flex:1" href="/">Pra<span style="color:#841">sound</span></a>
+      <a style="flex:1" href="/">Pra<span>sound</span></a>
       <img src="/img/ico/cart.png">
       <img style="padding-left:0.5em" src="/img/ico/menu.png">
     </h1>
 
-    <p>Click the button to start recording.</p>
+    <p>Click the button to start recording or <span id="upload"><u>upload audio</u></span>.</p>
 
     <div style="display:flex; flex-direction: row; justify-content: center;">
-      <button id="record"><img src="/img/ico/mic.png">&nbsp;Record Mic</button>
-      <button id="stop_recording"><img src="/img/ico/stop.png">&nbsp;<span>00:00</span></button>
-      <p id="upload" class="extras"><u>Upload Audio</u></p>
+      <button id="record"><img src="/img/ico/mic.png"></button>
+      <button id="stop_recording"><img src="/img/ico/stop.png"><span>00:00</span></button>
     </div>
 
     <p id="file_error"></p>
@@ -26,10 +25,11 @@
     <div id="wave_wrapper">
       <div id="wave_bounds">
         <div id="wave_start" style="width:10vw">
-          <div id="ptr_start" class="ptr left"><span>&#x22EE;</span></div>
+          <div id="ptr_start" class="ptr left"></div>
         </div>
         <div id="wave_end" style="width:15vw">
-          <div id="ptr_end" class="ptr right"><span>&#x22EE;</span></div>
+          <div id="ptr_end" class="ptr right"></div>
+          <span id="wave_label">0.00 s</span>
         </div>
       </div>
       <canvas id="wave" width="1024" height="128"></canvas>
