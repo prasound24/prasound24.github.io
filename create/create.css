@@ -186,10 +186,12 @@ body.recording #wave_bounds {
   right: 0;
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
+  border-right: 1px solid #668;
 }
 
 #wave_bounds .ptr.right {
   left: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
+  border-left: 1px solid #668;
 }

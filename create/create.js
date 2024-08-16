@@ -14,7 +14,7 @@ conf.brightness = 1.0;
 conf.damping = -3.25;
 conf.numReps = 2;
 conf.exposure = 0.99;
-conf.maxDuration = 10.0; // sec
+conf.maxDuration = 15.0; // sec
 conf.maxFileSize = 1e6;
 conf.silenceThreshold = 1e-3;
 conf.silencePadding = 2.0;
@@ -202,10 +202,6 @@ async function drawWaveform() {
 
     await decodeAudio();
 
-    $('#audio_name').textContent = mem.audio_name;
-    $('#audio_info').textContent = (mem.audio_signal.length / conf.sampleRate).toFixed(2) + ' s, '
-      + (conf.sampleRate / 1000) + ' kHz, ' + (mem.audio_file.size / 1024).toFixed(1) + ' KB';
-
     let drawer = initWaveformDrawer();
     let amin = Infinity, amax = -Infinity;
 
@@ -222,6 +218,12 @@ async function drawWaveform() {
 
   let [sleft, sright] = findSilenceMarks(mem.audio_signal, conf.silenceThreshold);
   setSilenceMarks(sleft, sright);
+}
+
+function updateAudioInfo() {
+  $('#audio_name').textContent = mem.audio_name;
+  $('#audio_info').textContent = getSelectedDuration().toFixed(2) + ' s, '
+    + (conf.sampleRate / 1000) + ' kHz, ' + (mem.audio_file.size / 1024).toFixed(1) + ' KB';
 }
 
 function padAudioWithSilence(a) {
@@ -242,6 +244,7 @@ function setSilenceMarks(sleft, sright) {
   $('#wave_start').style.width = l.toFixed(2) + 'vw';
   $('#wave_end').style.width = (100 - r).toFixed(2) + 'vw';
   $('#wave_label').textContent = getSelectedDuration().toFixed(2) + ' s';
+  updateAudioInfo();
 }
 
 function getSelectedDuration() {
@@ -498,7 +501,7 @@ async function recordAudio() {
 
   updateButton();
   document.body.classList.add('recording');
-  
+
   recorder.onaudiochunk = (chunk) => {
     let xmin = num_samples / conf.sampleRate / conf.maxDuration;
     let xlen = chunk.length / conf.sampleRate / conf.maxDuration;

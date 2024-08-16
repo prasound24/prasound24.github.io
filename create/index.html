@@ -8,10 +8,12 @@
   </head>
   <body>
     <h1 style="margin-bottom:0; display:flex">
-      <a style="flex:1" href="/">Pra<span>sound</span></a>
+      <a href="/">Pra<span>sound</span></a>
       <img src="/img/ico/cart.png">
       <img style="padding-left:0.5em" src="/img/ico/menu.png">
     </h1>
+    
+    <div id="wave_spanner"></div>
 
     <p>Click the button to start recording or <span id="upload"><u>upload audio</u></span>.</p>
 
@@ -32,7 +34,7 @@
           <span id="wave_label">0.00 s</span>
         </div>
       </div>
-      <canvas id="wave" width="1024" height="128"></canvas>
+      <canvas id="wave" width="2048" height="128"></canvas>
     </div>
   
     <div id="wave_play_info" style="display:flex; flex-direction:row">
@@ -62,6 +64,7 @@
     <p id="download_image" class="extras"><u>Download Preview</u></p>
 
     <div id="footer">
+      <div id="wave_spanner"></div>
       <p>&#xa9; 2024 Prasound, Inc.
     </div>
 
