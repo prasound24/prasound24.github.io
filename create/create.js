@@ -4,7 +4,6 @@ const { $, sleep, clamp, dcheck, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 
-let gui = new dat.GUI();
 let conf = {};
 conf.sampleRate = 48000;
 conf.frameSize = 1024;
@@ -133,10 +132,12 @@ function initMouseEvents() {
   }
 }
 
-function initDebugGUI() {
+async function initDebugGUI() {
   if (!utils.DEBUG)
     return;
   document.body.classList.add('debug');
+  await import('./dat.gui.js');
+  let gui = new dat.GUI();
   gui.close();
   gui.add(conf, 'sampleRate', 4000, 48000, 4000);
   gui.add(conf, 'frameSize', 256, 8192, 256);
