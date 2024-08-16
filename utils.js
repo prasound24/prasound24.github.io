@@ -634,8 +634,8 @@ export async function resampleDisk(src, res, { ctoken, fs_full = false, r_zoom =
     coords_fn: (a, r) => {
       let coords = [];
       for (let i = 0; i < num_reps; i++) {
-        let rad = (r + Math.random()) / src_r;
-        let arg = (a + Math.random()) / src_a;
+        let rad = (r + 0.5) / src_r;
+        let arg = (a + 0.5) / src_a;
         // dcheck(arg >= 0 && arg <= 1);
         // dcheck(rad >= 0 && rad <= 1);
         if (fs_full)

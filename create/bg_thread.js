@@ -1,5 +1,9 @@
 import { StringOscillator } from './oscillator.js';
-import { subsampleAudio, sqr, resampleDisk, reverseDiskMapping, Float32Tensor } from '/utils.js';
+import * as utils from '/utils.js';
+
+let { dcheck, resampleDisk, reverseDiskMapping, Float32Tensor } = utils;
+
+let img_rect = null;
 
 onmessage = (e) => {
   console.log('received command:', e.data.type);
@@ -7,8 +11,8 @@ onmessage = (e) => {
     case 'wave1d':
       drawStringOscillations(e.data.signal, e.data.config);
       break;
-    case 'disk':
-      drawDiskImage(e.data.rect, e.data.config);
+    case 'draw_disk':
+      drawDiskImage(e.data.config);
       break;
     default:
       console.warn('unknown command:', e.data.type);
@@ -17,46 +21,87 @@ onmessage = (e) => {
 
 async function drawStringOscillations(signal, conf) {
   let width = conf.frameSize; // oscillating string length
-  let oscillator = new StringOscillator({ width, height: 1 });
-  oscillator.dx = conf.strLengthMsec / 1000 / conf.frameSize;
-  oscillator.dt = oscillator.dx * conf.frameSize / conf.numFrames; // otherwise the diff scheme is unstable
-  oscillator.k2 = conf.damping;
-  console.log('dx = dt =', oscillator.dt.toExponential(2));
-
+  let height = conf.numFrames;
+  let oscillator = new StringOscillator({ width });
   let wave_sum = new Float32Array(width);
+  let wave_min = new Float32Array(width);
+  let wave_max = new Float32Array(width);
+  let wave_res = new Float32Array(width);
+  let img = { data: new Uint8Array(width * height * 4), width, height };
   let y_curr = 0;
-  let steps = signal.length * Math.max(1, 1 / conf.sampleRate / oscillator.dt) | 0;
-  let vol = 10 ** conf.volume;
-  let decay = Math.exp(-oscillator.dt * 10 ** conf.expDecay);
-  console.log('steps:', steps, 'vs sig length:', signal.length);
 
-  for (let t = 0; t < steps; t++) {
-    let sig = subsampleAudio(signal, t / steps);
-    for (let y = 0; y < oscillator.height; y++)
-      oscillator.wave[y * oscillator.width] = sig * vol;
+  img_rect = new Float32Tensor([height, width]);
+
+  oscillator.damping = 10 ** conf.damping;
+  oscillator.driving = 0.0;
+  oscillator.gravity = 0.0;
+
+  for (let t = 0; t < signal.length; t++) {
+    oscillator.wave[0] = signal[t];
     oscillator.update();
 
-    let y = t / steps * conf.numFrames | 0;
-
     for (let x = 0; x < width; x++) {
-      wave_sum[x] *= decay;
-      for (let y = 0; y < oscillator.height; y++)
-        wave_sum[x] += sqr(oscillator.wave[y * oscillator.width + x]);
+      let w = oscillator.wave[x];
+      wave_sum[x] += w;
+      wave_min[x] = Math.min(wave_min[x], w);
+      wave_max[x] = Math.max(wave_max[x], w);
     }
 
+    let y = t / signal.length * conf.numFrames | 0;
+
     if (y > y_curr) {
+      for (let x = 0; x < width; x++)
+        wave_res[x] = utils.sqr(wave_max[x] - wave_min[x]);
+      img_rect.data.set(wave_res, y_curr * width);
+      drawImgData(img, img_rect, [y_curr, y_curr], conf);
+      let img_row = img.data.subarray(y_curr * width * 4, (y_curr + 1) * width * 4);
+      postMessage({ type: 'img_data', img_data: img_row, rows: [y_curr, y_curr] });
       y_curr = y;
-      postMessage({ type: 'data', data: wave_sum, rows: [y, y] });
+      wave_sum.fill(0);
+      wave_min.fill(0);
+      wave_max.fill(0);
+      wave_res.fill(0);
     }
   }
 
-  postMessage({ type: 'done' });
+  conf.brightness = adjustBrightness(img_rect, conf);
+  drawImgData(img, img_rect, [0, height - 1], conf);
+  postMessage({ type: 'img_data', img_data: img.data, rows: [0, height - 1] });
+  postMessage({ type: 'img_done' });
 }
 
-async function drawDiskImage(rect, conf) {
-  let img_rect = new Float32Tensor([conf.numFrames, conf.frameSize], rect);
+async function drawDiskImage(conf) {
   let img_disk = new Float32Tensor([conf.diskSize, conf.diskSize]);
   let resample = conf.smooth ? resampleDisk : reverseDiskMapping;
   await resample(img_rect, img_disk, { num_reps: conf.numReps });
-  postMessage({ type: 'disk', data: img_disk.data });
+
+  conf.brightness = adjustBrightness(img_rect, conf);
+  let img_data = new Uint8Array(conf.diskSize ** 2 * 4);
+  let canvas_img = { data: img_data, width: conf.diskSize, height: conf.diskSize };
+  drawImgData(canvas_img, img_disk, [0, conf.diskSize - 1], conf);
+  postMessage({ type: 'disk', img_data });
+}
+
+function adjustBrightness(img, { exposure }) {
+  dcheck(img.data instanceof Float32Array);
+  return 1.0 / utils.approxPercentile(img.data, exposure, 1e4);
+}
+
+function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.height - 1], conf) {
+  dcheck(canvas_img.data);
+  dcheck(temperature.data);
+
+  let width = canvas_img.width;
+  let color = conf.flame_color;
+
+  for (let y = ymin; y <= ymax; y++) {
+    for (let x = 0; x < width; x++) {
+      let i = y * width + x;
+      let temp = Math.abs(temperature.data[i]) * conf.brightness;
+      canvas_img.data[i * 4 + 0] = utils.interpolate(temp, color.r) * 255;
+      canvas_img.data[i * 4 + 1] = utils.interpolate(temp, color.g) * 255;
+      canvas_img.data[i * 4 + 2] = utils.interpolate(temp, color.b) * 255;
+      canvas_img.data[i * 4 + 3] = 255;
+    }
+  }
 }

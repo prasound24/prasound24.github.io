@@ -1,25 +1,23 @@
 import * as utils from '../utils.js';
 
-const { $, sleep, clamp, interpolate, DB } = utils;
+const { $, sleep, clamp, dcheck, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 
 let gui = new dat.GUI();
 let conf = {};
 conf.sampleRate = 48000;
-conf.frameSize = 1024;
-conf.numFrames = 1024;
+conf.frameSize = 512;
+conf.numFrames = 512;
 conf.diskSize = 1024;
-conf.strLengthMsec = 8;
 conf.brightness = 1.0;
-conf.volume = 1.0;
-conf.damping = 75.0;
-conf.expDecay = 5;
-conf.numReps = 1;
+conf.damping = -3.25;
+conf.numReps = 2;
 conf.exposure = 0.95;
 conf.maxDuration = 1.5; // sec
 conf.maxFileSize = 50000;
 conf.silenceThreshold = 1e-3;
+conf.silencePadding = 2.0;
 conf.flame_color = {
   r: [0, 1.00, 1.00, 1.00, 1],
   g: [0, 0.50, 1.00, 1.00, 1],
@@ -35,12 +33,10 @@ let mem = {
   audio_name: '',
   audio_file: null,
   audio_signal: null,
+  decoded_audio: { data: null, sample_rate: 0, file: null },
 
   sig_start: 0,
   sig_end: 0,
-
-  img_rect: null,
-  img_disk: null,
 };
 
 window.conf = conf;
@@ -111,12 +107,10 @@ function initDebugGUI() {
     return;
   gui.close();
   gui.add(conf, 'sampleRate', 4000, 48000, 4000);
-  gui.add(conf, 'strLengthMsec', 1, 1000, 1);
   gui.add(conf, 'frameSize', 256, 8192, 256);
   gui.add(conf, 'diskSize', 1024, 4096, 1024);
   gui.add(conf, 'numFrames', 256, 4096, 256);
-  gui.add(conf, 'damping', 0.0, 150.0, 0.1);
-  gui.add(conf, 'expDecay', 0.0, 1.0, 0.001);
+  gui.add(conf, 'damping', -5.0, 5.0, 0.01);
   gui.add(conf, 'exposure', 0.0, 1.0, 0.01);
   gui.add(conf, 'numReps', 0, 6, 1);
   conf.redraw = () => hardRefresh();
@@ -125,10 +119,6 @@ function initDebugGUI() {
 
 async function hardRefresh() {
   if (is_drawing) return;
-  mem = {
-    audio_file: mem.audio_file,
-    audio_signal: mem.audio_signal,
-  };
   await drawWaveform();
   await redrawImg();
 }
@@ -152,6 +142,22 @@ async function uploadAudio() {
   await redrawImg();
 }
 
+async function decodeAudio() {
+  let sample_rate = conf.sampleRate;
+  let file = mem.audio_file;
+  let decoded = mem.decoded_audio || {};
+
+  if (decoded.file != mem.audio_file || decoded.sample_rate != sample_rate) {
+    console.log('decoding audio file:', '"' + mem.audio_file.name + '"',
+      (mem.audio_file.size / 1024).toFixed(1) + ' KB');
+    mem.audio_signal = await utils.decodeAudioFile(mem.audio_file, sample_rate);
+    mem.decoded_audio = { data: mem.audio_signal, sample_rate, file };
+    await saveAudioSignal();
+    normalizeAudioSignal(mem.audio_signal);
+    mem.audio_signal = padAudioWithSilence(mem.audio_signal);
+  }
+}
+
 async function drawWaveform() {
   if (is_drawing || !mem.audio_file)
     return;
@@ -160,13 +166,9 @@ async function drawWaveform() {
   is_drawing = true;
 
   try {
-    console.log('decoding audio file:', '"' + mem.audio_file.name + '"',
-      (mem.audio_file.size / 1024).toFixed(1) + ' KB');
     mem.audio_name = mem.audio_file.name.replace(/\.\w+$/, '');
-    mem.audio_signal = await utils.decodeAudioFile(mem.audio_file, conf.sampleRate);
-    await saveAudioSignal();
-    normalizeAudioSignal(mem.audio_signal);
-    mem.audio_signal = padAudioWithSilence(mem.audio_signal);
+
+    await decodeAudio();
 
     $('#audio_name').textContent = mem.audio_name;
     $('#audio_info').textContent = (mem.audio_signal.length / conf.sampleRate).toFixed(2) + ' s, '
@@ -193,7 +195,7 @@ async function drawWaveform() {
 
 function padAudioWithSilence(a) {
   let n = a.length;
-  let b = new Float32Array(n * 1.1);
+  let b = new Float32Array(n * conf.silencePadding);
   b.set(a, (b.length - a.length) / 2);
   return b;
 }
@@ -265,8 +267,8 @@ async function redrawImg() {
     await drawDiskImage(false);
     document.body.classList.add('show_disk');
     await sleep(10);
-    await drawDiskImage(true);
-    await sleep(10);
+    // await drawDiskImage(true);
+    // await sleep(10);
     await saveDiskImage();
   } finally {
     is_drawing = false;
@@ -314,12 +316,34 @@ function findSilenceLeft(signal, threshold) {
 }
 
 function initWorker() {
-  if (!bg_thread)
-    bg_thread = new Worker('./bg_thread.js', { type: 'module' });
+  if (bg_thread)
+    return;
+  bg_thread = new Worker('./bg_thread.js', { type: 'module' });
+}
+
+function postCommand({ command, handlers }) {
+  initWorker();
+  dcheck(!command.txid);
+  let txid = Math.random().toString(16).slice(2);
+  bg_thread.postMessage({ ...command, txid });
+  bg_thread.onmessage = (e) => {
+    let handler = handlers[e.data.type];
+    dcheck(handler);
+    handler.call(null, e);
+  };
+}
+
+function getSerializableConfig() {
+  let config = {};
+  for (let i in conf)
+    if (typeof conf[i] != 'function')
+      config[i] = conf[i];
+  return config;
 }
 
 async function drawStringOscillations(signal = getSelectedAudio()) {
   let width = conf.frameSize; // oscillating string length
+  let height = conf.numFrames;
   let last_draw = Date.now();
   let canvas = $('canvas#rect');
   canvas.width = conf.frameSize;
@@ -327,101 +351,51 @@ async function drawStringOscillations(signal = getSelectedAudio()) {
   let ctx = canvas.getContext('2d', { willReadFrequently: true });
   let img = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  mem.img_rect = new utils.Float32Tensor([conf.numFrames, conf.frameSize]);
-  initWorker();
-
   await new Promise((resolve) => {
-    bg_thread.onmessage = (e) => {
-      console.log('received  response:', e.data.type);
-      switch (e.data.type) {
-        case 'data':
-          updateImg(e.data.data, e.data.rows);
-          break;
-        case 'done':
-          resolve();
-          break;
-        default:
-          console.warn('unknown response:', e.data.type);
-      }
-    };
-    let config = {};
-    for (let i in conf)
-      if (typeof conf[i] != 'function')
-        config[i] = conf[i];
-    bg_thread.postMessage({ type: 'wave1d', signal, config });
+    postCommand({
+      command: { type: 'wave1d', signal, config: getSerializableConfig() },
+      handlers: {
+        img_data: (e) => {
+          let img_data = e.data.img_data;
+          let [ymin, ymax] = e.data.rows;
+          dcheck(img_data.length == (ymax - ymin + 1) * width * 4);
+          img.data.set(img_data, ymin * width * 4);
+          if (Date.now() > last_draw + 250) {
+            last_draw = Date.now();
+            ctx.putImageData(img, 0, 0);
+          }
+        },
+        img_done: (e) => resolve(),
+      },
+    });
   });
 
-  function updateImg(data, [ymin, ymax]) {
-    utils.dcheck(data.length == (ymax - ymin + 1) * width);
-    for (let y = ymin; y <= ymax; y++)
-      for (let x = 0; x < width; x++)
-        mem.img_rect.data[y * width + x] = data[(y - ymin) * width + x];
-    if (Date.now() > last_draw + 250) {
-      last_draw = Date.now();
-      ctx.putImageData(img, 0, 0);
-    }
-  }
-
-  adjustBrightness(mem.img_rect);
-  drawImgData(img, mem.img_rect, [0, img.height - 1]);
   ctx.putImageData(img, 0, 0);
   await sleep(0);
 }
 
 async function drawDiskImage(smooth = false) {
-  initWorker();
+  let ds = conf.diskSize;
+  let config = getSerializableConfig();
+  config.smooth = smooth;
 
-  await new Promise((resolve) => {
-    bg_thread.onmessage = (e) => {
-      utils.dcheck(e.data.type == 'disk');
-      mem.img_disk = new utils.Float32Tensor([conf.diskSize, conf.diskSize], e.data.data);
-      resolve();
-    };
-    let config = { smooth };
-    for (let i in conf)
-      if (typeof conf[i] != 'function')
-        config[i] = conf[i];
-    bg_thread.postMessage({ type: 'disk', rect: mem.img_rect.data, config });
+  let img_data = await new Promise((resolve) => {
+    postCommand({
+      command: { type: 'draw_disk', config },
+      handlers: {
+        disk: (e) => resolve(e.data.img_data),
+      },
+    });
   });
 
   let canvas = $('canvas#disk');
-  canvas.width = conf.diskSize;
-  canvas.height = conf.diskSize;
-  let cw = canvas.width;
-  let ch = canvas.height;
+  canvas.width = ds;
+  canvas.height = ds;
   let ctx = canvas.getContext('2d', { willReadFrequently: true });
-  let img = ctx.getImageData(0, 0, cw, ch);
-
-  adjustBrightness(mem.img_rect);
-  drawImgData(img, mem.img_disk, [0, img.height - 1]);
+  let img = ctx.getImageData(0, 0, ds, ds);
+  img.data.set(img_data);
   ctx.putImageData(img, 0, 0);
   await sleep(0);
-}
-
-function adjustBrightness(img) {
-  utils.dcheck(img.data);
-  conf.brightness = 1.0 / utils.approxPercentile(img.data, conf.exposure, 1e4);
-  console.log('brightness:', conf.brightness);
-}
-
-function drawImgData(canvas_img, amps, [ymin, ymax] = [0, canvas_img.height - 1]) {
-  utils.dcheck(canvas_img.data);
-  utils.dcheck(amps.data);
-
-  let brightness = conf.brightness;
-  let width = canvas_img.width;
-  let color = conf.flame_color;
-
-  for (let y = ymin; y <= ymax; y++) {
-    for (let x = 0; x < width; x++) {
-      let i = y * width + x;
-      let amp = amps.data[i] * brightness;
-      canvas_img.data[i * 4 + 0] = interpolate(amp, color.r) * 255;
-      canvas_img.data[i * 4 + 1] = interpolate(amp, color.g) * 255;
-      canvas_img.data[i * 4 + 2] = interpolate(amp, color.b) * 255;
-      canvas_img.data[i * 4 + 3] = 255;
-    }
-  }
 }
 
 async function saveDiskImage() {
@@ -434,7 +408,7 @@ async function saveDiskImage() {
 }
 
 async function downloadAudio() {
-  utils.dcheck(mem.audio_name);
+  dcheck(mem.audio_name);
   let a = document.createElement('a');
   a.download = mem.audio_name;
   a.href = URL.createObjectURL(mem.audio_file);
@@ -515,7 +489,7 @@ async function recordAudio() {
 }
 
 async function downloadImage() {
-  utils.dcheck(mem.audio_name);
+  dcheck(mem.audio_name);
   let blob = await new Promise(resolve =>
     $('canvas#disk').toBlob(resolve, 'image/jpeg', 0.85));
   let a = document.createElement('a');
