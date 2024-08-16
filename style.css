@@ -58,8 +58,12 @@ h1 a span {
   color: #841;
 }
 
-h1 img {
+h1 img, p img, span img {
   height: 1em;
+}
+
+p img, span img {
+  vertical-align: sub;
 }
 
 #wave_spanner {
