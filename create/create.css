@@ -95,6 +95,10 @@ body.recording #record {
   color: #888;
 }
 
+#rect, #disk {
+  height: 100vw;
+}
+
 canvas#disk {
   display: none;
 }

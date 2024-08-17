@@ -85,13 +85,13 @@ function initMouseEvents() {
   wrapper.addEventListener('touchmove', ontouch);
 
   function ontouch(e) {
-    e.preventDefault();
     switch (e.type) {
       case 'mousedown':
       case 'touchstart':
         if (e.touches && e.touches.length != 1)
           break;
         if (e.target.classList.contains('ptr')) {
+          e.preventDefault();
           target = e.target;
           touch = e.touches?.[0];
         }
@@ -102,6 +102,7 @@ function initMouseEvents() {
       case 'touchend':
       case 'touchcancel':
         if (target) {
+          e.preventDefault();
           if (moved)
             redrawImg();
           target = null;
@@ -111,6 +112,7 @@ function initMouseEvents() {
       case 'mousemove':
       case 'touchmove':
         if (target) {
+          e.preventDefault();
           let t = e.touches?.[0];
           let dx = t ? t.clientX - touch.clientX : e.movementX;
           if (dx) {
@@ -152,6 +154,7 @@ async function initDebugGUI() {
 
 async function hardRefresh() {
   if (is_drawing) return;
+
   await drawWaveform();
   await redrawImg();
 }
@@ -195,10 +198,8 @@ async function drawWaveform() {
   if (is_drawing || !mem.audio_file)
     return;
 
-  let time = Date.now();
-  is_drawing = true;
-
   try {
+    is_drawing = true;
     mem.audio_name = mem.audio_file.name.replace(/\.\w+$/, '');
 
     await decodeAudio();
@@ -296,8 +297,8 @@ async function redrawImg() {
   let time = Date.now();
   is_drawing = true;
 
-  bg_thread?.terminate();
-  bg_thread = null;
+  // bg_thread?.terminate();
+  // bg_thread = null;
 
   try {
     document.body.classList.remove('show_disk');
@@ -393,7 +394,7 @@ async function drawStringOscillations(signal = getSelectedAudio()) {
 
   await new Promise((resolve) => {
     postCommand({
-      command: { type: 'wave1d', signal, config: getSerializableConfig() },
+      command: { type: 'wave_1d', signal, config: getSerializableConfig() },
       handlers: {
         img_data: (e) => {
           let img_data = e.data.img_data;
@@ -526,6 +527,7 @@ async function recordAudio() {
   let date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   let name = 'microphone_' + date + '_' + blob.size;
   mem.audio_file = new File([blob], name, { type: blob.type });
+
   await drawWaveform();
   await redrawImg();
 }

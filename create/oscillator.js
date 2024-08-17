@@ -4,6 +4,7 @@ export class StringOscillator {
     this.damping = 0.0;
     this.driving = 0.0;
     this.gravity = 0.0;
+    this.stiffness = 0.0;
     this.dt = 1.0;
     this.dx = 1.0;
     this.width = width;
@@ -11,22 +12,34 @@ export class StringOscillator {
     this.next = new Float32Array(width);
     this.prev = new Float32Array(width);
     this.wave_xx = new Float32Array(width);
+    this.wave_xxxx = new Float32Array(width);
   }
 
   update() {
     let w = this.width;
     let dt = this.dt, k2 = this.damping, k1 = this.driving, g0 = this.gravity;
-    let dt2 = dt * dt, dx2 = this.dx * this.dx;
+    let k4 = this.stiffness;
+    let dt2 = dt * dt, dx2 = this.dx * this.dx, dx4 = dx2 * dx2;
     let wave = this.wave, next = this.next, prev = this.prev;
-    let d2 = this.wave_xx;
+    let d2 = this.wave_xx, d4 = this.wave_xxxx;
     let r1 = 1.0 - k2 * dt * 0.5;
     let r2 = 1.0 + k2 * dt * 0.5;
 
     this.comp_diff_xx(wave, d2);
 
+    if (k4 != 0.0)
+      this.comp_diff_xx(d2, d4);
+
     for (let x = 0; x < w; x++) {
-      next[x] = (d2[x] * (dt2 / dx2) - prev[x] * r1
-        + (2 + k1) * wave[x] - g0 * dt2) / r2;
+      let sum = 0.0;
+
+      sum += d2[x] * (dt2 / dx2);
+      sum -= k4 * d4[x] * (dt2 / dx4);
+      sum -= prev[x] * r1;
+      sum += (2 + k1) * wave[x];
+      sum -= g0 * dt2;
+
+      next[x] = sum / r2;
     }
 
     this.prev = wave;

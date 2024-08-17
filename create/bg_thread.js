@@ -8,7 +8,7 @@ let img_rect = null;
 onmessage = (e) => {
   console.log('received command:', e.data.type);
   switch (e.data.type) {
-    case 'wave1d':
+    case 'wave_1d':
       drawStringOscillations(e.data.signal, e.data.config);
       break;
     case 'draw_disk':
