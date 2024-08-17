@@ -19,7 +19,6 @@ p {
   z-index: 1;
   background: #211;
   padding: 0.5em;
-  opacity: 0.9;
   border-radius: 2.5em;
   font-family: monospace;
   transition: all 250ms;
