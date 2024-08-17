@@ -116,10 +116,11 @@ export async function selectAudioFile({ multiple = false } = {}) {
 
 // Returns a Float32Array.
 export async function decodeAudioFile(file, sample_rate = 48000) {
-  let encoded_data = await file.arrayBuffer();
+  let encoded_data = file instanceof Blob ? await file.arrayBuffer() : file;
   let audio_ctx = new AudioContext({ sampleRate: sample_rate });
   try {
-    let audio_buffer = await audio_ctx.decodeAudioData(encoded_data);
+    let cloned_data = encoded_data.slice(0);
+    let audio_buffer = await audio_ctx.decodeAudioData(cloned_data);
     let channel_data = audio_buffer.getChannelData(0);
     return channel_data;
   } finally {

@@ -186,7 +186,9 @@ async function decodeAudio() {
   if (decoded.file != mem.audio_file || decoded.sample_rate != sample_rate) {
     console.log('decoding audio file:', '"' + mem.audio_file.name + '"',
       (mem.audio_file.size / 1024).toFixed(1) + ' KB');
-    mem.audio_signal = await utils.decodeAudioFile(mem.audio_file, sample_rate);
+    if (!mem.audio_file._buffer)
+      mem.audio_file._buffer = await mem.audio_file.arrayBuffer();
+    mem.audio_signal = await utils.decodeAudioFile(mem.audio_file._buffer, sample_rate);
     mem.decoded_audio = { data: mem.audio_signal, sample_rate, file };
     await saveAudioSignal();
     normalizeAudioSignal(mem.audio_signal);
