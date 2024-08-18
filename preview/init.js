@@ -3,7 +3,7 @@ import * as utils from '../utils.js';
 const { $, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
-const IMG_BASE = '/img/ex0/';
+const IMG_BASE = '/img/xl/';
 
 let args = new URLSearchParams(location.search);
 let url = '', filename = '';
