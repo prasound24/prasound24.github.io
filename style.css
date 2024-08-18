@@ -53,6 +53,16 @@ h1 {
   padding: 2rem 2rem;
 }
 
+h1 a::before {
+  content: '';
+  background: no-repeat center left/contain url('/img/favicon.png');
+  height: 1.5em;
+  width: 1.6em;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.0em;
+}
+
 h1 a {
   text-decoration: none;
   color: inherit;
