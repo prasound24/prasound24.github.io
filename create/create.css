@@ -265,3 +265,84 @@ canvas#wave,
 #wave_play_info button:hover {
   opacity: 1.0;
 }
+
+#settings {
+  padding: 1em;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+}
+
+.setting:first-child {
+  display: none;
+}
+
+.setting {
+  --color1: #224;
+  font-size: 0.75em;
+  color: #888;
+  display: inline-block;
+}
+
+.setting.debug {
+  --color1: #422;
+}
+
+.setting * {
+  text-decoration: none;
+  font-style: normal;
+}
+
+.setting div {
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 0.25em;
+}
+
+.setting span {
+  border: 1px solid var(--color1);
+  padding: 0 1em;
+}
+
+.setting s:not(:empty) {
+  font-weight: normal;
+  padding-left: 0.5em;
+}
+
+.setting i,
+.setting b {
+  cursor: pointer;
+  user-select: none;
+  padding-left: 0.75em;
+  padding-right: 0.75em;
+  background: var(--color1);
+  border: 1px solid var(--color1);
+  color: #888;
+  border-radius: 0.5em;
+  transition: all 250ms;
+}
+
+body:not(.debug) .setting.debug {
+  display: none;
+}
+
+.setting i {
+  margin-left: 0.5em;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.setting b {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.setting u {
+  font-family: monospace;
+  text-align: right;
+}
+
+.setting i:hover,
+.setting b:hover {
+  color: #fff;
+}

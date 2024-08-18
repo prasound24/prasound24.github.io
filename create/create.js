@@ -6,18 +6,17 @@ const DB_PATH_IMAGE = 'user_samples/_last/image';
 
 let conf = {};
 conf.sampleRate = 48000;
-conf.frameSize = 1024;
-conf.numFrames = 512;
-conf.diskSize = 1024;
-conf.brightness = 1.0;
+conf.stringLen = 1024;
+conf.numSteps = 512;
+conf.imageSize = 1024;
 conf.damping = -3.25;
-conf.numReps = 2;
-conf.exposure = 0.99;
+conf.symmetry = 2;
+conf.brightness = -2;
 conf.maxDuration = 15.0; // sec
 conf.maxFileSize = 1e6;
 conf.silenceThreshold = 1e-3;
 conf.silencePadding = 2.0;
-conf.flame_color = null;
+conf.flameColor = null;
 
 let bg_thread = null;
 let recorder = null;
@@ -43,6 +42,7 @@ async function init() {
   initDebugGUI();
   initMouseEvents();
   initFlameColor();
+  initSettings();
 
   $('#upload').onclick = () => uploadAudio();
   $('#record').onclick = () => recordAudio();
@@ -59,6 +59,100 @@ async function init() {
   }
 }
 
+function initSettings() {
+  initSetting('sampleRate', {
+    units: 'kHz',
+    maxDigits: 3,
+    toText: (x) => (x / 1000).toFixed(0),
+    addStep: (x, d) => clamp(x + d * 24000, 24000, 192000),
+    onChanged,
+  });
+
+  initSetting('brightness', {
+    maxDigits: 2,
+    addStep: (x, d) => clamp(x + d, -9, 0),
+    toText: (x) => x.toFixed(1),
+    onChanged,
+  });
+
+  initSetting('imageSize', {
+    debug: true,
+    maxDigits: 4,
+    addStep: (x, d) => clamp(x * 2 ** d, 512, 4096),
+    onChanged,
+  });
+
+  initSetting('numSteps', {
+    debug: true,
+    maxDigits: 4,
+    addStep: (x, d) => clamp(x * 2 ** d, 512, 4096),
+    onChanged,
+  });
+
+  initSetting('stringLen', {
+    debug: true,
+    maxDigits: 4,
+    addStep: (x, d) => clamp(x * 2 ** d, 1024, 4096),
+    onChanged,
+  });
+
+  initSetting('symmetry', {
+    maxDigits: 1,
+    addStep: (x, d) => clamp(x + d, 1, 6),
+    onChanged,
+  });
+
+  initSetting('damping', {
+    debug: true,
+    maxDigits: 4,
+    addStep: (x, d) => clamp(x + d * 0.1, -5.0, 0.0),
+    toText: (x) => x.toFixed(1),
+    onChanged,
+  });
+
+  async function onChanged() {
+    await drawWaveform();
+    await redrawImg();
+  }
+}
+
+function initSetting(name, { debug, units, maxDigits, addStep, onChanged, toText }) {
+  dcheck(name in conf);
+  let settings = $('#settings');
+  let setting = settings.firstElementChild.cloneNode(true);
+  settings.append(setting);
+  let value = setting.querySelector('u');
+  toText = toText || (x => x + '');
+
+  if (maxDigits > 0) {
+    value.textContent = '0'.repeat(maxDigits);
+    let w = value.clientWidth;
+    value.style.width = w + 'px';
+  }
+
+  if (debug)
+    setting.classList.toggle('debug', debug);
+
+  setting.querySelector('s').textContent = units || '';
+  setting.firstChild.textContent = name.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase());
+  value.textContent = toText(conf[name]);
+  setting.querySelector('i').onclick = changeValue;
+  setting.querySelector('b').onclick = changeValue;
+
+  let timer = 0;
+
+  async function changeValue(e) {
+    let dir = e.target.textContent == '+' ? +1 : -1;
+    let x = addStep(conf[name], dir);
+    if (x == conf[name])
+      return;
+    conf[name] = x;
+    value.textContent = toText(x);
+    clearTimeout(timer);
+    timer = setTimeout(onChanged, 1000);
+  }
+}
+
 function initFlameColor() {
   let n = 4, r = [], g = [], b = [];
 
@@ -68,7 +162,7 @@ function initFlameColor() {
     b[i] = clamp(i / n * 1);
   }
 
-  conf.flame_color = { r, g, b };
+  conf.flameColor = { r, g, b };
 }
 
 function initMouseEvents() {
@@ -142,12 +236,12 @@ async function initDebugGUI() {
   let gui = new dat.GUI();
   gui.close();
   gui.add(conf, 'sampleRate', 4000, 48000, 4000);
-  gui.add(conf, 'frameSize', 256, 8192, 256);
-  gui.add(conf, 'diskSize', 1024, 4096, 1024);
-  gui.add(conf, 'numFrames', 256, 4096, 256);
+  gui.add(conf, 'stringLen', 256, 8192, 256);
+  gui.add(conf, 'imageSize', 1024, 4096, 1024);
+  gui.add(conf, 'numSteps', 256, 4096, 256);
+  gui.add(conf, 'symmetry', 0, 6, 1);
+  gui.add(conf, 'brightness', -9, 0, 1);
   gui.add(conf, 'damping', -5.0, 5.0, 0.01);
-  gui.add(conf, 'exposure', 0.0, 1.0, 0.01);
-  gui.add(conf, 'numReps', 0, 6, 1);
   conf.redraw = () => hardRefresh();
   gui.add(conf, 'redraw');
 }
@@ -385,12 +479,11 @@ function getSerializableConfig() {
 }
 
 async function drawStringOscillations(signal = getSelectedAudio()) {
-  let width = conf.frameSize; // oscillating string length
-  let height = conf.numFrames;
+  let width = conf.stringLen; // oscillating string length
   let last_draw = Date.now();
   let canvas = $('canvas#rect');
-  canvas.width = conf.frameSize;
-  canvas.height = conf.numFrames;
+  canvas.width = conf.stringLen;
+  canvas.height = conf.numSteps;
   let ctx = canvas.getContext('2d', { willReadFrequently: true });
   let img = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
@@ -418,7 +511,7 @@ async function drawStringOscillations(signal = getSelectedAudio()) {
 }
 
 async function drawDiskImage(smooth = false) {
-  let ds = conf.diskSize;
+  let ds = conf.imageSize;
   let config = getSerializableConfig();
   config.smooth = smooth;
 
