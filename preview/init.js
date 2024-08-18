@@ -3,12 +3,13 @@ import * as utils from '../utils.js';
 const { $, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
+const IMG_BASE = '/img/ex0/';
 
 let args = new URLSearchParams(location.search);
 let url = '', filename = '';
 
 if (args.get('src')) {
-  url = '/img/' + args.get('src') + '.jpg';
+  url = IMG_BASE + args.get('src') + '.jpg';
   filename = args.get('src');
 } else {
   let file = await DB.get(DB_PATH_IMAGE);
