@@ -5,7 +5,6 @@ const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 
 let args = new URLSearchParams(location.search);
-let img = document.querySelector('.preview img');
 let url = '', filename = '';
 
 if (args.get('src')) {
@@ -22,9 +21,6 @@ if (args.get('src')) {
 document.querySelector('#sound_info').textContent = filename;
 
 if (url) {
-  img.src = url;
-  let arts = [...document.querySelectorAll('#wall_art img')];
-  for (let art of arts)
-    if (art.getAttribute('style'))
-      art.src = img.src;
+  $('.preview img').src = url;
+  $('img.inline').src = url;
 }

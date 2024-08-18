@@ -9,12 +9,47 @@
 
 p {
   text-align: center;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+i {
+  font-style: normal;
+  color: #888;
+}
+
+button {
+  margin: 0 inherit;
+}
+
+#hires_buttons {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
 }
 
 #wall_art {
   padding-bottom: 1em;
 }
 
-#wall_art img {
-  width: 100%;
+#wall_art img.wall {
+  height: 30rem;
+}
+
+#wall_art_section button {
+  text-align: center;
+}
+
+#wall_art img.inline {
+  position: relative;
+  width: 7.4rem;
+  height: 7.4rem;
+  transform: perspective(7rem) rotateX(1deg) rotateY(10deg) translate(9.8rem, 13rem);
+}
+
+#wall_art_buttons {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
 }

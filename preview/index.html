@@ -1,49 +1,61 @@
 <!doctype html>
 <html>
-  <head>
-    <title>Prasound Images</title>
-    <link rel="icon" type="image/png" href="/img/favicon_256.png" />
-    <link rel="stylesheet" href="/style.css"/>
-    <link rel="stylesheet" href="preview.css"/>
-  </head>
-  <body>
-    <h1 style="margin-bottom:0; display:flex">
-      <a href="/">Pra<span>sound</span></a>
-      <img src="/img/ico/cart.png">
-      <img style="padding-left:0.5em" src="/img/ico/menu.png">
-    </h1>
-    
-    <div id="wave_spanner"></div>
 
-    <div class="preview">
-      <div style="position:relative; height:0; font-size:0.75rem; width:100%">
-        <p id="sound_info" style="text-align:left; padding:1em; color:#888"></p>
-      </div>
-      <img src="/img">
+<head>
+  <title>Prasound Images</title>
+  <link rel="icon" type="image/png" href="/img/favicon_256.png" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="preview.css" />
+</head>
+
+<body>
+  <h1 style="margin-bottom:0; display:flex">
+    <a href="/">Pra<span>sound</span></a>
+    <img src="/img/ico/cart.png">
+    <img style="padding-left:0.5em" src="/img/ico/menu.png">
+  </h1>
+
+  <div id="wave_spanner"></div>
+
+  <div class="preview">
+    <div style="position:relative; height:0; font-size:0.75rem; width:100%">
+      <p id="sound_info" style="text-align:left; padding:1em; color:#888"></p>
     </div>
+    <img src="/img">
+  </div>
 
-    <div class="buttons">
-      <button>1024px $9.99</button>
-      <button>2048px $15.99</button>
-      <button>4096px $19.99</button>
-    </div>
+  <h4>Download a hi-res image</h4>
 
-    <h2>Order a wall art</h2>
+  <div id="hires_buttons">
+    <div><p>1024&times;1024<i>px</i></p><button><img src="/img/ico/cart.png">&nbsp;Buy for $10.99</button></div>
+    <div><p>2048&times;2048<i>px</i></p><button><img src="/img/ico/cart.png">&nbsp;Buy for $15.99</button></div>
+    <div><p>4096&times;4096<i>px</i></p><button><img src="/img/ico/cart.png">&nbsp;Buy for $20.99</button></div>
+  </div>
+
+  <h4>Buy a high quality acrylic print</h4>
+
+  <div id="wall_art_section" style="display: flex">
     <div id="wall_art">
-      <img src="/img/wall_2.jpg">
-      <div style="height:0">
-        <img style="position: relative; width: 13.5%; left: 55.5%; top: -48vw">
+      <div style="height:0;position:absolute;">
+        <img class="inline">
+      </div>
+      <img class="wall" src="/img/wall_3.jpg">
+    </div>
+    <div style="display: flex; flex: 1; justify-content: center;">
+      <div id="wall_art_buttons">
+        <div><p>10&times;12" 300dpi</p><button><img src="/img/ico/cart.png">&nbsp;Buy for $100.99</button></div>
+        <div><p>16&times;20" 300dpi</p><button><img src="/img/ico/cart.png">&nbsp;Buy for $150.99</button></div>
+        <div><p>24&times;40" 300dpi</p><button><img src="/img/ico/cart.png">&nbsp;Buy for $250.99</button></div>
       </div>
     </div>
-    <div class="buttons">
-      <button>Select size</button>
-    </div>
+  </div>
 
-    <div id="footer">
-      <div id="wave_spanner"></div>
-      <p>&#xa9; 2024 Prasound, Inc.
-    </div>
+  <div id="footer">
+    <div id="wave_spanner"></div>
+    <p>&#xa9; 2024 Prasound, Inc.
+  </div>
 
-    <script type="module" src="init.js"></script>
-  </body>
+  <script type="module" src="init.js"></script>
+</body>
+
 </html>
