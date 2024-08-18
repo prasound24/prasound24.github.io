@@ -5,6 +5,7 @@
 .preview {
   text-align: center;
   margin: 1rem 0;
+  height: 100vw;
 }
 
 p {
