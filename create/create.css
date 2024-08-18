@@ -62,6 +62,14 @@ body.recording #record {
   display: none;
 }
 
+body:not(.debug) #flat_disk {
+  display: none;
+}
+
+body:not(.debug) #download_image {
+  display: none;
+}
+
 #upload,
 #play_sound,
 #download_image,
