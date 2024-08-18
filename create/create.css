@@ -94,7 +94,8 @@ body.recording #record {
   color: #888;
 }
 
-#rect, #disk {
+#rect,
+#disk {
   height: 100vw;
 }
 
@@ -122,9 +123,25 @@ body.show_disk #show_rect {
   margin: 0;
 }
 
+#wave_wrapper_1 {
+  position: relative;
+  height: 0;
+}
+
+#wave_wrapper_2 {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+#wave_wrapper_3 {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+
 canvas#wave {
   background: #335;
-  height: 12.5vw;
 }
 
 body.recording #wave_bounds {
@@ -139,8 +156,13 @@ body.recording #wave_bounds {
 #wave_bounds>* {
   position: absolute;
   top: 0;
-  height: 12.5vw;
   background: #112c;
+}
+
+canvas#wave,
+#wave_wrapper_2,
+#wave_bounds>* {
+  height: 6rem;
 }
 
 #wave_start {
