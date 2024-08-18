@@ -35,10 +35,15 @@ p {
   text-align: center;
 }
 
-#motto *:first-child {
+#motto img {
+  height: 1.5em;
+  vertical-align: middle;
+}
+
+#motto div:first-child {
   font-weight: 800;
   font-size: 1.75rem;
-  margin: 0.5rem 0;
+  margin-bottom: 0.5rem;
 }
 
 h1 {
