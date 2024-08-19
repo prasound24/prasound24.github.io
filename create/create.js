@@ -103,7 +103,6 @@ function initSettings() {
   });
 
   initSetting('damping', {
-    debug: true,
     maxDigits: 4,
     addStep: (x, d) => clamp(x + d * 0.1, -5.0, 0.0),
     toText: (x) => x.toFixed(1),
