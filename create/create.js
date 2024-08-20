@@ -60,7 +60,7 @@ async function init() {
 
 function initSettings() {
   if (utils.DEBUG)
-      document.body.classList.add('debug');
+    document.body.classList.add('debug');
 
   initSetting('sampleRate', {
     units: 'kHz',
@@ -463,7 +463,6 @@ function getSerializableConfig() {
 
 async function drawStringOscillations(signal = getSelectedAudio()) {
   let width = conf.stringLen; // oscillating string length
-  let last_draw = Date.now();
   let canvas = $('canvas#rect');
   canvas.width = conf.stringLen;
   canvas.height = conf.numSteps;
@@ -479,10 +478,8 @@ async function drawStringOscillations(signal = getSelectedAudio()) {
           let [ymin, ymax] = e.data.rows;
           dcheck(img_data.length == (ymax - ymin + 1) * width * 4);
           img.data.set(img_data, ymin * width * 4);
-          if (Date.now() > last_draw + 250) {
-            last_draw = Date.now();
-            ctx.putImageData(img, 0, 0);
-          }
+          ctx.putImageData(img, 0, 0);
+          console.log('updted img data: ' + ymin + '..' + ymax);
         },
         img_done: (e) => resolve(),
       },

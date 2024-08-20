@@ -28,7 +28,8 @@ async function drawStringOscillations(signal, conf) {
   let wave_max = new Float32Array(width);
   let wave_res = new Float32Array(width);
   let img = { data: new Uint8Array(width * height * 4), width, height };
-  let y_curr = 0;
+  let y_prev = 0, y_curr = 0, ts = Date.now();
+  let brightness_guess = 100;
 
   img_rect = new Float32Tensor([height, width]);
 
@@ -53,14 +54,20 @@ async function drawStringOscillations(signal, conf) {
       for (let x = 0; x < width; x++)
         wave_res[x] = utils.sqr(wave_max[x] - wave_min[x]);
       img_rect.data.set(wave_res, y_curr * width);
-      drawImgData(img, img_rect, [y_curr, y_curr], 1.0, conf);
-      let img_row = img.data.subarray(y_curr * width * 4, (y_curr + 1) * width * 4);
-      postMessage({ type: 'img_data', img_data: img_row, rows: [y_curr, y_curr] });
+      drawImgData(img, img_rect, [y_curr, y_curr], brightness_guess, conf);
       y_curr = y;
+
       wave_sum.fill(0);
       wave_min.fill(0);
       wave_max.fill(0);
       wave_res.fill(0);
+
+      if (y_curr > y_prev && Date.now() > ts + 250) {
+        ts = Date.now();
+        let img_data = img.data.subarray(y_prev * width * 4, y_curr * width * 4);
+        postMessage({ type: 'img_data', img_data, rows: [y_prev, y_curr - 1] });
+        y_prev = y_curr;
+      }
     }
   }
 
