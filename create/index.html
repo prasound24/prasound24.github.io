@@ -44,13 +44,15 @@
     <canvas id="wave" width="2048" height="128"></canvas>
 
     <div id="wave_play_info">
-      <button id="play_sound"><img src="/img/ico/play.png">&nbsp;Play</button>
-      <button id="download_audio"><img src="/img/ico/save.png">&nbsp;Save</button>
+      <button id="play_sound" class="small_btn"><img src="/img/ico/play.png">&nbsp;Play</button>
+      <button id="download_audio" class="small_btn"><img src="/img/ico/save.png">&nbsp;Save</button>
     </div>
   </div>
 
   <div id="settings">
-    <span class="setting"><div>example</div><i>-</i><span><u>0.0</u><s>Hz</s></span><b>+</b></span>
+    <span class="setting">
+      <div>example</div><i>-</i><span><u>0.0</u><s>Hz</s></span><b>+</b>
+    </span>
   </div>
 
   <div id="flat_disk" class="buttons" style="margin: 1em 0">
@@ -64,12 +66,13 @@
   </div>
   <canvas id="rect" width="1024" height="1024"></canvas>
   <canvas id="disk" width="1024" height="1024"></canvas>
+  <div id="img_info">
+    <button id="download_image" class="small_btn"><img src="/img/ico/save.png">&nbsp;Save</button>
+  </div>
 
   <div class="buttons" style="margin-top:2em">
     <a href="/preview"><img src="/img/ico/cart.png">&nbsp;Buy a hi-res version</a>
   </div>
-
-  <p id="download_image" class="extras"><u>Download Preview</u></p>
 
   <div id="footer">
     <div id="wave_spanner"></div>

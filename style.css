@@ -57,7 +57,7 @@ h1 a::before {
   content: '';
   background: no-repeat center left/contain url('/img/favicon.png');
   height: 1.5em;
-  width: 1.6em;
+  width: 1.75em;
   display: inline-block;
   vertical-align: middle;
   margin-right: 0.0em;

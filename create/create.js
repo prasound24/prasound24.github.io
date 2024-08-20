@@ -29,8 +29,8 @@ let mem = {
   audio_signal: null,
   decoded_audio: { data: null, sample_rate: 0, file: null },
 
-  sig_start: 0,
-  sig_end: 0,
+  sig_start: 0, // sec
+  sig_end: 0, // sec
 };
 
 window.conf = conf;
@@ -39,7 +39,6 @@ window.onload = init;
 utils.setUncaughtErrorHandlers();
 
 async function init() {
-  initDebugGUI();
   initMouseEvents();
   initFlameColor();
   initSettings();
@@ -60,59 +59,60 @@ async function init() {
 }
 
 function initSettings() {
+  if (utils.DEBUG)
+      document.body.classList.add('debug');
+
   initSetting('sampleRate', {
     units: 'kHz',
     maxDigits: 3,
     toText: (x) => (x / 1000).toFixed(0),
     addStep: (x, d) => clamp(x + d * 24000, 24000, 192000),
-    onChanged,
+    onChanged: async () => {
+      await drawWaveform();
+      await redrawImg();
+    },
   });
 
   initSetting('brightness', {
     maxDigits: 2,
     addStep: (x, d) => clamp(x + d, -9, 0),
     toText: (x) => x.toFixed(1),
-    onChanged,
+    onChanged: () => redrawImg(),
   });
 
   initSetting('imageSize', {
     debug: true,
     maxDigits: 4,
     addStep: (x, d) => clamp(x * 2 ** d, 512, 4096),
-    onChanged,
+    onChanged: () => redrawImg(),
   });
 
   initSetting('numSteps', {
     debug: true,
     maxDigits: 4,
     addStep: (x, d) => clamp(x * 2 ** d, 512, 4096),
-    onChanged,
+    onChanged: () => redrawImg(),
   });
 
   initSetting('stringLen', {
     debug: true,
     maxDigits: 4,
     addStep: (x, d) => clamp(x * 2 ** d, 1024, 4096),
-    onChanged,
+    onChanged: () => redrawImg(),
   });
 
   initSetting('symmetry', {
     maxDigits: 1,
     addStep: (x, d) => clamp(x + d, 1, 6),
-    onChanged,
+    onChanged: () => redrawImg(),
   });
 
   initSetting('damping', {
     maxDigits: 4,
     addStep: (x, d) => clamp(x + d * 0.1, -5.0, 0.0),
     toText: (x) => x.toFixed(1),
-    onChanged,
+    onChanged: () => redrawImg(),
   });
-
-  async function onChanged() {
-    await drawWaveform();
-    await redrawImg();
-  }
 }
 
 function initSetting(name, { debug, units, maxDigits, addStep, onChanged, toText }) {
@@ -133,7 +133,8 @@ function initSetting(name, { debug, units, maxDigits, addStep, onChanged, toText
     setting.classList.toggle('debug', debug);
 
   setting.querySelector('s').textContent = units || '';
-  setting.firstChild.textContent = name.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase());
+  setting.querySelector('div').textContent =
+    name.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase());
   value.textContent = toText(conf[name]);
   setting.querySelector('i').onclick = changeValue;
   setting.querySelector('b').onclick = changeValue;
@@ -219,7 +220,7 @@ function initMouseEvents() {
   }
 
   function move(dx) {
-    let diff = dx / wrapper.clientWidth * mem.audio_signal.length | 0;
+    let diff = dx / wrapper.clientWidth * mem.audio_signal.length / conf.sampleRate;
     if (target.id == 'ptr_start')
       setSilenceMarks(mem.sig_start + diff, mem.sig_end);
     if (target.id == 'ptr_end')
@@ -227,34 +228,11 @@ function initMouseEvents() {
   }
 }
 
-async function initDebugGUI() {
-  if (!utils.DEBUG)
-    return;
-  document.body.classList.add('debug');
-  await import('./dat.gui.js');
-  let gui = new dat.GUI();
-  gui.close();
-  gui.add(conf, 'sampleRate', 4000, 48000, 4000);
-  gui.add(conf, 'stringLen', 256, 8192, 256);
-  gui.add(conf, 'imageSize', 1024, 4096, 1024);
-  gui.add(conf, 'numSteps', 256, 4096, 256);
-  gui.add(conf, 'symmetry', 0, 6, 1);
-  gui.add(conf, 'brightness', -9, 0, 1);
-  gui.add(conf, 'damping', -5.0, 5.0, 0.01);
-  conf.redraw = () => hardRefresh();
-  gui.add(conf, 'redraw');
-}
-
-async function hardRefresh() {
-  if (is_drawing) return;
-
-  await drawWaveform();
-  await redrawImg();
-}
 
 async function uploadAudio() {
   if (is_drawing) return;
   mem.audio_file = await utils.selectAudioFile();
+  mem.sig_start = mem.sig_end = 0;
 
   let erm = $('#file_error');
   if (mem.audio_file.size <= conf.maxFileSize) {
@@ -313,8 +291,10 @@ async function drawWaveform() {
     is_drawing = false;
   }
 
-  let [sleft, sright] = findSilenceMarks(mem.audio_signal, conf.silenceThreshold);
-  setSilenceMarks(sleft, sright);
+  if (!mem.sig_start && !mem.sig_end) {
+    let [sleft, sright] = findSilenceMarks(mem.audio_signal, conf.silenceThreshold);
+    setSilenceMarks(sleft / conf.sampleRate, sright / conf.sampleRate);
+  }
 }
 
 function updateAudioInfo() {
@@ -330,14 +310,16 @@ function padAudioWithSilence(a) {
   return b;
 }
 
-function setSilenceMarks(sleft, sright) {
+function setSilenceMarks(start_sec, end_sec) {
+  let sleft = start_sec * conf.sampleRate;
+  let sright = end_sec * conf.sampleRate;
   sright = Math.max(sright, sleft);
   sleft = clamp(sleft, 0, mem.audio_signal.length - 1);
   sright = clamp(sright, 0, mem.audio_signal.length - 1);
-  mem.sig_start = sleft;
-  mem.sig_end = sright;
-  let l = mem.sig_start * 100 / mem.audio_signal.length;
-  let r = mem.sig_end * 100 / mem.audio_signal.length;
+  mem.sig_start = sleft / conf.sampleRate;
+  mem.sig_end = sright / conf.sampleRate;
+  let l = sleft * 100 / mem.audio_signal.length;
+  let r = sright * 100 / mem.audio_signal.length;
   $('#wave_start').style.width = l.toFixed(2) + 'vw';
   $('#wave_end').style.width = (100 - r).toFixed(2) + 'vw';
   $('#wave_label').textContent = getSelectedDuration().toFixed(2) + ' s';
@@ -345,11 +327,13 @@ function setSilenceMarks(sleft, sright) {
 }
 
 function getSelectedDuration() {
-  return (mem.sig_end - mem.sig_start) / conf.sampleRate;
+  return mem.sig_end - mem.sig_start;
 }
 
 function getSelectedAudio() {
-  return mem.audio_signal.subarray(mem.sig_start, mem.sig_end);
+  let from = mem.sig_start * conf.sampleRate;
+  let to = mem.sig_end * conf.sampleRate;
+  return mem.audio_signal.subarray(from, to);
 }
 
 function initWaveformDrawer(canvas = $('canvas#wave')) {
@@ -571,6 +555,7 @@ async function loadAudioSignal() {
   try {
     console.log('loading audio signal from DB');
     mem.audio_file = await DB.get(DB_PATH_AUDIO);
+    mem.sig_start = mem.sig_end = 0;
     return mem.audio_file;
   } catch (err) {
     console.error(err);
@@ -621,6 +606,7 @@ async function recordAudio() {
   let date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   let name = 'microphone_' + date + '_' + blob.size;
   mem.audio_file = new File([blob], name, { type: blob.type });
+  mem.sig_start = mem.sig_end = 0;
 
   await drawWaveform();
   await redrawImg();

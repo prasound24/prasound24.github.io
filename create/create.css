@@ -66,10 +66,6 @@ body:not(.debug) #flat_disk {
   display: none;
 }
 
-body:not(.debug) #download_image {
-  display: none;
-}
-
 #upload,
 #play_sound,
 #download_image,
@@ -234,6 +230,17 @@ canvas#wave,
   border-left: 1px solid #668;
 }
 
+#img_info {
+  position: relative;
+  height: 0;
+}
+
+#download_image {
+  position: absolute;
+  right: 0.5em;
+  bottom: 0.5em;
+}
+
 #wave_play_info {
   position: relative;
   height: 0;
@@ -248,11 +255,11 @@ canvas#wave,
 
 #download_audio {
   position: absolute;
-  right: 0;
+  right: 0.5em;
   bottom: 0.5em;
 }
 
-#wave_play_info button {
+button.small_btn {
   font-size: 0.5rem;
   padding: 0.5em 1em;
   margin: 0.5em;
@@ -262,7 +269,7 @@ canvas#wave,
   transition: all 250ms;
 }
 
-#wave_play_info button:hover {
+button.small_btn:hover {
   opacity: 1.0;
 }
 
