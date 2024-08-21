@@ -3,6 +3,7 @@ import * as utils from '../utils.js';
 const { $, sleep, clamp, dcheck, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
+const TEMP_GRADIENT = '/img/temperature.png';
 
 let conf = {};
 conf.sampleRate = 48000;
@@ -10,13 +11,15 @@ conf.stringLen = 1024;
 conf.numSteps = 512;
 conf.imageSize = 1024;
 conf.damping = -3.25;
-conf.symmetry = 2;
-conf.brightness = -2;
+conf.symmetry = 1;
+conf.brightness = 0.0;
+conf.exposure = -6.0;
 conf.maxDuration = 15.0; // sec
 conf.maxFileSize = 1e6;
 conf.silenceThreshold = 1e-3;
 conf.silencePadding = 2.0;
 conf.flameColor = null;
+conf.showDisk = true;
 
 let bg_thread = null;
 let recorder = null;
@@ -40,13 +43,11 @@ utils.setUncaughtErrorHandlers();
 
 async function init() {
   initMouseEvents();
-  initFlameColor();
+  initFlameColor2();
   initSettings();
 
   $('#upload').onclick = () => uploadAudio();
   $('#record').onclick = () => recordAudio();
-  $('#show_disk').onclick = () => document.body.classList.add('show_disk');
-  $('#show_rect').onclick = () => document.body.classList.remove('show_disk');
   $('#stop_recording').onclick = () => stopRecording();
   $('#download_image').onclick = () => downloadImage();
   $('#download_audio').onclick = () => downloadAudio();
@@ -64,7 +65,6 @@ function initSettings() {
 
   initSetting('sampleRate', {
     units: 'kHz',
-    maxDigits: 3,
     toText: (x) => (x / 1000).toFixed(0),
     addStep: (x, d) => clamp(x + d * 24000, 24000, 192000),
     onChanged: async () => {
@@ -74,60 +74,62 @@ function initSettings() {
   });
 
   initSetting('brightness', {
-    maxDigits: 2,
-    addStep: (x, d) => clamp(x + d, -9, 0),
+    addStep: (x, d) => clamp(x + d * 0.1, -5.5, 5.5),
+    toText: (x) => x.toFixed(1),
+    onChanged: () => drawDiskImage(false),
+  });
+
+  initSetting('exposure', {
+    debug: true,
+    addStep: (x, d) => clamp(x + d * 0.5, -9.5, -0.5),
     toText: (x) => x.toFixed(1),
     onChanged: () => redrawImg(),
   });
 
   initSetting('imageSize', {
     debug: true,
-    maxDigits: 4,
     addStep: (x, d) => clamp(x * 2 ** d, 512, 4096),
     onChanged: () => redrawImg(),
   });
 
   initSetting('numSteps', {
     debug: true,
-    maxDigits: 4,
     addStep: (x, d) => clamp(x * 2 ** d, 512, 4096),
     onChanged: () => redrawImg(),
   });
 
   initSetting('stringLen', {
     debug: true,
-    maxDigits: 4,
-    addStep: (x, d) => clamp(x * 2 ** d, 1024, 4096),
+    addStep: (x, d) => clamp(x * 2 ** d, 256, 4096),
     onChanged: () => redrawImg(),
   });
 
   initSetting('symmetry', {
-    maxDigits: 1,
     addStep: (x, d) => clamp(x + d, 1, 6),
     onChanged: () => redrawImg(),
   });
 
   initSetting('damping', {
-    maxDigits: 4,
     addStep: (x, d) => clamp(x + d * 0.1, -5.0, 0.0),
     toText: (x) => x.toFixed(1),
     onChanged: () => redrawImg(),
   });
+
+  initSetting('showDisk', {
+    debug: true,
+    addStep: (x, d) => clamp(x + d, 0, 1),
+    toText: (x) => +x,
+    onChanged: (x) => document.body.classList.toggle('show_disk', x),
+  });
 }
 
-function initSetting(name, { debug, units, maxDigits, addStep, onChanged, toText }) {
+function initSetting(name, { debug, units, addStep, onChanged, toText }) {
   dcheck(name in conf);
   let settings = $('#settings');
   let setting = settings.firstElementChild.cloneNode(true);
   settings.append(setting);
   let value = setting.querySelector('u');
   toText = toText || (x => x + '');
-
-  if (maxDigits > 0) {
-    value.textContent = '0'.repeat(maxDigits);
-    let w = value.clientWidth;
-    value.style.width = w + 'px';
-  }
 
   if (debug)
     setting.classList.toggle('debug', debug);
@@ -149,11 +151,38 @@ function initSetting(name, { debug, units, maxDigits, addStep, onChanged, toText
     conf[name] = x;
     value.textContent = toText(x);
     clearTimeout(timer);
-    timer = setTimeout(onChanged, 1000);
+    timer = setTimeout(() => onChanged(conf[name]), 1000);
   }
 }
 
-function initFlameColor() {
+async function initFlameColor1() {
+  let img = new Image;
+  img.src = TEMP_GRADIENT;
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+  });
+  dcheck(img.width > 0 && img.height > 0);
+  let canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  let ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  let rgba = ctx.getImageData(0, 0, img.width, img.height);
+  let r = [], g = [], b = [];
+
+  for (let x = 0; x < img.width; x++) {
+    r[x] = rgba.data[x * 4 + 0] / 255;
+    g[x] = rgba.data[x * 4 + 1] / 255;
+    b[x] = rgba.data[x * 4 + 2] / 255;
+    dcheck(r[x] + g[x] + b[x] >= 0.0);
+  }
+
+  conf.flameColor = { r, g, b };
+  console.log('temperature gradient:', r.length, img.src);
+}
+
+function initFlameColor2() {
   let n = 4, r = [], g = [], b = [];
 
   for (let i = 0; i <= n; i++) {
@@ -376,9 +405,6 @@ async function redrawImg() {
   let time = Date.now();
   is_drawing = true;
 
-  // bg_thread?.terminate();
-  // bg_thread = null;
-
   try {
     document.body.classList.remove('show_disk');
     await drawStringOscillations();
@@ -479,7 +505,7 @@ async function drawStringOscillations(signal = getSelectedAudio()) {
           dcheck(img_data.length == (ymax - ymin + 1) * width * 4);
           img.data.set(img_data, ymin * width * 4);
           ctx.putImageData(img, 0, 0);
-          console.log('updted img data: ' + ymin + '..' + ymax);
+          // console.debug('updted img data: ' + ymin + '..' + ymax);
         },
         img_done: (e) => resolve(),
       },
@@ -487,7 +513,7 @@ async function drawStringOscillations(signal = getSelectedAudio()) {
   });
 
   ctx.putImageData(img, 0, 0);
-  await sleep(0);
+  await sleep(5);
 }
 
 async function drawDiskImage(smooth = false) {

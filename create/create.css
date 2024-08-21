@@ -62,10 +62,6 @@ body.recording #record {
   display: none;
 }
 
-body:not(.debug) #flat_disk {
-  display: none;
-}
-
 #upload,
 #play_sound,
 #download_image,
@@ -81,6 +77,10 @@ body:not(.debug) #flat_disk {
   left: 0;
 }
 
+body:not(.debug) #audio_info {
+  display: none;
+}
+
 #audio_info {
   margin: 0;
   position: absolute;
@@ -92,10 +92,6 @@ body:not(.debug) #flat_disk {
   color: #fff;
   background: #e00;
   padding: 1em;
-}
-
-#show_disk {
-  color: #888;
 }
 
 #rect,
@@ -113,14 +109,6 @@ body.show_disk canvas#disk {
 
 body.show_disk canvas#rect {
   display: none;
-}
-
-body.show_disk #show_disk {
-  color: inherit;
-}
-
-body.show_disk #show_rect {
-  color: #888;
 }
 
 #wave_wrapper {
@@ -289,6 +277,7 @@ button.small_btn:hover {
   font-size: 0.75em;
   color: #888;
   display: inline-block;
+  user-select: none;
 }
 
 .setting.debug {
