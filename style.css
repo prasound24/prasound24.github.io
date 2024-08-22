@@ -52,6 +52,8 @@ h1 {
   margin: 0;
   padding: 2rem 2rem;
   padding-bottom: 1rem;
+  display: flex;
+  align-items: center;
 }
 
 h1 a::before {
