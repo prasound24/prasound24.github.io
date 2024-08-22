@@ -1,10 +1,7 @@
-import { FFT } from './webfft.js';
-
 let { min, max, sin, cos, abs, PI } = Math;
 
 export const DEBUG = location.hostname == '0.0.0.0' || location.hostname == 'localhost';
 
-export const fft = FFT;
 export const $ = (selector) => document.querySelector(selector);
 export const $$ = (selector) => document.querySelectorAll(selector);
 export const log = (...args) => console.log(args.join(' '));
@@ -529,6 +526,38 @@ export function rgb2hcl(r, g, b) {
 export function hcl2rgb(h, c, l) {
   let s = 0.5 * c / min(l, 1.0 - l);
   return hsl2rgb(h, min(s, 1.0), l);
+}
+
+// t=0..1, returns [r,g,b]=0..1
+export function blackbodyRGB(t) {
+  // temperature range: 0K to 4250K, so the final RGB is white
+  t = Math.max(t, 0) * 4250;
+
+  // https://en.wikipedia.org/wiki/Planckian_locus
+  let u = (0.860117757 + 1.54118254e-4 * t + 1.28641212e-7 * t * t) / (1.0 + 8.42420235e-4 * t + 7.08145163e-7 * t * t);
+  let v = (0.317398726 + 4.22806245e-5 * t + 4.20481691e-8 * t * t) / (1.0 - 2.89741816e-5 * t + 1.61456053e-7 * t * t);
+
+  // https://en.wikipedia.org/wiki/CIE_1960_color_space
+  let d = 2 * u - 8 * v + 4;
+  let x = 3 * u / d;
+  let y = 2 * v / d;
+  let z = 1 - x - y;
+
+  x /= y, y /= y, z /= y;
+
+  // https://www.cs.rit.edu/~ncs/color/t_spectr.html
+  let r = +3.240479 * x - 1.537150 * y - 0.498535 * z;
+  let g = -0.969256 * x + 1.875992 * y + 0.041556 * z;
+  let b = +0.055648 * x - 0.204043 * y + 1.057311 * z;
+
+  // https://en.wikipedia.org/wiki/Stefan%E2%80%93Boltzmann_law
+  let t4 = sqr(sqr(t * 0.0004));
+
+  r = clamp(r * t4);
+  g = clamp(g * t4);
+  b = clamp(b * t4);
+
+  return [r, g, b];
 }
 
 export async function ctcheck(ctoken) {

@@ -3,7 +3,7 @@ import * as utils from '../utils.js';
 const { $, sleep, clamp, dcheck, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
-const TEMP_GRADIENT = '/img/temperature.png';
+const TEMP_GRADIENT = '/img/blackbody.png';
 
 let conf = {};
 conf.sampleRate = 48000;
@@ -19,7 +19,7 @@ conf.maxFileSize = 1e6;
 conf.silenceThreshold = 1e-3;
 conf.silencePadding = 2.0;
 conf.color = null;
-conf.hue = 0.10;
+conf.hue = 0.1;
 conf.showDisk = true;
 
 let bg_thread = null;
@@ -44,7 +44,7 @@ utils.setUncaughtErrorHandlers();
 
 async function init() {
   initMouseEvents();
-  initColorGradient2();
+  initTempGradientImg();
   initSettings();
 
   $('#upload').onclick = () => uploadAudio();
@@ -67,7 +67,7 @@ function initSettings() {
   initSetting('sampleRate', {
     units: 'kHz',
     toText: (x) => (x / 1000).toFixed(0),
-    addStep: (x, d) => clamp(x + d * 24000, 24000, 192000),
+    addStep: (x, d) => clamp(x * 2 ** d, 3000, 384000),
     onChanged: async () => {
       await drawWaveform();
       await redrawImg();
@@ -164,7 +164,7 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
   }
 }
 
-async function initColorGradient1() {
+async function initTempGradientImg() {
   let img = new Image;
   img.src = TEMP_GRADIENT;
   await new Promise((resolve, reject) => {
@@ -191,7 +191,7 @@ async function initColorGradient1() {
   console.log('temperature gradient:', r.length, img.src);
 }
 
-function initColorGradient2() {
+function initTempGradient421() {
   let n = 4, r = [], g = [], b = [];
 
   for (let i = 0; i <= n; i++) {
