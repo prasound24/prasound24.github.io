@@ -92,6 +92,11 @@ export class Float32Tensor {
   max() {
     return this.data.reduce((s, x) => Math.max(s, x), -Infinity);
   }
+
+  dcheck(predicate = Number.isFinite) {
+    for (let i = 0; i < this.data.length; i++)
+      dcheck(predicate(this.data[i]));
+  }
 }
 
 // (1, 0) -> (1, 0)

@@ -51,8 +51,8 @@ export class StringOscillator {
     let w = this.width;
 
     for (let x = 0; x < w; x++) {
-      let src_r = src[(x + 1) & (w - 1)];
-      let src_l = src[(x - 1) & (w - 1)];
+      let src_r = src[(x + 1 + w) % w];
+      let src_l = src[(x - 1 + w) % w];
       res[x] = src_r + src_l - 2 * src[x];
     }
   }

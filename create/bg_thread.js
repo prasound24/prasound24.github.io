@@ -1,7 +1,7 @@
 import { StringOscillator } from './oscillator.js';
 import * as utils from '/utils.js';
 
-let { sqr, dcheck, clamp, resampleDisk, reverseDiskMapping, Float32Tensor } = utils;
+let { dcheck, clamp, resampleDisk, reverseDiskMapping, Float32Tensor } = utils;
 
 let img_rect = null;
 
@@ -23,7 +23,6 @@ async function drawStringOscillations(signal, conf) {
   let width = conf.stringLen; // oscillating string length
   let height = conf.numSteps;
   let oscillator = new StringOscillator({ width });
-  let wave_p50 = new Float32Array(width);
   let wave_min = new Float32Array(width);
   let wave_max = new Float32Array(width);
   let wave_res = new Float32Array(width);
@@ -37,15 +36,12 @@ async function drawStringOscillations(signal, conf) {
   oscillator.driving = 0.0;
   oscillator.gravity = 0.0;
 
-  let count = 0;
   for (let t = 0; t < signal.length; t++) {
-    count++;
     oscillator.wave[0] = signal[t];
     oscillator.update();
 
     for (let x = 0; x < width; x++) {
       let w = oscillator.wave[x];
-      wave_p50[x] += (w - wave_p50[x]) / count; // approx median
       wave_min[x] = Math.min(wave_min[x], w);
       wave_max[x] = Math.max(wave_max[x], w);
     }
@@ -53,14 +49,12 @@ async function drawStringOscillations(signal, conf) {
     let y = t / signal.length * conf.numSteps | 0;
 
     if (y > y_curr) {
-      count = 0;
       for (let x = 0; x < width; x++)
         wave_res[x] = wave_max[x] - wave_min[x];
       img_rect.data.set(wave_res, y_curr * width);
       drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
       y_curr = y;
 
-      wave_p50.fill(0);
       wave_min.fill(0);
       wave_max.fill(0);
       wave_res.fill(0);
@@ -86,7 +80,7 @@ async function drawDiskImage(conf) {
   await resample(img_rect, img_disk, { num_reps: conf.symmetry });
 
   let autoBrightness = adjustBrightness(img_rect, conf);
-  console.log('auto brightness:', autoBrightness.toFixed(1));
+  // console.debug('auto brightness:', autoBrightness.toFixed(1));
   let img_data = new Uint8Array(conf.imageSize ** 2 * 4);
   let canvas_img = { data: img_data, width: conf.imageSize, height: conf.imageSize };
   drawImgData(canvas_img, img_disk, [0, conf.imageSize - 1], autoBrightness, conf);
@@ -102,19 +96,19 @@ function adjustBrightness(img, { exposure }) {
 function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.height - 1], autoBrightness, conf) {
   dcheck(canvas_img.data);
   dcheck(temperature.data);
-  dcheck(autoBrightness > 0.0);
+  dcheck(Number.isFinite(autoBrightness));
 
   let width = canvas_img.width;
-  let color = conf.flameColor;
-  let brightness = 10 ** (autoBrightness + conf.brightness);
+  let brightness = 4.0 * 10 ** (autoBrightness + conf.brightness);
+  let [r, g, b] = utils.hsl2rgb(conf.hue, 1.0, 0.5);
 
   for (let y = ymin; y <= ymax; y++) {
     for (let x = 0; x < width; x++) {
       let i = y * width + x;
       let temp = Math.abs(temperature.data[i]) * brightness;
-      canvas_img.data[i * 4 + 0] = 255 * clamp(utils.interpolateLinear(temp, color.r));
-      canvas_img.data[i * 4 + 1] = 255 * clamp(utils.interpolateLinear(temp, color.g));
-      canvas_img.data[i * 4 + 2] = 255 * clamp(utils.interpolateLinear(temp, color.b));
+      canvas_img.data[i * 4 + 0] = 255 * clamp(temp * r);
+      canvas_img.data[i * 4 + 1] = 255 * clamp(temp * g);
+      canvas_img.data[i * 4 + 2] = 255 * clamp(temp * b);
       canvas_img.data[i * 4 + 3] = 255;
     }
   }

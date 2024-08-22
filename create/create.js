@@ -7,7 +7,7 @@ const TEMP_GRADIENT = '/img/temperature.png';
 
 let conf = {};
 conf.sampleRate = 48000;
-conf.stringLen = 1024;
+conf.stringLen = 2048;
 conf.numSteps = 512;
 conf.imageSize = 1024;
 conf.damping = -3.25;
@@ -18,7 +18,8 @@ conf.maxDuration = 15.0; // sec
 conf.maxFileSize = 1e6;
 conf.silenceThreshold = 1e-3;
 conf.silencePadding = 2.0;
-conf.flameColor = null;
+conf.color = null;
+conf.hue = 0.10;
 conf.showDisk = true;
 
 let bg_thread = null;
@@ -43,7 +44,7 @@ utils.setUncaughtErrorHandlers();
 
 async function init() {
   initMouseEvents();
-  initFlameColor2();
+  initColorGradient2();
   initSettings();
 
   $('#upload').onclick = () => uploadAudio();
@@ -73,10 +74,18 @@ function initSettings() {
     },
   });
 
+  initSetting('hue', {
+    delay: 0.0,
+    addStep: (x, d) => clamp(x + d * 0.025, 0.0, 1.0),
+    toText: (x) => x.toFixed(3),
+    onChanged: () => drawDiskImage(),
+  });
+
   initSetting('brightness', {
+    delay: 0.0,
     addStep: (x, d) => clamp(x + d * 0.1, -5.5, 5.5),
     toText: (x) => x.toFixed(1),
-    onChanged: () => drawDiskImage(false),
+    onChanged: () => drawDiskImage(),
   });
 
   initSetting('exposure', {
@@ -99,12 +108,12 @@ function initSettings() {
   });
 
   initSetting('stringLen', {
-    debug: true,
     addStep: (x, d) => clamp(x * 2 ** d, 256, 4096),
     onChanged: () => redrawImg(),
   });
 
   initSetting('symmetry', {
+    debug: true,
     addStep: (x, d) => clamp(x + d, 1, 6),
     onChanged: () => redrawImg(),
   });
@@ -123,7 +132,7 @@ function initSettings() {
   });
 }
 
-function initSetting(name, { debug, units, addStep, onChanged, toText }) {
+function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText }) {
   dcheck(name in conf);
   let settings = $('#settings');
   let setting = settings.firstElementChild.cloneNode(true);
@@ -151,11 +160,11 @@ function initSetting(name, { debug, units, addStep, onChanged, toText }) {
     conf[name] = x;
     value.textContent = toText(x);
     clearTimeout(timer);
-    timer = setTimeout(() => onChanged(conf[name]), 1000);
+    timer = setTimeout(() => onChanged(conf[name]), delay * 1000);
   }
 }
 
-async function initFlameColor1() {
+async function initColorGradient1() {
   let img = new Image;
   img.src = TEMP_GRADIENT;
   await new Promise((resolve, reject) => {
@@ -178,11 +187,11 @@ async function initFlameColor1() {
     dcheck(r[x] + g[x] + b[x] >= 0.0);
   }
 
-  conf.flameColor = { r, g, b };
+  conf.color = { r, g, b };
   console.log('temperature gradient:', r.length, img.src);
 }
 
-function initFlameColor2() {
+function initColorGradient2() {
   let n = 4, r = [], g = [], b = [];
 
   for (let i = 0; i <= n; i++) {
@@ -191,7 +200,7 @@ function initFlameColor2() {
     b[i] = clamp(i / n * 1);
   }
 
-  conf.flameColor = { r, g, b };
+  conf.color = { r, g, b };
 }
 
 function initMouseEvents() {
