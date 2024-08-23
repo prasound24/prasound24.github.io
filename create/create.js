@@ -6,11 +6,11 @@ const DB_PATH_IMAGE = 'user_samples/_last/image';
 const TEMP_GRADIENT = '/img/blackbody.png';
 
 let conf = {};
-conf.sampleRate = 96000;
+conf.sampleRate = 48000;
 conf.stringLen = 1024;
 conf.numSteps = 512;
 conf.imageSize = 1024;
-conf.damping = -3.7;
+conf.damping = -3.1;
 conf.symmetry = 1;
 conf.brightness = -0.3;
 conf.exposure = -6.0;
