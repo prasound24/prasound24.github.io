@@ -44,16 +44,17 @@ async function initWebGL() {
     if (!time_msec)
       return;
     stats.frames++;
-    if (time_msec > stats.time + 3000) {
+    if (time_msec > stats.time + 5000) {
       let fps = stats.frames / (time_msec - stats.time) * 1000;
-      $('#stats').textContent = fps.toFixed(0) + ' fps';
+      console.log(fps.toFixed(0) + ' fps');
       stats.time = time_msec;
       stats.frames = 0;
     }
     animationId = requestAnimationFrame(drawFrame);
   }
 
-  drawFrame(0);
+  animationId = requestAnimationFrame(drawFrame);
+  // drawFrame(0);
   // ctx.destroy();
 }
 
