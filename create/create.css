@@ -159,10 +159,12 @@ canvas#wave,
 
 #wave_start {
   left: 0;
+  width: 25vw;
 }
 
 #wave_end {
   right: 0;
+  width: 25vw;
 }
 
 #wave_end #wave_label {

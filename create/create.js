@@ -65,6 +65,7 @@ function initSettings() {
     document.body.classList.add('debug');
 
   initSetting('sampleRate', {
+    debug: true,
     units: 'kHz',
     toText: (x) => (x / 1000).toFixed(0),
     addStep: (x, d) => clamp(x * 2 ** d, 3000, 384000),
