@@ -6,20 +6,20 @@ const DB_PATH_IMAGE = 'user_samples/_last/image';
 const TEMP_GRADIENT = '/img/blackbody.png';
 
 let conf = {};
-conf.sampleRate = 48000;
-conf.stringLen = 2048;
+conf.sampleRate = 96000;
+conf.stringLen = 1024;
 conf.numSteps = 512;
 conf.imageSize = 1024;
-conf.damping = -3.25;
+conf.damping = -3.7;
 conf.symmetry = 1;
-conf.brightness = 0.0;
+conf.brightness = -0.3;
 conf.exposure = -6.0;
 conf.maxDuration = 15.0; // sec
 conf.maxFileSize = 1e6;
 conf.silenceThreshold = 1e-3;
 conf.silencePadding = 2.0;
 conf.color = null;
-conf.hue = 0.1;
+conf.hue = 0.575;
 conf.showDisk = true;
 
 let bg_thread = null;
