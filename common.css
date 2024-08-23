@@ -29,22 +29,6 @@ p {
   padding: 0 1rem;
 }
 
-#motto {
-  margin: 3em 0;
-  font-size: 1rem;
-  text-align: center;
-}
-
-#motto img {
-  height: 1.5em;
-  vertical-align: middle;
-}
-
-#motto div:first-child {
-  font-weight: 800;
-  font-size: 1.75rem;
-  margin-bottom: 0.5rem;
-}
 
 h1 {
   font-size: 2rem;
@@ -122,39 +106,6 @@ h4 {
   text-align: center;
 }
 
-.stage {
-  display: flex;
-  flex-direction: row;
-}
-
-.stage>* {
-  max-height: 12rem;
-}
-
-.stage>*:nth-child(2) {
-  flex: 1;
-  background: no-repeat center/cover url('/img/bowl_2.jpg');
-}
-
-#make_your_own {
-  margin: 2em 0;
-}
-
-.grid {
-  display: flex;
-  flex-flow: row wrap;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.grid>* {
-  flex: 1 0 21%;
-}
-
-.grid>* img {
-  width: 100%;
-  height: 100%;
-}
 
 .buttons {
   display: flex;
