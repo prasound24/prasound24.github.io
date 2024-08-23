@@ -208,4 +208,5 @@ button[disabled]:hover {
 #footer {
   padding: 2rem 0;
   text-align: center;
+  color: #888;
 }
