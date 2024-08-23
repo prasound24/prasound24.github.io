@@ -21,6 +21,27 @@ export const is_pow2 = (x) => (x & (x - 1)) == 0;
 export const hhmmss = (sec) => new Date(sec * 1000).toISOString().slice(11, -1);
 export const dcheck = (x) => { if (x) return; debugger; throw new Error('dcheck failed'); }
 
+export async function fetchText(url) {
+  let res = await fetch(url);
+  return await res.text();
+}
+
+export async function fetchRGBA(url, width = 0, height = 0) {
+  console.log('downloading ' + url);
+  let img = new Image;
+  img.src = url;
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+  });
+  let canvas = document.createElement('canvas');
+  canvas.width = width || img.width;
+  canvas.height = height || img.height;
+  let ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
 export class Float32Tensor {
   constructor(dims, data) {
     let size = dims.reduce((p, d) => p * d, 1);

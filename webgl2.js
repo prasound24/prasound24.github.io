@@ -42,6 +42,201 @@ const FSHADER_DEFAULT = `
   }
 `;
 
+export class GpuContext {
+  constructor(canvas, { log = true } = {}) {
+    if (log === true)
+      log = { i: console.info, v: console.log, w: console.warn, e: console.error };
+
+    this.canvas = canvas;
+    this.ext = null;
+    this.gl = null;
+    this.log = log;
+
+    this.framebuffers = [];
+    this.programs = [];
+    this.num_points = 0;
+  }
+
+  destroy() {
+    if (!this.gl) return;
+    for (let fb of this.framebuffers)
+      fb.destroy();
+    for (let p of this.programs)
+      p.destroy();
+    this.gl = null;
+  }
+
+  createFrameBuffer(args) {
+    return new GpuFrameBuffer(this, { log: this.log, ...args });
+  }
+
+  createFrameBufferFromImgData(img) {
+    if (img.width != this.canvas.width || img.height != this.canvas.height)
+        throw new Error('Image size must match WebGL canvas size');
+
+    let rgba = new Float32Array(img.data);
+    for (let i = 0; i < rgba.length; i++)
+      rgba[i] /= 255;
+
+    let fbuffer = this.createFrameBuffer({
+      width: img.width,
+      height: img.height,
+      channels: 4,
+    });
+  
+    fbuffer.upload(rgba);
+    return fbuffer;
+  }
+
+  createTransformProgram(args) {
+    return new GpuTransformProgram(this, { log: this.log, ...args });
+  }
+
+  checkError() {
+    if (!DEBUG) return;
+    let err = this.gl.getError();
+    if (err) throw new Error('WebGL error code ' + err);
+  }
+
+  getTextureFormat(components) {
+    return components == 1 ? this.ext.formatR :
+      components == 2 ? this.ext.formatRG :
+        this.ext.formatRGBA;
+  }
+
+  init(config = {}) {
+    let canvas = this.canvas;
+
+    let params = {
+      alpha: config.alpha || false,
+      depth: false,
+      stencil: false,
+      antialias: false,
+      preserveDrawingBuffer: false,
+    };
+
+    for (let s in config)
+      params[s] = config[s];
+
+    this.log?.i('Initializing WebGL');
+    this.log?.v(JSON.stringify(params));
+
+    let gl = canvas.getContext('webgl2', params);
+    if (!gl) throw new Error('WebGL 2.0 not available');
+    this.log?.i('WebGL v' + gl.VERSION);
+
+    this.log?.i('Texture access in vertex shaders:',
+      gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS));
+    this.log?.i('Max gl_PointSize:',
+      gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE));
+
+    let fsprec = (fp) => gl.getShaderPrecisionFormat(
+      gl.FRAGMENT_SHADER, fp).precision;
+    this.log?.i('Shader precision:',
+      'highp=' + fsprec(gl.HIGH_FLOAT),
+      'mediump=' + fsprec(gl.MEDIUM_FLOAT),
+      'lowp=' + fsprec(gl.LOW_FLOAT));
+
+    gl.getExtension('EXT_color_buffer_float');
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+
+    let floatTexType = gl.FLOAT;
+    let formatRGBA = this.getSupportedFormat(gl, gl.RGBA32F, gl.RGBA, floatTexType);
+    let formatRG = this.getSupportedFormat(gl, gl.RG32F, gl.RG, floatTexType);
+    let formatR = this.getSupportedFormat(gl, gl.R32F, gl.RED, floatTexType);
+
+    this.gl = gl;
+
+    this.ext = {
+      formatRGBA,
+      formatRG,
+      formatR,
+      floatTexType,
+    };
+
+    this.initVertexBufferSquare();
+  }
+
+  clear(r = 0, g = 0, b = 0, a = 0) {
+    let gl = this.gl;
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.clearColor(r, g, b, a);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
+  initVertexBufferSquare(num = 1) {
+    // The [-1, 1] x [-1, 1] area is split into NxN squares,
+    // each square made of 2 triangles.
+    let vertices = [];
+    let elements = [];
+
+    for (let i = 0; i <= num; i++)
+      for (let j = 0; j <= num; j++)
+        vertices.push(i / num * 2 - 1, j / num * 2 - 1);
+
+    for (let i = 0; i < num; i++) {
+      for (let j = 0; j < num; j++) {
+        // a c
+        // b d
+        let a = i * (num + 1) + j, b = a + 1, c = a + num + 1, d = c + 1;
+        elements.push(b, a, c, b, c, d);
+      }
+    }
+
+    this.num_points = elements.length;
+
+    let gl = this.gl;
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(elements), gl.STATIC_DRAW);
+
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(0);
+  }
+
+  getSupportedFormat(gl, internalFormat, format, type) {
+    if (!this.supportRenderTextureFormat(gl, internalFormat, format, type)) {
+      switch (internalFormat) {
+        case gl.R32F:
+          return this.getSupportedFormat(gl, gl.RG32F, gl.RG, type);
+        case gl.RG32F:
+          return this.getSupportedFormat(gl, gl.RGBA32F, gl.RGBA, type);
+        default:
+          return null;
+      }
+    }
+
+    return {
+      internalFormat,
+      format
+    }
+  }
+
+  supportRenderTextureFormat(gl, internalFormat, format, type) {
+    let texture = gl.createTexture();
+
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, 4, 4, 0, format, type, null);
+
+    let fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    gl.deleteTexture(texture);
+    gl.deleteFramebuffer(fbo);
+    return status == gl.FRAMEBUFFER_COMPLETE;
+  }
+}
+
 export class GpuFrameBuffer {
   static max_id = 0;
 
@@ -59,9 +254,11 @@ export class GpuFrameBuffer {
     width,
     height,
     channels = 1,
-    // This GPU framebuffer can be bound to a JS ArrayBuffer,
+    // This GPU framebuffer can be bound to a JS Float32Array,
     // so every time this framebuffer is bound to a fragment
-    // shader, the CPU data would be copied to GPU.
+    // shader, the CPU data would be copied to GPU. Typical
+    // size of the Float32Array: height x width x channels,
+    // with RGBA values in the 0..1 range.
     source = null,
   }) {
     if (source && !(source instanceof Float32Array))
@@ -236,180 +433,6 @@ export class GpuFrameBuffer {
 
 GpuFrameBuffer.DUMMY = 'dummy';
 
-export class GpuContext {
-  constructor(canvas, { log } = {}) {
-    this.canvas = canvas;
-    this.ext = null;
-    this.gl = null;
-    this.log = log;
-
-    this.framebuffers = [];
-    this.programs = [];
-    this.num_points = 0;
-  }
-
-  destroy() {
-    if (!this.gl) return;
-    for (let fb of this.framebuffers)
-      fb.destroy();
-    for (let p of this.programs)
-      p.destroy();
-    this.gl = null;
-  }
-
-  createFrameBuffer(args) {
-    return new GpuFrameBuffer(this, { log: this.log, ...args });
-  }
-
-  createTransformProgram(args) {
-    return new GpuTransformProgram(this, { log: this.log, ...args });
-  }
-
-  checkError() {
-    if (!DEBUG) return;
-    let err = this.gl.getError();
-    if (err) throw new Error('WebGL error code ' + err);
-  }
-
-  getTextureFormat(components) {
-    return components == 1 ? this.ext.formatR :
-      components == 2 ? this.ext.formatRG :
-        this.ext.formatRGBA;
-  }
-
-  init(config = {}) {
-    let canvas = this.canvas;
-
-    let params = {
-      alpha: config.alpha || false,
-      depth: false,
-      stencil: false,
-      antialias: false,
-      preserveDrawingBuffer: false,
-    };
-
-    for (let s in config)
-      params[s] = config[s];
-
-    this.log?.i('Initializing WebGL');
-    this.log?.v(JSON.stringify(params));
-
-    let gl = canvas.getContext('webgl2', params);
-    if (!gl) throw new Error('WebGL 2.0 not available');
-    this.log?.i('WebGL v' + gl.VERSION);
-
-    this.log?.i('Texture access in vertex shaders:',
-      gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS));
-    this.log?.i('Max gl_PointSize:',
-      gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE));
-
-    let fsprec = (fp) => gl.getShaderPrecisionFormat(
-      gl.FRAGMENT_SHADER, fp).precision;
-    this.log?.i('Shader precision:',
-      'highp=' + fsprec(gl.HIGH_FLOAT),
-      'mediump=' + fsprec(gl.MEDIUM_FLOAT),
-      'lowp=' + fsprec(gl.LOW_FLOAT));
-
-    gl.getExtension('EXT_color_buffer_float');
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
-
-    let floatTexType = gl.FLOAT;
-    let formatRGBA = this.getSupportedFormat(gl, gl.RGBA32F, gl.RGBA, floatTexType);
-    let formatRG = this.getSupportedFormat(gl, gl.RG32F, gl.RG, floatTexType);
-    let formatR = this.getSupportedFormat(gl, gl.R32F, gl.RED, floatTexType);
-
-    this.gl = gl;
-
-    this.ext = {
-      formatRGBA,
-      formatRG,
-      formatR,
-      floatTexType,
-    };
-
-    this.initVertexBufferSquare();
-  }
-
-  clear(r = 0, g = 0, b = 0, a = 0) {
-    let gl = this.gl;
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-    gl.clearColor(r, g, b, a);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-  }
-
-  initVertexBufferSquare(num = 1) {
-    // The [-1, 1] x [-1, 1] area is split into NxN squares,
-    // each square made of 2 triangles.
-    let vertices = [];
-    let elements = [];
-
-    for (let i = 0; i <= num; i++)
-      for (let j = 0; j <= num; j++)
-        vertices.push(i / num * 2 - 1, j / num * 2 - 1);
-
-    for (let i = 0; i < num; i++) {
-      for (let j = 0; j < num; j++) {
-        // a c
-        // b d
-        let a = i * (num + 1) + j, b = a + 1, c = a + num + 1, d = c + 1;
-        elements.push(b, a, c, b, c, d);
-      }
-    }
-
-    this.num_points = elements.length;
-
-    let gl = this.gl;
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(elements), gl.STATIC_DRAW);
-
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(0);
-  }
-
-  getSupportedFormat(gl, internalFormat, format, type) {
-    if (!this.supportRenderTextureFormat(gl, internalFormat, format, type)) {
-      switch (internalFormat) {
-        case gl.R32F:
-          return this.getSupportedFormat(gl, gl.RG32F, gl.RG, type);
-        case gl.RG32F:
-          return this.getSupportedFormat(gl, gl.RGBA32F, gl.RGBA, type);
-        default:
-          return null;
-      }
-    }
-
-    return {
-      internalFormat,
-      format
-    }
-  }
-
-  supportRenderTextureFormat(gl, internalFormat, format, type) {
-    let texture = gl.createTexture();
-
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-    gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, 4, 4, 0, format, type, null);
-
-    let fbo = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-
-    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-    gl.deleteTexture(texture);
-    gl.deleteFramebuffer(fbo);
-    return status == gl.FRAMEBUFFER_COMPLETE;
-  }
-}
-
 export class GpuProgram {
   constructor(webgl, vertexShader, fragmentShader) {
     this.gl = webgl.gl;
@@ -562,7 +585,7 @@ export class GpuTransformProgram {
     this.program = new GpuProgram(this.glctx, gl_vshader, gl_fshader);
   }
 
-  exec(args = {}, output = this.output) {
+  draw(args = {}, output = this.output) {
     if (output == GpuFrameBuffer.DUMMY)
       return;
     let gp = this.program;
