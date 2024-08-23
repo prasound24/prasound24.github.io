@@ -13,6 +13,8 @@ if (args.get('src')) {
   url = IMG_BASE + filename + '.jpg';
   for (let a of $$('#hires_buttons a.button'))
     a.href += '?src=' + filename;
+  for (let a of $$('#gif_buttons a.button'))
+    a.href += '?src=' + filename;
 } else {
   let file = await DB.get(DB_PATH_IMAGE);
   if (file) {

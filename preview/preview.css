@@ -13,18 +13,16 @@ i {
   color: #888;
 }
 
+h4 {
+  margin-top: 2em;
+}
+
 button,
 a.button {
   margin: 0 inherit;
 }
 
-#hires_buttons {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-}
-
-#hires_buttons>* {
+.buttons>* {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -62,7 +60,7 @@ a.button {
   margin: 0 1em;
 }
 
-#hires_buttons p,
+.buttons p,
 #wall_art_buttons p {
   text-align: center;
   font-size: 0.85rem;
