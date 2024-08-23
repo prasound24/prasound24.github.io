@@ -13,7 +13,8 @@ i {
   color: #888;
 }
 
-button {
+button,
+a.button {
   margin: 0 inherit;
 }
 
@@ -38,6 +39,10 @@ button {
   height: 100%;
 }
 
+#wall_art_section {
+  overflow: hidden;
+}
+
 #wall_art_section button {
   text-align: center;
 }
@@ -57,7 +62,8 @@ button {
   margin: 0 1em;
 }
 
-#hires_buttons p, #wall_art_buttons p {
+#hires_buttons p,
+#wall_art_buttons p {
   text-align: center;
   font-size: 0.85rem;
   margin-top: 0.25rem;

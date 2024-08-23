@@ -1,18 +1,17 @@
 import * as utils from '../utils.js';
 
-const { $, $$, DB } = utils;
-const DB_PATH_AUDIO = 'user_samples/_last/audio';
+const { $, DB } = utils;
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const IMG_BASE = '/img/xl/';
 
+let img = $('.preview img');
+let link = $('.preview a');
 let args = new URLSearchParams(location.search);
 let url = '', filename = '';
 
 if (args.get('src')) {
   filename = args.get('src');
   url = IMG_BASE + filename + '.jpg';
-  for (let a of $$('#hires_buttons a.button'))
-    a.href += '?src=' + filename;
 } else {
   let file = await DB.get(DB_PATH_IMAGE);
   if (file) {
@@ -21,9 +20,11 @@ if (args.get('src')) {
   }
 }
 
-document.querySelector('#sound_info').textContent = filename;
-
 if (url) {
-  $('.preview img').src = url;
-  $('img.inline').src = url;
+  link.href = url;
+  link.download = filename + '.jpg';
+  img.src = url;
+  img.onload = () => {
+    link.innerHTML = img.naturalWidth + '&times;' + img.naturalHeight;
+  };
 }

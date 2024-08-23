@@ -1,0 +1,32 @@
+.preview {
+  display: flex;
+  flex-direction: row;
+  padding: 1em;
+  margin: 1em;
+  color: #888;
+  background-color: #112;
+  border-radius: 1em;
+}
+
+.preview img {
+  height: 10vw;
+  width: 10vw;
+}
+
+.preview div {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.preview a {
+  text-decoration: underline;
+  color: inherit;
+}
+
+.preview i {
+  font-style: normal;
+  color: #444;
+}
+
+

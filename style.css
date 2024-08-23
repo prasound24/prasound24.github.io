@@ -162,6 +162,7 @@ h4 {
 }
 
 button,
+a.button,
 .buttons>* {
   display: flex;
   align-items: center;
@@ -174,6 +175,7 @@ button,
 }
 
 button,
+a.button,
 .buttons a {
   background: #841;
   color: #fff;
@@ -183,6 +185,7 @@ button,
 }
 
 button:hover,
+a.button:hover,
 .buttons a:hover {
   background-color: #952;
 }
@@ -191,6 +194,15 @@ button img,
 a img {
   height: 1.5em;
   vertical-align: middle;
+}
+
+button[disabled] {
+  background-color: #444;
+  cursor: inherit;
+}
+
+button[disabled]:hover {
+  background-color: #444;
 }
 
 #footer {
