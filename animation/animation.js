@@ -1,13 +1,32 @@
 import * as utils from '../utils.js';
 import { GpuContext } from '../webgl2.js';
 
-const { $, fetchText, fetchRGBA } = utils;
+const { $, DB, fetchText, fetchRGBA } = utils;
 
-let args = new URLSearchParams(location.search);
-let img_id = args.get('src') || 'saxophone_D6_15_fortissimo_normal_96';
-let img_url = '/img/xl/' + img_id + '.jpg';
+const DB_PATH_IMAGE = 'user_samples/_last/image';
+const DEFAULT_IMG_ID = 'flute_6';
 
+initImgRGBA();
 initWebGL();
+
+async function initImgRGBA(width, height) {
+  let args = new URLSearchParams(location.search);
+  let img_id = args.get('src');
+  let img_url;
+
+  if (!img_id) {
+    let file = await DB.get(DB_PATH_IMAGE);
+    if (file)
+      img_url = URL.createObjectURL(file);
+    else
+      img_id = DEFAULT_IMG_ID;
+  }
+
+  if (!img_url)
+    img_url = '/img/xl/' + img_id + '.jpg'
+
+  return await fetchRGBA(img_url, width, height);
+}
 
 async function initWebGL() {
   let canvas = $('canvas');
@@ -21,7 +40,7 @@ async function initWebGL() {
   let user_shader = await fetchText('./fireball.glsl');
   let fshader = wrapper.replace('//${USER_SHADER}', user_shader);
   let program = ctx.createTransformProgram({ fshader });
-  let img = await fetchRGBA(img_url, canvas.width, canvas.height);
+  let img = await initImgRGBA(canvas.width, canvas.height);
   let fbuffer = ctx.createFrameBufferFromImgData(img);
   let animationId = 0;
   let stats = { frames: 0, time: 0 };
