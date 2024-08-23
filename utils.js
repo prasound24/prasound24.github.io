@@ -27,7 +27,7 @@ export async function fetchText(url) {
 }
 
 export async function fetchRGBA(url, width = 0, height = 0) {
-  console.log('downloading ' + url);
+  console.log('Downloading ' + url);
   let img = new Image;
   img.src = url;
   await new Promise((resolve, reject) => {
@@ -38,7 +38,7 @@ export async function fetchRGBA(url, width = 0, height = 0) {
   canvas.width = width || img.width;
   canvas.height = height || img.height;
   let ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 

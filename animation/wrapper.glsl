@@ -7,8 +7,5 @@ uniform sampler2D iChannel0;
 //${USER_SHADER}
 
 void main() {
-  vec4 fragColor = vec4(0.0);
-  mainImage(fragColor, vTex * iResolution);
-  float d = length(fragColor.rgb);
-  v_FragColor = min(d, 1.0) * texture(iChannel0, vTex);
+  mainImage(v_FragColor, vTex * iResolution);
 }

@@ -17,20 +17,32 @@ float snoise(vec3 uv, float res) {
   r = fract(sin((v + uv1.z - uv0.z) * 1e-1) * 1e3);
   float r1 = mix(mix(r.x, r.y, f.x), mix(r.z, r.w, f.x), f.y);
 
-  return mix(r0, r1, f.z) * 2. - 1.;
+  return mix(r0, r1, f.z) * 2. - 1.; // -1..1
 }
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-  vec2 p = -.5 + fragCoord.xy / iResolution.xy;
+  vec2 p = -.5 + fragCoord.xy / iResolution.xy; // -0.5..0.5
   p.x *= iResolution.x / iResolution.y;
+  vec3 polar = vec3(atan(p.x, p.y) / 6.2832 + .5, length(p) * 0.3, .5);
+  // polar.xy = vec2(p.x, (p.y + 0.5) * 0.7); // 0..1
+  float temp = 0.0;
 
-  float color = 3.0 - (3. * length(2. * p));
-
-  vec3 coord = vec3(atan(p.x, p.y) / 6.2832 + .5, length(p) * .4, .5);
-
-  for(int i = 1; i <= 7; i++) {
-    float power = pow(2.0, float(i));
-    color += (1.5 / power) * snoise(coord + vec3(0., -iTime * .05, iTime * .01), power * 16.);
+  for(int i = 1; i <= 8; i++) {
+    float scale = exp2(float(i));
+    vec3 diff = vec3(0., -iTime * .05, iTime * .01);
+    temp += 1.0/scale * snoise(polar + diff, scale * 16.);
   }
-  fragColor = vec4(color, pow(max(color, 0.), 2.) * 0.4, pow(max(color, 0.), 3.) * 0.15, 1.0);
+
+  // temp = -1..1
+  // temp = temp + 3.0 - 15.0 * polar.y;
+
+  vec3 img = texture(iChannel0, vTex).rgb; // 0..1
+  temp = img.g + 0.15 * temp;
+  temp = max(0.0, temp);
+  
+  temp *= 1.88;
+  vec3 color = vec3(temp, pow(temp, 2.) * 0.4, pow(temp, 3.) * 0.15);
+  // vec3 color = vec3(temp * 4.0, temp * 2.0, temp);
+  
+  fragColor = vec4(color, 1.0);
 }

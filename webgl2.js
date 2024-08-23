@@ -118,8 +118,7 @@ export class GpuContext {
     for (let s in config)
       params[s] = config[s];
 
-    this.log?.i('Initializing WebGL');
-    this.log?.v(JSON.stringify(params));
+    this.log?.i('Initializing WebGL:', ...JSON.stringify(params).slice(1, -1).split(','));
 
     let gl = canvas.getContext('webgl2', params);
     if (!gl) throw new Error('WebGL 2.0 not available');
