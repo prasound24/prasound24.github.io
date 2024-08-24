@@ -40,7 +40,10 @@ let mem = {
 window.conf = conf;
 window.utils = utils;
 window.onload = init;
-utils.setUncaughtErrorHandlers();
+utils.setUncaughtErrorHandlers((err) => {
+  if (!err) return;
+  $('#error_info').textContent = err;
+});
 
 async function init() {
   initMouseEvents();

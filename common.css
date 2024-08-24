@@ -161,3 +161,15 @@ button[disabled]:hover {
   text-align: center;
   color: #888;
 }
+
+#error_info:empty {
+  display: none;
+}
+
+#error_info {
+  background: #400;
+  color: #fff;
+  margin: 0.5em 0;
+  padding: 1em;
+  text-align: left;  
+}

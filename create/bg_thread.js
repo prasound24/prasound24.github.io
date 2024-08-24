@@ -46,7 +46,8 @@ async function drawStringOscillations(signal, conf) {
       wave_max[x] = Math.max(wave_max[x], w);
     }
 
-    let y = t / signal.length * conf.numSteps | 0;
+    let y = Math.round(t / (signal.length - 1) * (height - 1));
+    dcheck(y >= 0 && y < height);
 
     if (y > y_curr) {
       for (let x = 0; x < width; x++)

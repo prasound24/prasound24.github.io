@@ -322,7 +322,7 @@ export async function decodeWavFile(blob) {
 }
 
 // await showStatus("foobar", { "exit": () => ... })
-export async function showStatus(text, buttons) {
+export async function showStatus(text, buttons = null) {
   let str = Array.isArray(text) ? text.join(' ') : text + '';
   str && console.info(str);
   let status = initStatusBar();
@@ -361,8 +361,10 @@ function initStatusBar() {
   status = document.createElement('div');
   status.id = id;
   status.style.background = '#112';
+  status.style.borderTop = '1px solid #224';
+  status.style.borderBottom = '1px solid #224';
   status.style.color = '#fff';
-  status.style.padding = '0.25em';
+  status.style.padding = '1em';
   status.style.display = 'none';
 
   let middle = document.createElement('div');
@@ -377,9 +379,10 @@ function initStatusBar() {
   return status;
 }
 
-export function setUncaughtErrorHandlers() {
-  window.onerror = (event, source, lineno, colno, error) => showStatus(error);
-  window.onunhandledrejection = (event) => showStatus(event.reason);
+export function setUncaughtErrorHandlers(handler = null) {
+  if (!handler) handler = (error) => showStatus(error, { 'Dismiss': hideStatus });
+  window.onerror = (event, source, lineno, colno, error) => handler(error);
+  window.onunhandledrejection = (event) => handler(event.reason, null);
 }
 
 // An indexedDB wrapper:
