@@ -3,6 +3,7 @@ import * as utils from '../utils.js';
 const { $, sleep, clamp, dcheck, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
+const DB_PATH_CONFIG = 'user_samples/_last/config';
 const TEMP_GRADIENT = '/img/blackbody.png';
 
 let conf = {};
@@ -11,7 +12,7 @@ conf.stringLen = 1024;
 conf.numSteps = 512;
 conf.imageSize = 1024;
 conf.damping = -3.1;
-conf.symmetry = 1;
+conf.symmetry = 2;
 conf.brightness = 0.0;
 conf.exposure = -6.0;
 conf.maxDuration = 15.0; // sec
@@ -85,6 +86,7 @@ function initSettings() {
     toText: (x) => x.toFixed(0),
     onChanged: () => {
       $('#disk').style.filter = 'hue-rotate(' + conf.hue + 'deg)';
+      saveImageConfig();
     },
   });
 
@@ -92,7 +94,10 @@ function initSettings() {
     delay: 0.0,
     addStep: (x, d) => clamp(x + d * 0.1, -5.5, 5.5),
     toText: (x) => x.toFixed(1),
-    onChanged: () => drawDiskImage(),
+    onChanged: () => {
+      drawDiskImage();
+      saveImageConfig();
+    },
   });
 
   initSetting('exposure', {
@@ -436,6 +441,7 @@ async function redrawImg() {
     // await drawDiskImage(true);
     // await sleep(10);
     await saveDiskImage();
+    await saveImageConfig();
   } finally {
     is_drawing = false;
   }
@@ -568,6 +574,11 @@ async function saveDiskImage() {
   let file = new File([blob], mem.audio_name, { type: blob.type });
   console.log('Saving disk image to DB:', file.size, file.type);
   await DB.set(DB_PATH_IMAGE, file);
+}
+
+async function saveImageConfig() {
+  let json = getSerializableConfig();
+  await DB.set(DB_PATH_CONFIG, json);
 }
 
 async function downloadAudio() {

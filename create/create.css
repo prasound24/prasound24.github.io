@@ -190,6 +190,13 @@ canvas#wave,
   transition: all 250ms;
 }
 
+@media(orientation:landscape) {
+  #wave_bounds .ptr {
+    width: 3vw;
+    border-radius: 1.5vw;
+  }
+}
+
 #wave_bounds .ptr span {
   width: 100%;
   text-align: center;

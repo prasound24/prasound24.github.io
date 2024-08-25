@@ -4,9 +4,11 @@ import { GpuContext } from '../webgl2.js';
 const { $, DB, fetchText, fetchRGBA } = utils;
 
 const DB_PATH_IMAGE = 'user_samples/_last/image';
+const DB_PATH_CONFIG = 'user_samples/_last/config';
 const DEFAULT_IMG_ID = 'flute_6';
 
 let canvas = $('canvas#webgl');
+let conf = {};
 
 initImgRGBA();
 initWebGL();
@@ -27,10 +29,14 @@ async function initImgRGBA(width, height) {
 
   if (!img_id) {
     let file = await DB.get(DB_PATH_IMAGE);
-    if (file)
+    if (file) {
       img_url = URL.createObjectURL(file);
-    else
+      conf = await DB.get(DB_PATH_CONFIG);
+      if (conf.hue > 0)
+        canvas.style.filter = 'hue-rotate(' + conf.hue + 'deg)';
+    } else {
       img_id = DEFAULT_IMG_ID;
+    }
   }
 
   if (!img_url)
