@@ -4,14 +4,17 @@ canvas {
   margin: 0.5rem 0;
 }
 
-#gif {
+progress-gif {
   font-size: 4rem;
   width: 1em;
   height: 1em;
   position: relative;
+  display: inline-block;
 }
 
-#gif img {
+progress-gif::before, progress-gif::after {
+  content: '';
+  display: inline-block;
   position: absolute;
   left: 0;
   top: 0;
@@ -20,15 +23,17 @@ canvas {
   transition: all 250ms;
 }
 
-#gif:hover img:first-child {
-  animation: 1s linear 0s infinite alternate-reverse sun-rise;
+progress-gif::before {
+  background: no-repeat center/contain url('/img/up.png');
+  animation: 1s linear 0s infinite alternate progress-gif-keyframes;
 }
 
-#gif:hover img:last-child {
-  animation: 1s linear 0s infinite alternate sun-rise;
+progress-gif::after {
+  background: no-repeat center/contain url('/img/down.png');
+  animation: 0.7071s linear 0s infinite alternate progress-gif-keyframes;
 }
 
-@keyframes sun-rise {
+@keyframes progress-gif-keyframes {
   from {
     opacity: 1.0;
   }
