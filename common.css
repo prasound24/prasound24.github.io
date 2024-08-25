@@ -25,6 +25,21 @@ body {
   font-style: normal;
 }
 
+canvas.wide,
+img.wide {
+  width: 100%;
+}
+
+@media(orientation:landscape) {
+
+  canvas.wide,
+  img.wide {
+    width: 100vh;
+    height: 100vh;
+    margin: 0 calc(50% - 50vh);
+  }
+}
+
 p {
   padding: 0 1rem;
 }
@@ -171,5 +186,5 @@ button[disabled]:hover {
   color: #fff;
   margin: 0.5em 0;
   padding: 1em;
-  text-align: left;  
+  text-align: left;
 }
