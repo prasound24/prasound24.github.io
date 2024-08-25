@@ -3,3 +3,36 @@ canvas {
   height: 4vh;
   margin: 0.5rem 0;
 }
+
+#gif {
+  font-size: 4rem;
+  width: 1em;
+  height: 1em;
+  position: relative;
+}
+
+#gif img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  transition: all 250ms;
+}
+
+#gif:hover img:first-child {
+  animation: 1s linear 0s infinite alternate-reverse sun-rise;
+}
+
+#gif:hover img:last-child {
+  animation: 1s linear 0s infinite alternate sun-rise;
+}
+
+@keyframes sun-rise {
+  from {
+    opacity: 1.0;
+  }
+  to {
+    opacity: 0.5;
+  }
+}
