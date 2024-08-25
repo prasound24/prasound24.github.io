@@ -1,6 +1,6 @@
 import * as utils from '../utils.js';
 
-const { $, dcheck, lanczos } = utils;
+const { $, dcheck, resampleSignal } = utils;
 
 const AUDIO_URL = '/mp3/flute_A4_1_forte_normal.mp3';
 const SAMPLE_RATE_1 = 48000;
@@ -47,12 +47,12 @@ async function testAudio() {
 
   let a = await utils.decodeAudioFile(blob, SAMPLE_RATE_2);
 
-  for (let kw = 1; kw <= 9; kw++) {
-    let b = resampleSignal(signal, a.length, { kw });
+  for (let q = 1; q <= 24; q++) {
+    let b = resampleSignal(signal, a.length, q);
     dcheck(b.length == a.length);
     let avg = rmsqDiff(a, 0);
     let diff = rmsqDiff(a, b);
-    console.log('RMSQ', kw, (diff / avg).toExponential(2));
+    console.log('RMSQ', q, (diff / avg).toExponential(2));
   }
 }
 
@@ -61,35 +61,5 @@ function rmsqDiff(a, b) {
   for (let i = 0; i < a.length; i++)
     diff += utils.sqr(a[i] - (b ? b[i] : 0));
   return Math.sqrt(diff / a.length);
-}
-
-// https://en.wikipedia.org/wiki/Lanczos_resampling
-function resampleSignal(input, output, { kw = 1 }) {
-  if (typeof output == 'number')
-    output = new Float32Array(Math.floor(output));
-
-  let n = input.length, m = output.length;
-
-  if (n == m) {
-    output.set(input, 0);
-    return output;
-  }
-
-  for (let j = 0; j < m; j++) {
-    let t = j / m * n;
-    let i = Math.round(t);
-    if (i == t) {
-      output[j] = input[i];
-      continue;
-    }
-
-    let sum = 0.0;
-    for (let k = -kw; k <= kw; k++)
-      if (i + k >= 0 && i + k < n)
-        sum += input[i + k] * lanczos(k + i - t, kw);
-    output[j] = sum;
-  }
-
-  return output;
 }
 

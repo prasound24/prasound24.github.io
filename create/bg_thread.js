@@ -20,6 +20,9 @@ onmessage = (e) => {
 };
 
 async function drawStringOscillations(signal, conf) {
+  // let upsampling = Math.max(1, Math.floor(100 * conf.stringLen / conf.sampleRate));
+  // let signal_upsampled = utils.resampleSignal(signal, signal.length * upsampling);
+  // console.log('Upsampling audio:', upsampling + 'x');
   let width = conf.stringLen; // oscillating string length
   let height = conf.numSteps;
   let oscillator = new StringOscillator({ width });
@@ -35,13 +38,15 @@ async function drawStringOscillations(signal, conf) {
   oscillator.damping = 10 ** conf.damping;
   oscillator.driving = 0.0;
   oscillator.gravity = 0.0;
+  oscillator.dx = 1.0;
+  oscillator.dt = 1.0; // Math.min(1.0, width / height);
 
   for (let t = 0; t < signal.length; t++) {
     oscillator.wave[0] = signal[t];
     oscillator.update();
 
     for (let x = 0; x < width; x++) {
-      let w = oscillator.wave[x];
+      let w = oscillator.wave[x] - signal[t];
       wave_min[x] = Math.min(wave_min[x], w);
       wave_max[x] = Math.max(wave_max[x], w);
     }
@@ -100,16 +105,15 @@ function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.heig
   dcheck(Number.isFinite(autoBrightness));
 
   let width = canvas_img.width;
-  let brightness = 4.0 * 10 ** (autoBrightness + conf.brightness);
-  let [r, g, b] = utils.hsl2rgb(conf.hue, 1.0, 0.5);
+  let brightness = 10 ** (autoBrightness + conf.brightness);
 
   for (let y = ymin; y <= ymax; y++) {
     for (let x = 0; x < width; x++) {
       let i = y * width + x;
       let temp = Math.abs(temperature.data[i]) * brightness;
-      canvas_img.data[i * 4 + 0] = 255 * clamp(temp * r);
-      canvas_img.data[i * 4 + 1] = 255 * clamp(temp * g);
-      canvas_img.data[i * 4 + 2] = 255 * clamp(temp * b);
+      canvas_img.data[i * 4 + 0] = 255 * clamp(temp * 4);
+      canvas_img.data[i * 4 + 1] = 255 * clamp(temp * 2);
+      canvas_img.data[i * 4 + 2] = 255 * clamp(temp * 1);
       canvas_img.data[i * 4 + 3] = 255;
     }
   }

@@ -12,14 +12,14 @@ conf.numSteps = 512;
 conf.imageSize = 1024;
 conf.damping = -3.1;
 conf.symmetry = 1;
-conf.brightness = -0.3;
+conf.brightness = 0.0;
 conf.exposure = -6.0;
 conf.maxDuration = 15.0; // sec
 conf.maxFileSize = 1e6;
 conf.silenceThreshold = 1e-3;
 conf.silencePadding = 2.0;
 conf.color = null;
-conf.hue = 0.575;
+conf.hue = 0; // 0..360 degrees
 conf.showDisk = true;
 
 let bg_thread = null;
@@ -80,9 +80,12 @@ function initSettings() {
 
   initSetting('hue', {
     delay: 0.0,
-    addStep: (x, d) => clamp(x + d * 0.025, 0.0, 1.0),
-    toText: (x) => x.toFixed(3),
-    onChanged: () => drawDiskImage(),
+    units: '\u00b0',
+    addStep: (x, d) => (x + 10 * d + 360) % 360,
+    toText: (x) => x.toFixed(0),
+    onChanged: () => {
+      $('#disk').style.filter = 'hue-rotate(' + conf.hue + 'deg)';
+    },
   });
 
   initSetting('brightness', {
@@ -102,7 +105,11 @@ function initSettings() {
   initSetting('imageSize', {
     debug: true,
     addStep: (x, d) => clamp(x * 2 ** d, 512, 4096),
-    onChanged: () => redrawImg(),
+    onChanged: () => {
+      // conf.stringLen = conf.imageSize;
+      // conf.numSteps = conf.imageSize / 2;
+      redrawImg();
+    },
   });
 
   initSetting('numSteps', {
@@ -112,6 +119,7 @@ function initSettings() {
   });
 
   initSetting('stringLen', {
+    debug: true,
     addStep: (x, d) => clamp(x * 2 ** d, 256, 4096),
     onChanged: () => redrawImg(),
   });
@@ -335,7 +343,7 @@ async function drawWaveform() {
 
   if (!mem.sig_start && !mem.sig_end) {
     let [sleft, sright] = findSilenceMarks(mem.audio_signal, conf.silenceThreshold);
-    setSilenceMarks(sleft / conf.sampleRate, sright / conf.sampleRate);
+    setSilenceMarks(sleft / conf.sampleRate, 0.1 + sright / conf.sampleRate);
   }
 }
 

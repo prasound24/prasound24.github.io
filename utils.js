@@ -711,6 +711,36 @@ export async function resampleDisk(src, res, { ctoken, fs_full = false, r_zoom =
   });
 }
 
+// https://en.wikipedia.org/wiki/Lanczos_resampling
+export function resampleSignal(input, output, q = 12) {
+  if (typeof output == 'number')
+    output = new Float32Array(Math.floor(output));
+
+  let n = input.length, m = output.length;
+
+  if (n == m) {
+    output.set(input, 0);
+    return output;
+  }
+
+  for (let j = 0; j < m; j++) {
+    let t = j / m * n;
+    let i = Math.round(t);
+    if (i == t) {
+      output[j] = input[i];
+      continue;
+    }
+
+    let sum = 0.0;
+    for (let k = -q; k <= q; k++)
+      if (i + k >= 0 && i + k < n)
+        sum += input[i + k] * lanczos(k + i - t, q);
+    output[j] = sum;
+  }
+
+  return output;
+}
+
 // Returns a Promise<Blob>.
 export async function recordMic({ sample_rate = 48000 } = {}) {
   let mic_stream, resolve, reject;

@@ -31,7 +31,6 @@ img.wide {
 }
 
 @media(orientation:landscape) {
-
   canvas.wide,
   img.wide {
     width: 100vh;
