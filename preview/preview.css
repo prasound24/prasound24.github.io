@@ -24,6 +24,10 @@ a.button {
   justify-content: center;
 }
 
+body:not(.debug) #sound_info_wrapper {
+  display: none;
+}
+
 #wall_art {
   font-size: 0.3rem;
   height: 100em;
@@ -35,6 +39,8 @@ a.button {
 
 #wall_art_section {
   overflow: hidden;
+  display: flex;
+  justify-content: center;
 }
 
 #wall_art_section button {
