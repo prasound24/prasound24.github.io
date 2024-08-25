@@ -71,9 +71,6 @@ export class GpuContext {
   }
 
   createFrameBufferFromImgData(img) {
-    if (img.width != this.canvas.width || img.height != this.canvas.height)
-        throw new Error('Image size must match WebGL canvas size');
-
     let rgba = new Float32Array(img.data);
     for (let i = 0; i < rgba.length; i++)
       rgba[i] /= 255;

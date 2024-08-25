@@ -23,6 +23,9 @@ float snoise(vec3 uv, float res) {
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   vec2 p = -.5 + fragCoord.xy / iResolution.xy; // -0.5..0.5
   p.x *= iResolution.x / iResolution.y;
+  // fragColor = (length(p) < 0.5 ? 1.0 : 0.0) * vec4(1.0);
+  // return;
+
   vec3 polar = vec3(atan(p.x, p.y) / 6.2832 + .5, length(p) * 0.3, .5);
   // polar.xy = vec2(p.x, (p.y + 0.5) * 0.7); // 0..1
   float temp = 0.0;
@@ -36,8 +39,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   // temp = -1..1
   // temp = temp + 3.0 - 15.0 * polar.y;
 
-  vec3 img = texture(iChannel0, vTex).rgb; // 0..1
-  temp = img.g + 0.15 * temp;
+  float img = 0.0;
+  if (abs(p.x) < 0.5 && abs(p.y) < 0.5)
+    img = texture(iChannel0, p + 0.5).g; // 0..1 
+  temp = img + 0.15 * temp;
   temp = max(0.0, temp);
   
   temp *= 1.88;

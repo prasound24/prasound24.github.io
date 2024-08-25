@@ -6,8 +6,19 @@ const { $, DB, fetchText, fetchRGBA } = utils;
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DEFAULT_IMG_ID = 'flute_6';
 
+let canvas = $('canvas#webgl');
+
 initImgRGBA();
 initWebGL();
+window.onresize = resizeCanvas;
+
+function resizeCanvas() {
+  let w = window.innerWidth;
+  let h = window.innerHeight;
+  // landscape = w x h; portrait = w x w
+  canvas.width = w;
+  canvas.height = Math.min(h, w);
+}
 
 async function initImgRGBA(width, height) {
   let args = new URLSearchParams(location.search);
@@ -29,9 +40,7 @@ async function initImgRGBA(width, height) {
 }
 
 async function initWebGL() {
-  let canvas = $('canvas');
-  canvas.width = 1024;
-  canvas.height = 1024;
+  resizeCanvas();
 
   let ctx = new GpuContext(canvas);
   ctx.init();
@@ -40,7 +49,7 @@ async function initWebGL() {
   let user_shader = await fetchText('./fireball.glsl');
   let fshader = wrapper.replace('//${USER_SHADER}', user_shader);
   let program = ctx.createTransformProgram({ fshader });
-  let img = await initImgRGBA(canvas.width, canvas.height);
+  let img = await initImgRGBA(2048, 2048);
   let fbuffer = ctx.createFrameBufferFromImgData(img);
   let animationId = 0;
   let stats = { frames: 0, time: 0 };
