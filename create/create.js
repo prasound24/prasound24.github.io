@@ -317,7 +317,7 @@ async function decodeAudio() {
     mem.audio_signal = await utils.decodeAudioFile(mem.audio_file._buffer, sample_rate);
     mem.decoded_audio = { data: mem.audio_signal, sample_rate, file };
     await saveAudioSignal();
-    normalizeAudioSignal(mem.audio_signal);
+    // normalizeAudioSignal(mem.audio_signal);
     mem.audio_signal = padAudioWithSilence(mem.audio_signal);
   }
 }
