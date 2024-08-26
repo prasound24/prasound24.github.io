@@ -1,6 +1,6 @@
 import * as utils from '../utils.js';
 
-const { $, sleep, clamp, dcheck, DB } = utils;
+const { $, sleep, clamp, check, dcheck, DB } = utils;
 const DB_PATH_AUDIO = 'user_samples/_last/audio';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
@@ -614,6 +614,7 @@ async function loadAudioSignal() {
     if (src) {
       console.log('loading audio file:', src);
       let res = await fetch('/mp3/' + src + '.mp3');
+      check(res.status == 200, src + '.mp3 not found');
       let blob = await res.blob();
       mem.audio_file = new File([blob], src + '.mp3', { type: blob.type });
     } else {

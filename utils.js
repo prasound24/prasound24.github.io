@@ -19,7 +19,8 @@ export const fract = (x) => x - Math.floor(x);
 export const reim2 = (re, im) => re * re + im * im;
 export const is_pow2 = (x) => (x & (x - 1)) == 0;
 export const hhmmss = (sec) => new Date(sec * 1000).toISOString().slice(11, -1);
-export const dcheck = (x) => { if (x) return; debugger; throw new Error('dcheck failed'); }
+export const check = (x, msg = 'check failed') => { if (x) return; throw new Error(msg); }
+export const dcheck = (x, msg = 'check failed') => { if (x) return; debugger; throw new Error(msg); }
 
 export async function fetchText(url) {
   let res = await fetch(url);
