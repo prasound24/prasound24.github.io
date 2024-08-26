@@ -9,8 +9,8 @@ const TEMP_GRADIENT = '/img/blackbody.png';
 let conf = {};
 conf.sampleRate = 48000;
 conf.stringLen = 1024;
-conf.numSteps = 512;
-conf.imageSize = 1024;
+conf.numSteps = 1024;
+conf.imageSize = 2048;
 conf.damping = -3.1;
 conf.symmetry = 2;
 conf.brightness = 0.0;
@@ -608,9 +608,20 @@ async function saveAudioSignal() {
 
 async function loadAudioSignal() {
   try {
-    console.log('loading audio signal from DB');
-    mem.audio_file = await DB.get(DB_PATH_AUDIO);
-    mem.sig_start = mem.sig_end = 0;
+    let args = new URLSearchParams(location.search);
+    let src = args.get('src');
+
+    if (src) {
+      console.log('loading audio file:', src);
+      let res = await fetch('/mp3/' + src + '.mp3');
+      let blob = await res.blob();
+      mem.audio_file = new File([blob], src + '.mp3', { type: blob.type });
+    } else {
+      console.log('loading audio signal from DB');
+      mem.audio_file = await DB.get(DB_PATH_AUDIO);
+      mem.sig_start = mem.sig_end = 0;
+    }
+
     return mem.audio_file;
   } catch (err) {
     console.error(err);

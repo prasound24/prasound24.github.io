@@ -30,7 +30,16 @@ img.wide {
   width: 100%;
 }
 
+@media(orientation:portrait) {
+
+  canvas.wide,
+  img.wide {
+    aspect-ratio: 1/1;
+  }
+}
+
 @media(orientation:landscape) {
+
   canvas.wide,
   img.wide {
     width: 100vh;
@@ -161,11 +170,13 @@ a img {
   vertical-align: middle;
 }
 
+.buttons a.disabled,
 button[disabled] {
   background-color: #444;
   cursor: inherit;
 }
 
+.buttons a.disabled:hover,
 button[disabled]:hover {
   background-color: #444;
 }

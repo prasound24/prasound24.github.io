@@ -42,7 +42,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   float img = 0.0;
   if (abs(p.x) < 0.5 && abs(p.y) < 0.5)
     img = texture(iChannel0, p + 0.5).b; // 0..1 
-  temp = img + 0.15 * temp;
+  temp = 2.0 * img + 0.15 * temp;
   temp = max(0.0, temp);
   
   temp *= 1.88;
