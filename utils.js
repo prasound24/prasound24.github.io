@@ -585,6 +585,12 @@ export function blackbodyRGB(t) {
   return [r, g, b];
 }
 
+// t=0..1, returns [r,g,b]=0..1
+export function fireballRGB(t) {
+  t = t * 1.88;
+  return [clamp(t), clamp(t * t * 0.4), clamp(t * t * t * 0.15)];
+}
+
 export async function ctcheck(ctoken) {
   if (!ctoken || Date.now() < 100 + (ctoken.time || 0))
     return;

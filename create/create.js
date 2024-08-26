@@ -17,7 +17,7 @@ conf.brightness = 0.0;
 conf.exposure = -6.0;
 conf.maxDuration = 15.0; // sec
 conf.maxFileSize = 1e6;
-conf.silenceThreshold = 1e-3;
+conf.silenceThreshold = 0.003;
 conf.silencePadding = 2.0;
 conf.color = null;
 conf.hue = 0; // 0..360 degrees
@@ -125,7 +125,7 @@ function initSettings() {
 
   initSetting('stringLen', {
     debug: true,
-    addStep: (x, d) => clamp(x * 2 ** d, 256, 4096),
+    addStep: (x, d) => clamp(x * 2 ** d, 256, 8192),
     onChanged: () => redrawImg(),
   });
 
