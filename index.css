@@ -46,7 +46,7 @@
 }
 
 #vowels img {
-  filter: hue-rotate(0deg) brightness(1.5);
+  filter: hue-rotate(90deg);
 }
 
 @media(orientation:landscape) {
