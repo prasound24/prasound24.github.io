@@ -6,13 +6,12 @@ const { $, DB, fetchText, fetchRGBA } = utils;
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
 const DEFAULT_IMG_ID = 'flute_6';
-
+const CW = 2048, CH = 2048;
 let canvas = $('canvas#webgl');
 let conf = {};
 
 initImgRGBA();
 initWebGL();
-window.onresize = resizeCanvas;
 
 function resizeCanvas() {
   let w = window.innerWidth;
@@ -45,38 +44,60 @@ async function initImgRGBA(width, height) {
   return await fetchRGBA(img_url, width, height);
 }
 
+async function initShader(ctx, glsl_url) {
+  let adapter = await fetchText('./adapter.glsl');
+  let user_shader = await fetchText(glsl_url);
+  let fshader = adapter.replace('//${USER_SHADER}', user_shader);
+  return ctx.createTransformProgram({ fshader });
+}
+
 async function initWebGL() {
+  window.onresize = resizeCanvas;
   resizeCanvas();
 
   let ctx = new GpuContext(canvas);
   ctx.init();
 
-  let wrapper = await fetchText('./wrapper.glsl');
-  let user_shader = await fetchText('./fireball.glsl');
-  let fshader = wrapper.replace('//${USER_SHADER}', user_shader);
-  let program = ctx.createTransformProgram({ fshader });
-  let img = await initImgRGBA(2048, 2048);
-  let fbuffer = ctx.createFrameBufferFromImgData(img);
-  let animationId = 0;
+  let shader_img = await initShader(ctx, './fluid_img.glsl');
+  let shader_ch1 = await initShader(ctx, './fluid_ch0.glsl');
+  let img = await initImgRGBA(CW, CH);
+  let iChannel1 = ctx.createFrameBufferFromRGBA(img);
+  let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
+  let bufferA = ctx.createFrameBuffer(CW, CH, 4);
+  let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
 
   canvas.onclick = () => {
     if (animationId) {
       cancelAnimationFrame(animationId);
       animationId = 0;
-      return;
+      console.log('animation stopped');
+    } else {
+      animationId = requestAnimationFrame(drawFrame);
+      console.log('animation started');
     }
-    animationId = requestAnimationFrame(drawFrame);
   };
 
   function drawFrame(time_msec) {
-    program.draw({
-      iTime: time_msec / 1000,
-      iResolution: [canvas.width, canvas.height],
-      iChannel0: fbuffer,
-    });
+    let iTime = time_msec / 1000;
+    let iResolution = [canvas.width, canvas.height];
+    let args = {
+      iTime,
+      iFrame: iFrame++,
+      iResolution,
+      iChannelResolution0: [iChannel0.width, iChannel0.height],
+      iChannelResolution1: [iChannel1.width, iChannel1.height],
+      iChannel0,
+      iChannel1,
+    };
+
+    shader_img.draw(args);
+    shader_ch1.draw(args, bufferA);
+    [iChannel0, bufferA] = [bufferA, iChannel0];
+
     if (!time_msec)
       return;
+
     stats.frames++;
     if (time_msec > stats.time + 5000) {
       let fps = stats.frames / (time_msec - stats.time) * 1000;

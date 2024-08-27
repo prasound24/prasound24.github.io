@@ -66,11 +66,12 @@ export class GpuContext {
     this.gl = null;
   }
 
-  createFrameBuffer(args) {
+  createFrameBuffer(w, h, ch = 1) {
+    let args = w > 0 ? { width: w, height: h, channels: ch } : w;
     return new GpuFrameBuffer(this, { log: this.log, ...args });
   }
 
-  createFrameBufferFromImgData(img) {
+  createFrameBufferFromRGBA(img) {
     let rgba = new Float32Array(img.data);
     for (let i = 0; i < rgba.length; i++)
       rgba[i] /= 255;
@@ -80,7 +81,7 @@ export class GpuContext {
       height: img.height,
       channels: 4,
     });
-  
+
     fbuffer.upload(rgba);
     return fbuffer;
   }
@@ -134,6 +135,7 @@ export class GpuContext {
       'lowp=' + fsprec(gl.LOW_FLOAT));
 
     gl.getExtension('EXT_color_buffer_float');
+    gl.getExtension('OES_texture_float_linear');
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
     let floatTexType = gl.FLOAT;
@@ -372,7 +374,6 @@ export class GpuFrameBuffer {
     let offset = 0;
     let fmt = this.fmt;
     // gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texImage2D(
       gl.TEXTURE_2D,
@@ -416,8 +417,8 @@ export class GpuFrameBuffer {
     this.texture = gl.createTexture();
 
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     gl.texImage2D(gl.TEXTURE_2D, 0, fmt.internalFormat, width, height, 0, fmt.format, this.type, null);
@@ -542,29 +543,18 @@ export class GpuProgram {
 // there is no output buffer.
 export class GpuTransformProgram {
   constructor(glctx, {
-    log,
-    size = 0, // When the output is the canvas, there is no output buffer.
-    width = 0,
-    height = 0,
-    channels = 1,
     vshader,
     fshader,
     draw_points = false,
   } = {}) {
     this.glctx = glctx;
     this.draw_points = draw_points;
-    width = width || size;
-    height = height || size;
-    this.output = width * height ?
-      new GpuFrameBuffer(glctx, { width, height, channels, log }) :
-      null;
     this.init({ vshader, fshader });
     this.glctx.programs.push(this);
   }
 
   destroy() {
     if (!this.glctx) return;
-    this.output?.destroy();
     this.program?.destroy();
     this.glctx = null;
   }
@@ -581,7 +571,7 @@ export class GpuTransformProgram {
     this.program = new GpuProgram(this.glctx, gl_vshader, gl_fshader);
   }
 
-  draw(args = {}, output = this.output) {
+  draw(args = {}, output = null) {
     if (output == GpuFrameBuffer.DUMMY)
       return;
     let gp = this.program;

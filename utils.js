@@ -24,6 +24,7 @@ export const dcheck = (x, msg = 'check failed') => { if (x) return; debugger; th
 
 export async function fetchText(url) {
   let res = await fetch(url);
+  check(res.status == 200, 'HTTP ' + res.status + ' from ' + url);
   return await res.text();
 }
 
