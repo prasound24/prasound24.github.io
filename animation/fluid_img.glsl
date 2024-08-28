@@ -1,7 +1,11 @@
-#define PI 3.141592653589793
+vec3 fire_rgb(float t) {
+  float q = max(0., t*1.88); // t=0..1 -> q=0..1.88 -> rgb=black..white
+  return clamp(vec3(q, q*q*.4, q*q*q*.15), 0., 1.);
+}
 
 void mainImage(out vec4 o, in vec2 p) {
   vec4 c = texture(iChannel0, p.xy / iResolution.xy);
-  float q = c.w;
-  o.rgb = vec3(q, pow(q,2.)*.4, pow(q,3.)*.15);
+  o.rgb = fire_rgb(c.z - 0.5).gbr; // density
+  o.rgb += 0.2*fire_rgb(c.w).rgb; // ink
+  o.rgb += 0.1*fire_rgb(length(c.xy)).grb; // velocity
 }

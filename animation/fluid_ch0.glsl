@@ -1,18 +1,19 @@
 // https://inria.hal.science/inria-00596050/document
 
 #define T(p) texture(iChannel0,(p)/iResolution)
-#define length2(p) dot(p,p)
 
-#define dt 0.05
-#define K 0.25
-#define nu 0.0001 // viscosity
-#define kappa 0.01 // diffusion
+#define dt 0.0125
+#define visc 0.5 // viscosity
+#define diff 0.1 // diffusion
+#define p_min 0.5 // min pressure
 
-// c.xy = velocity, c.z = density, c.w = ink
+// c.xy = velocity, c.z = density/pressure, c.w = ink
 void mainImage(out vec4 c, in vec2 p) {
-	if (iFrame == 0) {
-		c = vec4(0,0,1,0);
-		c.w = 0.7 * length2(texture(iChannel1, p/iResolution.yy).rgb);
+	if(iFrame == 0) {
+		c = vec4(0, 0, 1, 0.);
+		float ink = 0.7 * length(texture(iChannel1, p/iResolution).rgb); // 0..1
+		c.z = p_min + ink; // min pressure = 0.5
+		c.w = ink;
 		return;
 	}
 
@@ -25,21 +26,15 @@ void mainImage(out vec4 c, in vec2 p) {
 
 	vec4 dx = .5 * (e - w);
 	vec4 dy = .5 * (n - s);
-  
-	float udiv = dx.x + dy.y; // velocity field divergence
-	vec2 dgrad = vec2(dx.z, dy.z);
+
+	float div = dx.x + dy.y; // velocity field divergence
+	vec2 grad = vec2(dx.z, dy.z); // pressure field gradient
 	vec4 laplacian = n + e + s + w - 4. * c;
 
-	c.z -= dt * dot(c.xyz, vec3(dgrad, udiv)); // transport density
+	c.z -= dt * dot(c.xyz, vec3(grad, div)); // transport density
 	c.xyw = T(p - dt * c.xy).xyw; // self advection
-	c.xyw += dt * vec3(nu, nu, kappa) * laplacian.xyw; // viscosity/diffusion
-	c.xy -= K * dgrad; // nullify divergence with pressure field gradient
-	c.w -= dt * 0.0005; // dissipation
+	c.xyw += dt * vec3(visc, visc, diff) * laplacian.xyw; // viscosity/diffusion
+	c.xy -= 0.2 * grad; // nullify divergence with pressure field gradient
 
-  // external sources
-	vec2 src = iTime*75.0*vec2(1);
-	vec2 ray = 75.0 * vec2(cos(iTime*1.), sin(iTime*2.));
-	c.xyw += dt * exp(-length2(p - src) / 125.) * vec3(ray, 1.5+0.5*cos(iTime*30.0));
-
-	c = clamp(c, vec4(-5,-5,0,0), vec4(5));
+	c = clamp(c, vec4(-5, -5, p_min, 0), vec4(5, 5, 3, 5)); // the last resort protection against overflows
 }
