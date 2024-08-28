@@ -2,7 +2,7 @@
 
 #define T(p) texture(iChannel0,(p)/iResolution)
 
-#define dt 0.0125
+#define dt 0.1
 #define visc 0.5 // viscosity
 #define diff 0.1 // diffusion
 #define p_min 0.5 // min pressure
