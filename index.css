@@ -36,42 +36,15 @@
   flex: 1;
   height: 10vw;
   background: no-repeat center/125% url('/img/xl/violin_Gs6_15_mezzo-forte_arco-normal.jpg');
-  transition: all 1.5s;
+  transition: background-size 1.5s;
 }
 
 .stage>*:nth-child(2):hover {
-  background-size: 10vw;
+  background-size: 50vw;
 }
 
 #make_your_own {
   margin: 2em 0;
-}
-
-.grid {
-  display: flex;
-  flex-flow: row wrap;
-  justify-content: left;
-  padding: 1rem;
-}
-
-.grid a {
-  width: 25%;
-  aspect-ratio: 1.0;
-}
-
-#vowels img {
-  filter: hue-rotate(90deg);
-}
-
-@media(orientation:landscape) {
-  .grid a {
-    width: 12.5%;
-  }
-}
-
-.grid a img {
-  width: 100%;
-  height: auto;
 }
 
 #tabs {
@@ -99,10 +72,14 @@
   display: none;
 }
 
-#examples[tab=others] #others {
+#examples[tab=others] .grid#others {
   display: flex;
 }
 
-#examples[tab=vowels] #vowels {
+#examples[tab=vowels] .grid#vowels {
   display: flex;
+}
+
+#vowels img {
+  filter: hue-rotate(90deg);
 }

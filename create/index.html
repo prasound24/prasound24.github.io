@@ -24,8 +24,6 @@
 
   <p>Click the button to start recording or <span id="upload"><u>upload audio</u></span>.</p>
 
-  <p id="file_error"></p>
-
   <div id="wave_wrapper">
     <div id="wave_wrapper_1">
       <div id="wave_wrapper_2">
@@ -54,19 +52,25 @@
     </div>
   </div>
 
-  <div style="position:relative; height:0; font-size:0.75rem; width:100%">
-    <p id="audio_name" class="extras"></p>
-    <p id="audio_info" class="extras"></p>
+  <div id="art_main">
+    <div style="position:relative; height:0; font-size:0.75rem; width:100%">
+      <p id="audio_name" class="extras"></p>
+      <p id="audio_info" class="extras"></p>
+    </div>
+
+    <canvas id="disk" class="wide" width="1024" height="1024"></canvas>
+
+    <div id="img_info">
+      <button id="download_image" class="small_btn"><img src="/img/ico/save.png">&nbsp;Save</button>
+    </div>
   </div>
 
-  <canvas id="rect" class="wide" width="1024" height="1024"></canvas>
-  <canvas id="disk" class="wide" width="1024" height="1024"></canvas>
-
-  <div id="img_info">
-    <button id="download_image" class="small_btn"><img src="/img/ico/save.png">&nbsp;Save</button>
+  <div class="grid">
+    <!-- sample -->
+    <a class="progress"><img loading="lazy"></a>
   </div>
 
-  <div class="buttons" style="margin-top:2em">
+  <div id="buy_buttons" class="buttons" style="margin-top:2em">
     <a href="/preview"><img src="/img/ico/cart.png">&nbsp;Buy a hi-res version</a>
   </div>
 

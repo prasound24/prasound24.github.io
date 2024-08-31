@@ -6,7 +6,7 @@ let { dcheck, clamp, fireballRGB, resampleDisk, reverseDiskMapping, Float32Tenso
 let img_rect = null;
 
 onmessage = (e) => {
-  console.log('received command:', e.data.type);
+  // console.log('received command:', e.data.type);
   switch (e.data.type) {
     case 'wave_1d':
       drawStringOscillations(e.data.signal, e.data.config);

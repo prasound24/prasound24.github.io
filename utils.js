@@ -389,74 +389,170 @@ export function setUncaughtErrorHandlers(handler = null) {
 
 // An indexedDB wrapper:
 //
-//    db = DB.open("foo");
-//    tab = db.openTable("bar");
+//    tab = DB.open("foo/bar");
 //    await tab.set("key", "value");
 //    val = await tab.get("key");
-//
-//    tab = DB.open("foo/bar"); // short form
 //
 export class DB {
   static open(name) {
     if (name.indexOf('/') < 0)
-      return new DB(name);
+      return DB.conns[name] = DB.conns[name] || new DB(name);
     let [db_name, tab_name, ...etc] = name.split('/');
     dcheck(etc.length == 0);
-    return DB.open(db_name).openTable(tab_name);
+    return DB.open(db_name).open(tab_name);
   }
 
   static get(key_path) {
     let [db_name, tab_name, key_name, ...etc] = key_path.split('/');
     dcheck(etc.length == 0);
-    return DB.open(db_name).openTable(tab_name).get(key_name);
+    return DB.open(db_name).open(tab_name).get(key_name);
   }
 
   static set(key_path, val) {
     let [db_name, tab_name, key_name, ...etc] = key_path.split('/');
     dcheck(etc.length == 0);
-    return DB.open(db_name).openTable(tab_name).set(key_name, val);
+    return DB.open(db_name).open(tab_name).set(key_name, val);
+  }
+
+  // DB.keys('db2/table3');
+  // DB.keys('db2');
+  // DB.keys();
+  static keys(key_path = '') {
+    let [db_name, tab_name, ...etc] = key_path.split('/');
+    dcheck(etc.length == 0);
+    if (tab_name)
+      return DB.open(db_name).open(tab_name).keys();
+    if (db_name)
+      return DB.open(db_name).keys();
+    return indexedDB.databases().then(rs => rs.map(r => r.name));
+
+  }
+
+  // DB.remove('db2/table3/key4');
+  // DB.remove('db2/table3');
+  // DB.remove('db2');
+  static async remove(key_path = '') {
+    let [db_name, tab_name, key_name, ...etc] = key_path.split('/');
+    dcheck(etc.length == 0);
+    if (key_name)
+      return DB.open(db_name).open(tab_name).remove(key_name);
+    if (tab_name)
+      return DB.open(db_name).remove(tab_name);
+    if (db_name)
+      return DB.open(db_name).clear();
+    dcheck(false, 'Use DB.clear() instead.');
   }
 
   constructor(name) {
     dcheck(name.indexOf('/') < 0);
     this.name = name;
-    this.version = 1;
-    this.tnames = new Set();
+    this.tables = {};
+    this.changes = new Map
+    this._ready = null;
+    this._db = null;
   }
-  openTable(name) {
-    if (this.tnames.has(name))
-      throw new Error(`Table ${this.name}.${name} is alredy opened.`);
-    let t = new IndexedDBTable(name, this);
-    this.tnames.add(name);
-    return t;
+
+  async keys() {
+    let db = await this.sync();
+    return [...db.objectStoreNames];
   }
-  _init() {
-    if (this.ready)
-      return this.ready;
-    let time = Date.now();
-    this.ready = new Promise((resolve, reject) => {
-      let req = indexedDB.open(this.name, this.version);
+
+  async remove(tab_name) {
+    delete this.tables[tab_name];
+    this.changes.set(tab_name, -1);
+    await this.sync();
+  }
+
+  open(name) {
+    if (!this.tables[name]) {
+      this.tables[name] = new IndexedDBTable(name, this);
+      this.changes.set(name, +1);
+    }
+    return this.tables[name];
+  }
+
+  async clear() {
+    await new Promise((resolve, reject) => {
+      let r = indexedDB.deleteDatabase(this.name);
+      r.onerror = () => reject(new Error(`Failed to delete DB ${this.name}: ${r.error}`));
+      r.onblocked = r.onerror;
+      r.onsuccess = () => resolve();
+    });
+    this.tables = {};
+    this.changes.clear();
+    this._ready = null;
+    this._db = null;
+  }
+
+  async sync() {
+    return (this._ready = this._ready || this._sync()).then(() => {
+      this._ready = null;
+      return this._db;
+    });
+  }
+
+  async _sync() {
+    // the initial fetch of the db state
+    if (!this._db)
+      this._db = await this._upgrade(0);
+
+    while (this._applyChanges(this._db, false)) {
+      let ver = 1 + parseInt(this._db.version);
+      this._db.close();
+      this._db = null;
+      this._db = await this._upgrade(ver);
+    }
+
+    this.changes.clear();
+    return this._db;
+  }
+
+  _applyChanges(db, apply = false) {
+    let changed = false;
+    let current = new Set(db.objectStoreNames);
+
+    for (let [t, ch] of this.changes.entries()) {
+      if (ch > 0 && !current.has(t)) {
+        // apply && log('[db] create', db.name + '/' + t);
+        apply && db.createObjectStore(t);
+        changed = true;
+      }
+      if (ch < 0 && current.has(t)) {
+        // apply && log('[db] delete', db.name + '/' + t);
+        apply && db.deleteObjectStore(t);
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  // version=0 fetches the current state without applying changes
+  _upgrade(version) {
+    return new Promise((resolve, reject) => {
+      // log(`[db] opening db ${this.name}, version ${version}`);
+      let req = indexedDB.open(this.name, version || undefined);
+
+      // only when version > 0
       req.onupgradeneeded = (e) => {
-        log(this.name + ':upgradeneeded');
         let db = e.target.result;
-        for (let tname of this.tnames) {
-          log('Opening a table:', tname);
-          db.createObjectStore(tname);
-        }
+        // log('[db]', this.name + ':upgradeneeded', db.version);
+        this._applyChanges(db, true);
+        this.changes.clear();
       };
       req.onsuccess = (e) => {
-        // log(this.name + ':success', Date.now() - time, 'ms');
-        this.db = e.target.result;
-        resolve(this.db);
+        // log('[db]', this.name + ':success', e.target.result.version);
+        resolve(e.target.result);
       };
-      req.onerror = e => {
-        console.error(this.name + ':error', e);
+      req.onerror = (e) => {
+        // console.error('[db]', this.name + ':error', e);
         reject(e);
       };
     });
-    return this.ready;
   }
 }
+
+DB.conns = {};
 
 class IndexedDBTable {
   constructor(name, db) {
@@ -465,7 +561,7 @@ class IndexedDBTable {
     this.db = db;
   }
   async get(key) {
-    let db = await this.db._init();
+    let db = await this.db.sync();
     return new Promise((resolve, reject) => {
       let t = db.transaction(this.name, 'readonly');
       let s = t.objectStore(this.name);
@@ -475,8 +571,9 @@ class IndexedDBTable {
     });
   }
   async set(key, value) {
-    let db = await this.db._init();
+    let db = await this.db.sync();
     await new Promise((resolve, reject) => {
+      // log('[db]', db.name + ':' + this.name + '.set');
       let t = db.transaction(this.name, 'readwrite');
       let s = t.objectStore(this.name);
       let r = s.put(value, key);
@@ -485,7 +582,7 @@ class IndexedDBTable {
     });
   }
   async remove(key) {
-    let db = await this.db._init();
+    let db = await this.db.sync();
     await new Promise((resolve, reject) => {
       let t = db.transaction(this.name, 'readwrite');
       let s = t.objectStore(this.name);
@@ -495,7 +592,7 @@ class IndexedDBTable {
     });
   }
   async keys() {
-    let db = await this.db._init();
+    let db = await this.db.sync();
     return new Promise((resolve, reject) => {
       let t = db.transaction(this.name, 'readonly');
       let s = t.objectStore(this.name);

@@ -1,27 +1,31 @@
 import * as utils from '../utils.js';
 
 const { $, sleep, clamp, check, dcheck, DB } = utils;
-const DB_PATH_AUDIO = 'user_samples/_last/audio';
-const DB_PATH_IMAGE = 'user_samples/_last/image';
-const DB_PATH_CONFIG = 'user_samples/_last/config';
+const DB_PATH = 'user_samples';
+const DB_PATH_AUDIO = DB_PATH + '/_last/audio';
+const DB_PATH_IMAGE = DB_PATH + '/_last/image';
+const DB_PATH_CONFIG = DB_PATH + '/_last/config';
+const DB_TEMP = 'temp_sounds';
+const DB_TEMP_SOUNDS = DB_TEMP + '/sounds';
+const DB_TEMP_IMAGES = DB_TEMP + '/images';
+const DB_TEMP_CONFIGS = DB_TEMP + '/configs';
 const TEMP_GRADIENT = '/img/blackbody.png';
 
-let conf = {};
-conf.sampleRate = 48000;
-conf.stringLen = 1024;
-conf.numSteps = 1024;
-conf.imageSize = 2048;
-conf.damping = -3.1;
-conf.symmetry = 2;
-conf.brightness = 0.3;
-conf.exposure = -6.0;
-conf.maxDuration = 15.0; // sec
-conf.maxFileSize = 1e6;
-conf.silenceThreshold = 0.003;
-conf.silencePadding = 2.0;
-conf.color = null;
-conf.hue = 0; // 0..360 degrees
-conf.showDisk = true;
+let gconf = {};
+gconf.sampleRate = 48000;
+gconf.stringLen = 436;
+gconf.numSteps = 1024;
+gconf.imageSize = 2048;
+gconf.damping = -3.1;
+gconf.symmetry = 2;
+gconf.brightness = 0.3;
+gconf.exposure = -6.0;
+gconf.maxDuration = 15.0; // sec
+gconf.maxFileSize = 100e3; // 100 KB
+gconf.silenceThreshold = 0.003;
+gconf.silencePadding = 2.0;
+gconf.color = null;
+gconf.hue = 0; // 0..360 degrees
 
 let bg_thread = null;
 let recorder = null;
@@ -38,7 +42,7 @@ let mem = {
   sig_end: 0, // sec
 };
 
-window.conf = conf;
+window.conf = gconf;
 window.utils = utils;
 window.onload = init;
 utils.setUncaughtErrorHandlers((err) => {
@@ -58,10 +62,12 @@ async function init() {
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
 
-  if (await loadAudioSignal()) {
-    await drawWaveform();
-    await redrawImg();
-  }
+  // if (await showMultipleFiles() == 0) {
+    if (await loadAudioSignal()) {
+      await drawWaveform();
+      await redrawImg();
+    }
+  // }
 }
 
 function initSettings() {
@@ -85,7 +91,7 @@ function initSettings() {
     addStep: (x, d) => (x + 10 * d + 360) % 360,
     toText: (x) => x.toFixed(0),
     onChanged: () => {
-      $('#disk').style.filter = 'hue-rotate(' + conf.hue + 'deg)';
+      $('#disk').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
       saveImageConfig();
     },
   });
@@ -109,7 +115,7 @@ function initSettings() {
 
   initSetting('imageSize', {
     debug: true,
-    addStep: (x, d) => clamp(x * 2 ** d, 512, 4096),
+    addStep: (x, d) => clamp(x * 2 ** d, 256, 4096),
     onChanged: () => {
       // conf.stringLen = conf.imageSize;
       // conf.numSteps = conf.imageSize / 2;
@@ -119,13 +125,13 @@ function initSettings() {
 
   initSetting('numSteps', {
     debug: true,
-    addStep: (x, d) => clamp(x * 2 ** d, 512, 4096),
+    addStep: (x, d) => clamp(x * 2 ** d, 128, 4096),
     onChanged: () => redrawImg(),
   });
 
   initSetting('stringLen', {
     debug: true,
-    addStep: (x, d) => clamp(x * 2 ** d, 256, 8192),
+    addStep: (x, d) => clamp(x * 2 ** d, 54, 8192),
     onChanged: () => redrawImg(),
   });
 
@@ -140,17 +146,10 @@ function initSettings() {
     toText: (x) => x.toFixed(1),
     onChanged: () => redrawImg(),
   });
-
-  initSetting('showDisk', {
-    debug: true,
-    addStep: (x, d) => clamp(x + d, 0, 1),
-    toText: (x) => +x,
-    onChanged: (x) => document.body.classList.toggle('show_disk', x),
-  });
 }
 
 function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText }) {
-  dcheck(name in conf);
+  dcheck(name in gconf);
   let settings = $('#settings');
   let setting = settings.firstElementChild.cloneNode(true);
   settings.append(setting);
@@ -163,7 +162,7 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
   setting.querySelector('s').textContent = units || '';
   setting.querySelector('div').textContent =
     name.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase());
-  value.textContent = toText(conf[name]);
+  value.textContent = toText(gconf[name]);
   setting.querySelector('i').onclick = changeValue;
   setting.querySelector('b').onclick = changeValue;
 
@@ -171,13 +170,13 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
 
   async function changeValue(e) {
     let dir = e.target.textContent == '+' ? +1 : -1;
-    let x = addStep(conf[name], dir);
-    if (x == conf[name])
+    let x = addStep(gconf[name], dir);
+    if (x == gconf[name])
       return;
-    conf[name] = x;
+    gconf[name] = x;
     value.textContent = toText(x);
     clearTimeout(timer);
-    timer = setTimeout(() => onChanged(conf[name]), delay * 1000);
+    timer = setTimeout(() => onChanged(gconf[name]), delay * 1000);
   }
 }
 
@@ -204,7 +203,7 @@ async function initTempGradientImg() {
     dcheck(r[x] + g[x] + b[x] >= 0.0);
   }
 
-  conf.color = { r, g, b };
+  gconf.color = { r, g, b };
   console.log('temperature gradient:', r.length, img.src);
 }
 
@@ -217,7 +216,7 @@ function initTempGradient421() {
     b[i] = clamp(i / n * 1);
   }
 
-  conf.color = { r, g, b };
+  gconf.color = { r, g, b };
 }
 
 function initMouseEvents() {
@@ -275,7 +274,7 @@ function initMouseEvents() {
   }
 
   function move(dx) {
-    let diff = dx / wrapper.clientWidth * mem.audio_signal.length / conf.sampleRate;
+    let diff = dx / wrapper.clientWidth * mem.audio_signal.length / gconf.sampleRate;
     if (target.id == 'ptr_start')
       setSilenceMarks(mem.sig_start + diff, mem.sig_end);
     if (target.id == 'ptr_end')
@@ -283,29 +282,144 @@ function initMouseEvents() {
   }
 }
 
+async function saveMultipleFiles(files) {
+  let time = Date.now();
+  console.log('Cleaning up old sounds');
+  await DB.remove(DB_TEMP_SOUNDS);
+  await DB.remove(DB_TEMP_IMAGES);
+  await DB.remove(DB_TEMP_CONFIGS);
+
+  console.log('Saving sounds to DB');
+  let db_id_base = new Date().toJSON().replace(/[-:T]|\.\d+Z$/g, '');
+  let count = 0;
+  let additions = [...files].map(async (file) => {
+    count++;
+    let sid = db_id_base + '_' + count; // sound id
+
+    try {
+      checkFileSize(file);
+      await DB.set(DB_TEMP_SOUNDS + '/' + sid, file);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  await Promise.all(additions);
+  console.log('Sounds saved in', Date.now() - time, 'ms');
+}
+
+async function showMultipleFiles() {
+  let time = Date.now();
+  let sound_ids = await DB.keys(DB_TEMP_SOUNDS);
+  if (sound_ids.length == 0)
+    return 0;
+
+  let grid = $('.grid');
+  let sample = grid.firstElementChild;
+  let sounds = new Map; // sid -> {a, audio, image, config}
+
+  for (let a of grid.querySelectorAll('a'))
+    if (a !== sample)
+      a.remove();
+
+  for (let sid of sound_ids) {
+    let a = sample.cloneNode(true);
+    a.setAttribute('sid', sid);
+    grid.append(a);
+    sounds.set(sid, { a });
+  }
+
+  // this must be done quickly
+  document.body.classList.add('multifile');
+
+  console.log('Reading audio files from DB:', sounds.size);
+  let reads = sound_ids.map(async (sid) => {
+    let s = sounds.get(sid);
+    s.audio = await DB.get(DB_TEMP_SOUNDS + '/' + sid); // File
+    s.image = await DB.get(DB_TEMP_IMAGES + '/' + sid);
+    s.config = await DB.get(DB_TEMP_CONFIGS + '/' + sid);
+  });
+  await Promise.all(reads);
+
+  console.log('Updating the sound images');
+  for (let [sid, s] of sounds.entries()) {
+    let { a, audio, image, config } = s;
+
+    try {
+      a.title = audio.name;
+      a.href = '/create?src=db:' + sid;
+
+      if (!image) {
+        console.log('Rendering sound image:', audio.name);
+        config = config || adjustConfigToImgSize(gconf, 512);
+        let signal = await utils.decodeAudioFile(audio, config.sampleRate);
+        signal = padAudioWithSilence(signal);
+        let [ll, rr] = findSilenceMarks(signal, conf.silenceThreshold);
+        signal = signal.subarray(ll, -1);
+        let canvas = document.createElement('canvas');
+        await drawStringOscillations(signal, canvas, config);
+        await drawDiskImage(canvas, config);
+        image = await new Promise(resolve =>
+          canvas.toBlob(resolve, 'image/jpeg', 0.85));
+        await DB.set(DB_TEMP_IMAGES + '/' + sid, image);
+      }
+
+      let img = a.querySelector('img');
+      img.src = URL.createObjectURL(image);
+      a.className = image ? '' : 'ready';
+    } catch (err) {
+      a.className = 'error';
+      console.error('Failed to process ' + sid + ':', err);
+    }
+  }
+
+  console.log('Sounds displayed in', Date.now() - time, 'ms');
+  return sound_ids.length;
+}
+
+function adjustConfigToImgSize(conf, img_size) {
+  conf = getSerializableConfig(conf);
+  let scale = img_size / conf.imageSize;
+  scale = 2 ** Math.ceil(Math.log2(scale));
+  dcheck(scale > 0);
+  conf.imageSize *= scale;
+  conf.numSteps *= scale;
+  conf.stringLen *= scale;
+  conf.sampleRate *= scale;
+  return conf;
+}
+
+function checkFileSize(file) {
+  if (file.size <= gconf.maxFileSize)
+    return;
+  let max = (gconf.maxFileSize / 1024).toFixed(0) + ' KB';
+  let cur = (file.size / 1024).toFixed(0) + ' KB';
+  throw new Error('The max file size is ' + max + '. ' +
+    'The selected file "' + file.name + '" is ' + cur + '.');
+}
 
 async function uploadAudio() {
   if (is_drawing) return;
-  mem.audio_file = await utils.selectAudioFile();
-  mem.sig_start = mem.sig_end = 0;
+  let files = await utils.selectAudioFile({ multiple: true });
 
-  let erm = $('#file_error');
-  if (mem.audio_file.size <= conf.maxFileSize) {
-    erm.textContent = '';
-  } else {
-    let max = (conf.maxFileSize / 1024).toFixed(0) + ' KB';
-    let cur = (mem.audio_file.size / 1024).toFixed(0) + ' KB';
-    erm.textContent = 'The max file size is ' + max + '. ' +
-      'The selected file "' + mem.audio_file.name + '" is ' + cur + '.';
+  if (files.length > 1) {
+    console.log('multiple files selected:', files.length);
+    await saveMultipleFiles(files);
+    await showMultipleFiles();
     return;
   }
+
+  mem.audio_file = files[0];
+  mem.sig_start = mem.sig_end = 0;
+
+  checkFileSize(mem.audio_file);
 
   await drawWaveform();
   await redrawImg();
 }
 
 async function decodeAudio() {
-  let sample_rate = conf.sampleRate;
+  let sample_rate = gconf.sampleRate;
   let file = mem.audio_file;
   let decoded = mem.decoded_audio || {};
 
@@ -347,32 +461,32 @@ async function drawWaveform() {
   }
 
   if (!mem.sig_start && !mem.sig_end) {
-    let [sleft, sright] = findSilenceMarks(mem.audio_signal, conf.silenceThreshold);
-    setSilenceMarks(sleft / conf.sampleRate, 0.1 + sright / conf.sampleRate);
+    let [sleft, sright] = findSilenceMarks(mem.audio_signal, gconf.silenceThreshold);
+    setSilenceMarks(sleft / gconf.sampleRate, 0.1 + sright / gconf.sampleRate);
   }
 }
 
 function updateAudioInfo() {
   $('#audio_name').textContent = mem.audio_name;
   $('#audio_info').textContent = getSelectedDuration().toFixed(2) + ' s, '
-    + (conf.sampleRate / 1000) + ' kHz, ' + (mem.audio_file.size / 1024).toFixed(1) + ' KB';
+    + (gconf.sampleRate / 1000) + ' kHz, ' + (mem.audio_file.size / 1024).toFixed(1) + ' KB';
 }
 
 function padAudioWithSilence(a) {
   let n = a.length;
-  let b = new Float32Array(n * conf.silencePadding);
+  let b = new Float32Array(n * gconf.silencePadding);
   b.set(a, (b.length - a.length) / 2);
   return b;
 }
 
 function setSilenceMarks(start_sec, end_sec) {
-  let sleft = start_sec * conf.sampleRate;
-  let sright = end_sec * conf.sampleRate;
+  let sleft = start_sec * gconf.sampleRate;
+  let sright = end_sec * gconf.sampleRate;
   sright = Math.max(sright, sleft);
   sleft = clamp(sleft, 0, mem.audio_signal.length - 1);
   sright = clamp(sright, 0, mem.audio_signal.length - 1);
-  mem.sig_start = sleft / conf.sampleRate;
-  mem.sig_end = sright / conf.sampleRate;
+  mem.sig_start = sleft / gconf.sampleRate;
+  mem.sig_end = sright / gconf.sampleRate;
   let l = sleft * 100 / mem.audio_signal.length;
   let r = sright * 100 / mem.audio_signal.length;
   $('#wave_start').style.width = l.toFixed(2) + 'vw';
@@ -386,8 +500,8 @@ function getSelectedDuration() {
 }
 
 function getSelectedAudio() {
-  let from = mem.sig_start * conf.sampleRate;
-  let to = mem.sig_end * conf.sampleRate;
+  let from = mem.sig_start * gconf.sampleRate;
+  let to = mem.sig_end * gconf.sampleRate;
   return mem.audio_signal.subarray(from, to);
 }
 
@@ -432,13 +546,11 @@ async function redrawImg() {
   is_drawing = true;
 
   try {
-    document.body.classList.remove('show_disk');
     await drawStringOscillations();
     await sleep(10);
-    await drawDiskImage(false);
-    document.body.classList.add('show_disk');
+    await drawDiskImage();
     await sleep(10);
-    // await drawDiskImage(true);
+    // await drawDiskImage({smooth:true});
     // await sleep(10);
     await saveDiskImage();
     await saveImageConfig();
@@ -456,7 +568,7 @@ function normalizeAudioSignal(sig) {
     sum += utils.sqr(sig[i]);
   if (!sum) return;
 
-  let sq2 = Math.sqrt(sum / sig.length * conf.sampleRate);
+  let sq2 = Math.sqrt(sum / sig.length * gconf.sampleRate);
   for (let i = 0; i < sig.length; i++)
     sig[i] /= sq2;
 }
@@ -506,25 +618,20 @@ function postCommand({ command, handlers }) {
   };
 }
 
-function getSerializableConfig() {
-  let config = {};
-  for (let i in conf)
-    if (typeof conf[i] != 'function')
-      config[i] = conf[i];
-  return config;
+function getSerializableConfig(cfg = gconf) {
+  return JSON.parse(JSON.stringify(cfg));
 }
 
-async function drawStringOscillations(signal = getSelectedAudio()) {
-  let width = conf.stringLen; // oscillating string length
-  let canvas = $('canvas#rect');
-  canvas.width = conf.stringLen;
-  canvas.height = conf.numSteps;
+async function drawStringOscillations(signal = getSelectedAudio(), canvas = $('canvas#disk'), cfg = gconf) {
+  let width = cfg.stringLen; // oscillating string length
+  canvas.width = cfg.stringLen;
+  canvas.height = cfg.numSteps;
   let ctx = canvas.getContext('2d', { willReadFrequently: true });
   let img = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
   await new Promise((resolve) => {
     postCommand({
-      command: { type: 'wave_1d', signal, config: getSerializableConfig() },
+      command: { type: 'wave_1d', signal, config: getSerializableConfig(cfg) },
       handlers: {
         img_data: (e) => {
           let img_data = e.data.img_data;
@@ -543,9 +650,9 @@ async function drawStringOscillations(signal = getSelectedAudio()) {
   await sleep(5);
 }
 
-async function drawDiskImage(smooth = false) {
-  let ds = conf.imageSize;
-  let config = getSerializableConfig();
+async function drawDiskImage(canvas = $('canvas#disk'), cfg = gconf, { smooth = false } = {}) {
+  let ds = cfg.imageSize;
+  let config = getSerializableConfig(cfg);
   config.smooth = smooth;
 
   let img_data = await new Promise((resolve) => {
@@ -557,7 +664,6 @@ async function drawDiskImage(smooth = false) {
     });
   });
 
-  let canvas = $('canvas#disk');
   canvas.width = ds;
   canvas.height = ds;
   let ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -591,13 +697,13 @@ async function downloadAudio() {
 
 async function playAudioSignal() {
   if (mem.audio_signal)
-    await utils.playSound(getSelectedAudio(), conf.sampleRate);
+    await utils.playSound(getSelectedAudio(), gconf.sampleRate);
 }
 
 async function saveAudioSignal() {
   try {
     if (!mem.audio_signal) return;
-    let blob = utils.generateWavFile(mem.audio_signal, conf.sampleRate);
+    let blob = utils.generateWavFile(mem.audio_signal, gconf.sampleRate);
     let file = new File([blob], mem.audio_name, { type: blob.type });
     console.log('Saving audio to DB:', file.size, file.type);
     await DB.set(DB_PATH_AUDIO, file);
@@ -613,10 +719,14 @@ async function loadAudioSignal() {
 
     if (src) {
       console.log('loading audio file:', src);
-      let res = await fetch('/mp3/' + src + '.mp3');
-      check(res.status == 200, src + '.mp3 not found');
-      let blob = await res.blob();
-      mem.audio_file = new File([blob], src + '.mp3', { type: blob.type });
+      if (src.startsWith('db:')) {
+        mem.audio_file = await DB.get(DB_PATH + '/' + src.slice(3) + '/audio');
+      } else {
+        let res = await fetch('/mp3/' + src + '.mp3');
+        check(res.status == 200, src + '.mp3 not found');
+        let blob = await res.blob();
+        mem.audio_file = new File([blob], src + '.mp3', { type: blob.type });
+      }
     } else {
       console.log('loading audio signal from DB');
       mem.audio_file = await DB.get(DB_PATH_AUDIO);
@@ -642,7 +752,7 @@ async function stopRecording() {
 }
 
 async function recordAudio() {
-  recorder = await utils.recordMic({ sample_rate: conf.sampleRate });
+  recorder = await utils.recordMic({ sample_rate: gconf.sampleRate });
   let wave_drawer = initWaveformDrawer();
   let num_samples = 0, duration_sec = '';
   let label = $('#stop_recording span');
@@ -651,8 +761,8 @@ async function recordAudio() {
   document.body.classList.add('recording');
 
   recorder.onaudiochunk = (chunk) => {
-    let xmin = num_samples / conf.sampleRate / conf.maxDuration;
-    let xlen = chunk.length / conf.sampleRate / conf.maxDuration;
+    let xmin = num_samples / gconf.sampleRate / gconf.maxDuration;
+    let xlen = chunk.length / gconf.sampleRate / gconf.maxDuration;
     wave_drawer.draw(chunk, [xmin, xmin + xlen]);
     num_samples += chunk.length;
     updateButton();
@@ -661,7 +771,7 @@ async function recordAudio() {
   };
 
   function updateButton() {
-    let ts = '00:' + ('0' + (num_samples / conf.sampleRate).toFixed(2)).slice(-6);
+    let ts = '00:' + ('0' + (num_samples / gconf.sampleRate).toFixed(2)).slice(-6);
     if (ts == duration_sec)
       return;
     duration_sec = ts;

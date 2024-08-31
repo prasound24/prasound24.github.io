@@ -199,3 +199,27 @@ button[disabled]:hover {
   padding: 1em;
   text-align: left;
 }
+
+.grid {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: left;
+  padding: 1rem;
+}
+
+.grid a {
+  width: 25%;
+  aspect-ratio: 1.0;
+}
+
+@media(orientation:landscape) {
+  .grid a {
+    width: 12.5%;
+  }
+}
+
+.grid a img {
+  width: 100%;
+  height: auto;
+}
+
