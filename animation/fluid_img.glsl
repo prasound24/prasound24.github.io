@@ -5,7 +5,7 @@ vec3 fire_rgb(float t) {
 
 void mainImage(out vec4 o, in vec2 p) {
   vec4 c = texture(iChannel0, p.xy / iResolution.xy);
-  o.rgb = fire_rgb(c.z - 0.5).gbr; // density
-  //o.rgb += 0.2*fire_rgb(c.w).rgb; // ink
-  //o.rgb += 0.1*fire_rgb(length(c.xy)).grb; // velocity
+  o.rgb += fire_rgb(c.z - 0.5).gbr; // pressure
+  //o.rgb += fire_rgb(c.w).rgb; // ink
+  //o.rgb += fire_rgb(length(c.xy)).grb; // velocity
 }
