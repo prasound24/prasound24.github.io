@@ -83,3 +83,9 @@
 #vowels img {
   filter: hue-rotate(90deg);
 }
+
+/* https://en.wikipedia.org/wiki/Piano_key_frequencies */
+
+img.Cs4 {
+  filter: hue-rotate(30deg);
+}
