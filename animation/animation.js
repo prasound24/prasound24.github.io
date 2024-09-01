@@ -6,8 +6,9 @@ const { $, DB, fetchText, fetchRGBA } = utils;
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
 const DEFAULT_IMG_ID = 'flute_6';
-const CW = 2048, CH = 2048;
+const CW = 1024, CH = CW;
 let canvas = $('canvas#webgl');
+let shaders = {};
 let conf = {};
 
 initImgRGBA();
@@ -44,26 +45,31 @@ async function initImgRGBA(width, height) {
   return await fetchRGBA(img_url, width, height);
 }
 
-async function initShader(ctx, glsl_url) {
+async function initShader(ctx, filename) {
   let adapter = await fetchText('./adapter.glsl');
-  let user_shader = await fetchText(glsl_url);
-  let fshader = adapter.replace('//${USER_SHADER}', user_shader);
-  return ctx.createTransformProgram({ fshader });
+  let user_shader = await fetchText('./' + filename + '.glsl');
+  let fshader = adapter.replace('//#include ${USER_SHADER}', user_shader);
+  shaders[filename] = ctx.createTransformProgram({ fshader });
 }
 
 async function initWebGL() {
-  window.onresize = resizeCanvas;
-  resizeCanvas();
+  // window.onresize = resizeCanvas;
+  // resizeCanvas();
+  canvas.width = CW;
+  canvas.height = CH;
 
   let ctx = new GpuContext(canvas);
   ctx.init();
 
-  let shader_img = await initShader(ctx, './fluid_img.glsl');
-  let shader_ch1 = await initShader(ctx, './fluid_ch0.glsl');
+  await initShader(ctx, 'fireball');
+  await initShader(ctx, 'fluid_img');
+  await initShader(ctx, 'fluid_ch0');
   let img = await initImgRGBA(CW, CH);
-  let iChannel1 = ctx.createFrameBufferFromRGBA(img);
+  let iChannel2 = ctx.createFrameBufferFromRGBA(img);
+  let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
   let bufferA = ctx.createFrameBuffer(CW, CH, 4);
+  let bufferB = ctx.createFrameBuffer(CW, CH, 4);
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
 
@@ -85,27 +91,35 @@ async function initWebGL() {
       iTime,
       iFrame: iFrame++,
       iResolution,
-      iChannelResolution0: [iChannel0.width, iChannel0.height],
-      iChannelResolution1: [iChannel1.width, iChannel1.height],
       iChannel0,
       iChannel1,
+      iChannel2,
     };
 
-    shader_img.draw(args);
-    shader_ch1.draw(args, bufferA);
+    // image RGBA -> iChannel2
+    // #fireball -> bufferB
+    // iChannel0,1,2 -> #fluid_ch0 -> bufferA
+    // #fluid_img -> canvas
+    // bufferA -> iChannel0
+    // bufferB -> iChannel1
+
+    shaders['fireball'].draw(args, bufferB);
+    shaders['fluid_ch0'].draw(args, bufferA);
+    shaders['fluid_img'].draw(args);
+
     [iChannel0, bufferA] = [bufferA, iChannel0];
+    [iChannel1, bufferB] = [bufferB, iChannel1];
 
-    if (!time_msec)
-      return;
-
-    stats.frames++;
-    if (time_msec > stats.time + 5000) {
-      let fps = stats.frames / (time_msec - stats.time) * 1000;
-      console.log(fps.toFixed(0) + ' fps');
-      stats.time = time_msec;
-      stats.frames = 0;
+    if (time_msec) {
+      stats.frames++;
+      if (time_msec > stats.time + 5000) {
+        let fps = stats.frames / (time_msec - stats.time) * 1000;
+        console.log(fps.toFixed(0) + ' fps');
+        stats.time = time_msec;
+        stats.frames = 0;
+      }
+      animationId = requestAnimationFrame(drawFrame);
     }
-    animationId = requestAnimationFrame(drawFrame);
   }
 
   animationId = requestAnimationFrame(drawFrame);
