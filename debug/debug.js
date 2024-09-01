@@ -1,6 +1,6 @@
 import * as utils from '../utils.js';
 
-const { $, dcheck, resampleSignal } = utils;
+const { $, clamp, dcheck, resampleSignal } = utils;
 
 const AUDIO_URL = '/mp3/flute_A4_1_forte_normal.mp3';
 const SAMPLE_RATE_1 = 48000;
@@ -14,26 +14,46 @@ async function start() {
 }
 
 async function testImage() {
-  showTempGradient(utils.blackbodyRGB);
-  showTempGradient(t => [t * 2, (t * 2) ** 2 * 0.4, (t * 2) ** 3 * 0.15]);
-  showTempGradient(t => [t * 4, t * 2, t]);
+  showTempGradient(utils.blackbodyRGB, 'blackbody');
+  
+  let tc = t => t ** 4.0;
+  showTempGradient(t => [tc(t / 0.45), tc(t / 0.62), tc(t)], 'bb-sim');
+
+  showTempGradient(utils.fireballRGB, 'fireball');
+  showTempGradient(t => [t * 4, t * 2, t], '421');
 }
 
-function showTempGradient(temp) {
-  let w = 1024;
+function showTempGradient(temp, title) {
+  let w = 1024, h = 128;
   let canvas = document.createElement('canvas');
+  canvas.title = title;
   canvas.width = w;
-  canvas.height = 1;
+  canvas.height = h;
 
   let ctx = canvas.getContext('2d');
-  let img = ctx.getImageData(0, 0, w, 1);
+  let img = ctx.getImageData(0, 0, w, h);
+  let img32 = new Uint32Array(img.data.buffer);
 
   for (let x = 0; x < w; x++) {
     let [r, g, b] = temp(x / w);
-    img.data[4 * x + 0] = 255 * r;
-    img.data[4 * x + 1] = 255 * g;
-    img.data[4 * x + 2] = 255 * b;
-    img.data[4 * x + 3] = 255;
+    let rgb32 = 0xFF000000;
+    rgb32 += Math.round(clamp(r) * 0xFF) << 0;
+    rgb32 += Math.round(clamp(g) * 0xFF) << 8;
+    rgb32 += Math.round(clamp(b) * 0xFF) << 16;
+
+    for (let y = 0; y < h; y++) {
+      let p = y * w + x;
+      let c = rgb32;
+
+      if (Math.abs(h - r * h - y + 0.5) < 1)
+        c = 0xFF0000FF;
+      if (Math.abs(h - g * h - y + 0.5) < 1)
+        c = 0xFF00FF00;
+      if (Math.abs(h - b * h - y + 0.5) < 1)
+        c = 0xFFFF0000;
+
+      img32[p] = c;
+    }
   }
 
   ctx.putImageData(img, 0, 0);
@@ -47,7 +67,7 @@ async function testAudio() {
 
   let a = await utils.decodeAudioFile(blob, SAMPLE_RATE_2);
 
-  for (let q = 1; q <= 24; q++) {
+  for (let q = 1; q <= 12; q++) {
     let b = resampleSignal(signal, a.length, q);
     dcheck(b.length == a.length);
     let avg = rmsqDiff(a, 0);
