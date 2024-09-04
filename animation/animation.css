@@ -1,3 +1,17 @@
 p {
   text-align: center;
 }
+
+#info {
+  height: 0;
+  position: absolute;
+  font-size: 0.75rem;
+  padding: 0.5em;
+}
+
+#fps {
+  position: relative;
+  left: 0;
+  top: 0;
+  z-index: 1;
+}

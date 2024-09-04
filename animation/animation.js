@@ -32,8 +32,8 @@ async function initImgRGBA(width, height) {
     if (file) {
       img_url = URL.createObjectURL(file);
       conf = await DB.get(DB_PATH_CONFIG);
-      if (conf.hue > 0)
-        canvas.style.filter = 'hue-rotate(' + conf.hue + 'deg)';
+      // if (conf.hue > 0)
+      //   canvas.style.filter = 'hue-rotate(' + conf.hue + 'deg)';
     } else {
       img_id = DEFAULT_IMG_ID;
     }
@@ -61,6 +61,7 @@ async function initWebGL() {
   let ctx = new GpuContext(canvas);
   ctx.init();
 
+  await initShader(ctx, 'sphere');
   await initShader(ctx, 'fireball');
   await initShader(ctx, 'fluid_img');
   await initShader(ctx, 'fluid_ch0');
@@ -68,8 +69,10 @@ async function initWebGL() {
   let iChannel2 = ctx.createFrameBufferFromRGBA(img);
   let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
+  let iChannel3 = ctx.createFrameBuffer(CW, CH, 4);
   let bufferA = ctx.createFrameBuffer(CW, CH, 4);
   let bufferB = ctx.createFrameBuffer(CW, CH, 4);
+  let bufferC = ctx.createFrameBuffer(CW, CH, 4);
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
 
@@ -84,37 +87,27 @@ async function initWebGL() {
     }
   };
 
-  function drawFrame(time_msec) {
+  function drawFrame(time_msec = 0) {
     let iTime = time_msec / 1000;
     let iResolution = [canvas.width, canvas.height];
-    let args = {
-      iTime,
-      iFrame: iFrame++,
-      iResolution,
-      iChannel0,
-      iChannel1,
-      iChannel2,
-    };
-
-    // image RGBA -> iChannel2
-    // #fireball -> bufferB
-    // iChannel0,1,2 -> #fluid_ch0 -> bufferA
-    // #fluid_img -> canvas
-    // bufferA -> iChannel0
-    // bufferB -> iChannel1
+    let args = { iTime, iFrame, iResolution, iChannel0, iChannel1, iChannel2, iChannel3 };
 
     shaders['fireball'].draw(args, bufferB);
     shaders['fluid_ch0'].draw(args, bufferA);
-    shaders['fluid_img'].draw(args);
+    shaders['fluid_img'].draw(args, bufferC);
+    shaders['sphere'].draw(args);
 
     [iChannel0, bufferA] = [bufferA, iChannel0];
     [iChannel1, bufferB] = [bufferB, iChannel1];
+    [iChannel3, bufferC] = [bufferC, iChannel3];
+
+    iFrame++;
 
     if (time_msec) {
       stats.frames++;
       if (time_msec > stats.time + 5000) {
         let fps = stats.frames / (time_msec - stats.time) * 1000;
-        console.log(fps.toFixed(0) + ' fps');
+        $('#fps').textContent = fps.toFixed(0) + ' fps';
         stats.time = time_msec;
         stats.frames = 0;
       }
