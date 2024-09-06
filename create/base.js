@@ -16,9 +16,10 @@ gconf.imageSize = 2048;
 gconf.damping = -3.1;
 gconf.stiffness = -10.0;
 gconf.frequency = -10.0;
+gconf.boundary = 1.0;
 gconf.symmetry = 2;
-gconf.brightness = 0.3;
-gconf.exposure = -6.0;
+gconf.brightness = 0.0;
+gconf.exposure = -2.0;
 gconf.maxDuration = 15.0; // sec
 gconf.maxFileSize = 100e3; // 100 KB
 gconf.silenceThreshold = 0.003;
@@ -135,7 +136,7 @@ function postWorkerCommand({ command, handlers }) {
   };
 }
 
-export async function drawStringOscillations(signal, canvas, cfg) {
+export async function drawStringOscillations(signal, canvas, cfg, { onprogress } = {}) {
   // let width = cfg.stringLen; // oscillating string length
   // canvas.width = cfg.stringLen;
   // canvas.height = cfg.numSteps;
@@ -147,12 +148,13 @@ export async function drawStringOscillations(signal, canvas, cfg) {
       command: { type: 'wave_1d', signal, config: clone(cfg) },
       handlers: {
         img_data: (e) => {
-          // let img_data = e.data.img_data;
-          // let [ymin, ymax] = e.data.rows;
-          // dcheck(img_data.length == (ymax - ymin + 1) * width * 4);
-          // img.data.set(img_data, ymin * width * 4);
-          // ctx.putImageData(img, 0, 0);
-          // console.debug('updted img data: ' + ymin + '..' + ymax);
+          let [ymin, ymax] = e.data.rows;
+          //let img_data = e.data.img_data;
+          //dcheck(img_data.length == (ymax - ymin + 1) * width * 4);
+          //img.data.set(img_data, ymin * width * 4);
+          //ctx.putImageData(img, 0, 0);
+          //console.debug('updated img data: ' + ymin + '..' + ymax);
+          onprogress?.call(null, ymax / cfg.numSteps);
         },
         img_done: (e) => resolve(),
       },
@@ -193,4 +195,18 @@ export function checkFileSize(file) {
   let cur = (file.size / 1024).toFixed(0) + ' KB';
   throw new Error('The max file size is ' + max + '. ' +
     'The selected file "' + file.name + '" is ' + cur + '.');
+}
+
+// value=0..100, or value=null to hide
+export function setCircleProgress(value = 100, svg = $('svg.progress')) {
+  let c = svg.querySelector('circle');
+  if (!c) {
+    let r = 100 / 2 / Math.PI, sw = 0.25;
+    svg.setAttribute('viewBox', [-r - sw / 2, -r - sw / 2, 2 * r + sw, 2 * r + sw].join(' '));
+    c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('r', r);
+    svg.append(c);
+  }
+  c.setAttribute('stroke-dashoffset', 100 - utils.clamp(Math.round(value), 0, 100));
+  svg.style.display = Number.isFinite(value) ? '' : 'none';
 }

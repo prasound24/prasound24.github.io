@@ -43,8 +43,9 @@ async function drawStringOscillations(signal, conf) {
   oscillator.dx = oscillator.dt;
 
   for (let t = 0; t < signal.length; t++) {
-    oscillator.wave[0] = signal[t];
     oscillator.update();
+    // oscillator.wave[0] = signal[t];
+    oscillator.wave[0] += oscillator.dt * (signal[t] - oscillator.wave[0]) * conf.boundary;
 
     for (let x = 0; x < width; x++) {
       let w = oscillator.wave[x] - signal[t];

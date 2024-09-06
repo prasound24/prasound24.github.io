@@ -25,24 +25,21 @@ body {
   font-style: normal;
 }
 
-canvas.wide,
-img.wide {
+.wide {
   width: 100%;
   height: auto;
 }
 
 @media(orientation:portrait) {
 
-  canvas.wide,
-  img.wide {
+  .wide {
     aspect-ratio: 1/1;
   }
 }
 
 @media(orientation:landscape) {
 
-  canvas.wide,
-  img.wide {
+  .wide {
     width: 100vh;
     height: 100vh;
     margin: 0 calc(50% - 50vh);
@@ -207,13 +204,13 @@ button[disabled]:hover {
   padding: 1rem;
 }
 
-.grid > * {
+.grid>* {
   width: 25%;
   aspect-ratio: 1.0;
 }
 
 @media(orientation:landscape) {
-  .grid > * {
+  .grid>* {
     width: 12.5%;
   }
 }
@@ -223,3 +220,15 @@ button[disabled]:hover {
   height: auto;
 }
 
+svg.progress {
+  transform: rotate(-90deg);
+}
+
+svg.progress circle {
+  stroke-width: 0.25;
+  fill: transparent;
+  stroke: #fff4;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  transition: stroke-dashoffset 0.5s;
+}

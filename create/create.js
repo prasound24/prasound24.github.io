@@ -88,14 +88,12 @@ function initSettings() {
   });
 
   initSetting('exposure', {
-    debug: true,
     addStep: (x, d) => clamp(x + d * 0.5, -9.5, -0.5),
     toText: (x) => x.toFixed(1),
     onChanged: () => redrawImg(),
   });
 
   initSetting('imageSize', {
-    debug: true,
     addStep: (x, d) => clamp(x * 2 ** d, 256, 4096),
     onChanged: () => {
       // conf.stringLen = conf.imageSize;
@@ -105,13 +103,11 @@ function initSettings() {
   });
 
   initSetting('numSteps', {
-    debug: true,
     addStep: (x, d) => clamp(x * 2 ** d, 128, 4096),
     onChanged: () => redrawImg(),
   });
 
   initSetting('stringLen', {
-    debug: true,
     units: 'ms',
     addStep: (x, d) => clamp(x + d * 0.01, 1, 100),
     toText: (x) => x.toFixed(2),
@@ -119,8 +115,14 @@ function initSettings() {
   });
 
   initSetting('symmetry', {
-    debug: true,
     addStep: (x, d) => clamp(x + d, 1, 6),
+    onChanged: () => redrawImg(),
+  });
+
+  initSetting('boundary', {
+    debug: true,
+    addStep: (x, d) => clamp(x + d * 0.01, 0.0, 1.0),
+    toText: (x) => x.toFixed(2),
     onChanged: () => redrawImg(),
   });
 
@@ -393,15 +395,11 @@ function initWaveformDrawer(canvas = $('canvas#wave')) {
       return;
 
     for (let t = 0; t < sig.length; t++) {
-      let s = sig[t];
-      let a = (s - amin) / (amax - amin);
       let x = Math.round(cw * utils.mix(xmin, xmax, t / (sig.length - 1)));
-      let y = Math.round(ch * a);
-
-      if (x < 0 || x >= cw || y < 0 || y >= ch)
-        continue;
-
-      img.data[(y * cw + x) * 4 + 3] += 255 * cw / sig.length * 25;
+      let a = (sig[t] - amin) / (amax - amin);
+      let y = Math.round(ch * (1 - a));
+      if (x >= 0 || x < cw || y >= 0 || y < ch)
+        img.data[(y * cw + x) * 4 + 3] += 255 * cw / sig.length * 25;
     }
 
     let dirty_xmin = Math.floor(xmin * cw);
@@ -418,14 +416,11 @@ async function redrawImg() {
 
   let time = Date.now();
   is_drawing = true;
+  $('#error_info').textContent = '';
 
   try {
     await drawStringOscillations();
-    await sleep(10);
     await drawDiskImage();
-    await sleep(10);
-    // await drawDiskImage({smooth:true});
-    // await sleep(10);
     await saveDiskImage();
     await saveImageConfig();
   } finally {
@@ -448,7 +443,14 @@ function normalizeAudioSignal(sig) {
 }
 
 async function drawStringOscillations() {
-  await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf);
+  try {
+    base.setCircleProgress(0);
+    await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf, {
+      onprogress: (value) => base.setCircleProgress(value * 100 | 0),
+    });
+  } finally {
+    base.setCircleProgress(null);
+  }
 }
 
 async function drawDiskImage() {
