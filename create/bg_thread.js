@@ -23,7 +23,7 @@ async function drawStringOscillations(signal, conf) {
   // let upsampling = Math.max(1, Math.floor(100 * conf.stringLen / conf.sampleRate));
   // let signal_upsampled = utils.resampleSignal(signal, signal.length * upsampling);
   // console.log('Upsampling audio:', upsampling + 'x');
-  let width = conf.stringLen; // oscillating string length
+  let width = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
   let height = conf.numSteps;
   let oscillator = new StringOscillator({ width });
   let wave_min = new Float32Array(width);
@@ -36,10 +36,11 @@ async function drawStringOscillations(signal, conf) {
   img_rect = new Float32Tensor([height, width]);
 
   oscillator.damping = 10 ** conf.damping;
-  oscillator.driving = 0.0;
+  oscillator.frequency = 10 ** conf.frequency;
+  oscillator.stiffness = 10 ** conf.stiffness;
   oscillator.gravity = 0.0;
-  oscillator.dx = 1.0;
-  oscillator.dt = 1.0; // Math.min(1.0, width / height);
+  oscillator.dt = 1.0;
+  oscillator.dx = oscillator.dt;
 
   for (let t = 0; t < signal.length; t++) {
     oscillator.wave[0] = signal[t];

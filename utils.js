@@ -19,6 +19,7 @@ export const fract = (x) => x - Math.floor(x);
 export const reim2 = (re, im) => re * re + im * im;
 export const is_pow2 = (x) => (x & (x - 1)) == 0;
 export const hhmmss = (sec) => new Date(sec * 1000).toISOString().slice(11, -1);
+export const clone = (obj) => JSON.parse(JSON.stringify(obj));
 export const check = (x, msg = 'check failed') => { if (x) return; throw new Error(msg); }
 export const dcheck = (x, msg = 'check failed') => { if (x) return; debugger; throw new Error(msg); }
 
@@ -153,7 +154,7 @@ export async function decodeAudioFile(file, sample_rate = 48000) {
   }
 }
 
-export async function playSound(sound_data, sample_rate) {
+export async function playSound(sound_data, sample_rate, { onstarted } = {}) {
   let audio_ctx = new AudioContext({ sampleRate: sample_rate });
   try {
     let buffer = audio_ctx.createBuffer(1, sound_data.length, sample_rate);
@@ -162,6 +163,7 @@ export async function playSound(sound_data, sample_rate) {
     source.buffer = buffer;
     source.connect(audio_ctx.destination);
     source.start();
+    onstarted?.call(null);
     await new Promise(resolve => source.onended = resolve);
   } finally {
     audio_ctx.close();
@@ -513,12 +515,12 @@ export class DB {
 
     for (let [t, ch] of this.changes.entries()) {
       if (ch > 0 && !current.has(t)) {
-        // apply && log('[db] create', db.name + '/' + t);
+        apply && DB.log('[db] create', db.name + '/' + t);
         apply && db.createObjectStore(t);
         changed = true;
       }
       if (ch < 0 && current.has(t)) {
-        // apply && log('[db] delete', db.name + '/' + t);
+        apply && DB.log('[db] delete', db.name + '/' + t);
         apply && db.deleteObjectStore(t);
         changed = true;
       }
@@ -530,28 +532,29 @@ export class DB {
   // version=0 fetches the current state without applying changes
   _upgrade(version) {
     return new Promise((resolve, reject) => {
-      // log(`[db] opening db ${this.name}, version ${version}`);
+      DB.log(`[db] opening db ${this.name}, version ${version}`);
       let req = indexedDB.open(this.name, version || undefined);
 
       // only when version > 0
       req.onupgradeneeded = (e) => {
         let db = e.target.result;
-        // log('[db]', this.name + ':upgradeneeded', db.version);
+        DB.log('[db]', this.name + ':upgradeneeded', db.version);
         this._applyChanges(db, true);
         this.changes.clear();
       };
       req.onsuccess = (e) => {
-        // log('[db]', this.name + ':success', e.target.result.version);
+        DB.log('[db]', this.name + ':success', e.target.result.version);
         resolve(e.target.result);
       };
       req.onerror = (e) => {
-        // console.error('[db]', this.name + ':error', e);
+        DB.log('[db]', this.name + ':error', e);
         reject(e);
       };
     });
   }
 }
 
+DB.log = () => 0; // log;
 DB.conns = {};
 
 class IndexedDBTable {
@@ -573,7 +576,7 @@ class IndexedDBTable {
   async set(key, value) {
     let db = await this.db.sync();
     await new Promise((resolve, reject) => {
-      // log('[db]', db.name + ':' + this.name + '.set');
+      DB.log('[db]', db.name + ':' + this.name + '.set');
       let t = db.transaction(this.name, 'readwrite');
       let s = t.objectStore(this.name);
       let r = s.put(value, key);

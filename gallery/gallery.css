@@ -1,0 +1,37 @@
+ #info {
+   text-align: center;
+ }
+
+ #art_main,
+ #buy_buttons,
+ #settings {
+   display: none;
+ }
+
+ .grid img {
+   cursor: pointer;
+ }
+
+ .grid a,
+ .grid span {
+   text-decoration: none;
+   color: #888;
+   text-align: center;
+   display: block;
+ }
+
+ .grid>*:first-child {
+   display: none;
+ }
+
+ .grid .progress {
+   background: no-repeat center/10% url("/img/ico/progress.png");
+ }
+
+ .grid .error {
+   background: no-repeat center/10% url("/img/ico/error.png");
+ }
+
+ .grid .ready {
+   background: no-repeat center/10% url("/img/ico/fav.png");
+ }
