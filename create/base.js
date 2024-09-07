@@ -78,7 +78,7 @@ export async function saveTempSounds(files) {
 
     try {
       checkFileSize(file);
-      await DB.set(DB_TEMP_SOUNDS + '/' + sid, file);
+      await saveTempSound(sid, file);
     } catch (err) {
       console.error(err);
     }
@@ -86,6 +86,10 @@ export async function saveTempSounds(files) {
 
   await Promise.all(additions);
   console.log('Sounds saved in', Date.now() - time, 'ms');
+}
+
+export async function saveTempSound(sid, file) {
+  await DB.set(DB_TEMP_SOUNDS + '/' + sid, file);
 }
 
 export async function loadTempSound(sid) {
@@ -130,6 +134,7 @@ function postWorkerCommand({ command, handlers }) {
   let txid = Math.random().toString(16).slice(2);
   bg_thread.postMessage({ ...command, txid });
   bg_thread.onmessage = (e) => {
+    console.debug('received message:', e.data.type);
     let handler = handlers[e.data.type];
     dcheck(handler);
     handler.call(null, e);
@@ -156,7 +161,9 @@ export async function drawStringOscillations(signal, canvas, cfg, { onprogress }
           //console.debug('updated img data: ' + ymin + '..' + ymax);
           onprogress?.call(null, ymax / cfg.numSteps);
         },
-        img_done: (e) => resolve(),
+        img_done: (e) => {
+          resolve();
+        },
       },
     });
   });

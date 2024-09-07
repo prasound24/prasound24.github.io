@@ -296,7 +296,7 @@ export class AudioRecorder {
 }
 
 // https://docs.fileformat.com/audio/wav
-export function generateWavFile(wave, sample_rate) {
+export function generateWavFile(wave, sample_rate, filename = null) {
   let len = wave.length;
   let i16 = new Int16Array(22 + len + len % 2);
   let i32 = new Int32Array(i16.buffer);
@@ -314,7 +314,8 @@ export function generateWavFile(wave, sample_rate) {
   for (let i = 0; i < len; i++)
     i16[22 + i] = wave[i] * 0x7FFF;
 
-  return new Blob([i16.buffer], { type: 'audio/wav' });
+  let blob = new Blob([i16.buffer], { type: 'audio/wav' });
+  return filename ? new File([blob], filename, { type: blob.type }) : blob;
 }
 
 export async function decodeWavFile(blob) {

@@ -487,8 +487,7 @@ async function playAudioSignal() {
 async function saveAudioSignal() {
   try {
     if (!mem.audio_signal) return;
-    let blob = utils.generateWavFile(mem.audio_signal, gconf.sampleRate);
-    let file = new File([blob], mem.audio_name, { type: blob.type });
+    let file = utils.generateWavFile(mem.audio_signal, gconf.sampleRate, mem.audio_name);
     console.log('Saving audio to DB:', file.size, file.type);
     await DB.set(DB_PATH_AUDIO, file);
   } catch (err) {
