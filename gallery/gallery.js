@@ -54,7 +54,7 @@ async function showTempSounds() {
       let title = (audio.name || '').replace(/_/g, ' ').replace(/\..+$/, '');
       let parts = title.split(' ');
       a.querySelector('a').href = '/create?src=db:' + sid;
-      a.querySelector('.a').textContent = parts.slice(0, 2).join(' ');
+      a.querySelector('.c').textContent = parts.slice(0, 2).join(' ');
       a.querySelector('.b').textContent = parts.slice(2).join(' ');
 
       if (!image) {
@@ -75,7 +75,7 @@ async function showTempSounds() {
       let img = a.querySelector('img');
       img.src = URL.createObjectURL(image);
       let sr = config?.sampleRate || 48000;
-      img.onclick = () => base.playTempSound(sid, sr);
+      a.querySelector('.a img').onclick = () => base.playTempSound(sid, sr);
       a.className = image ? '' : 'ready';
     } catch (err) {
       a.className = 'error';

@@ -13,11 +13,18 @@
  }
 
  .grid a,
- .grid span {
+ .grid>*>span {
    text-decoration: none;
    color: #888;
    text-align: center;
    display: block;
+ }
+
+ .grid .a img {
+   height: 1em;
+   width: auto;
+   margin-right: 0.25em;
+   cursor: pointer;
  }
 
  .grid>*:first-child {
