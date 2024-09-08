@@ -60,24 +60,12 @@
   text-decoration: underline;
 }
 
-#examples[tab=others] span[tab=others] {
+#examples span.active {
   color: #fff;
 }
 
-#examples[tab=vowels] span[tab=vowels] {
-  color: #fff;
-}
-
-.grid {
+.grid:not(.active) {
   display: none;
-}
-
-#examples[tab=others] .grid#others {
-  display: flex;
-}
-
-#examples[tab=vowels] .grid#vowels {
-  display: flex;
 }
 
 #vowels img {

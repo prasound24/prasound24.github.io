@@ -20,11 +20,14 @@
    display: block;
  }
 
- .grid .a img {
+ .grid .a:not(:empty):before {
+  content: ' ';
+  display: inline-block;
+   width: 1em;
    height: 1em;
-   width: auto;
    margin-right: 0.25em;
    cursor: pointer;
+   background: no-repeat center/contain url('/img/ico/loud.png');
  }
 
  .grid>*:first-child {

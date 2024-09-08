@@ -51,12 +51,6 @@ async function showTempSounds() {
     let { a, audio, image, config } = s;
 
     try {
-      let title = (audio.name || '').replace(/_/g, ' ').replace(/\..+$/, '');
-      let parts = title.split(' ');
-      a.querySelector('a').href = '/create?src=db:' + sid;
-      a.querySelector('.c').textContent = parts.slice(0, 2).join(' ');
-      a.querySelector('.b').textContent = parts.slice(2).join(' ');
-
       if (!image) {
         console.log('Rendering', XS_IMG_SIZE + 'x' + XS_IMG_SIZE, 'sound image:', audio.name);
         config = config || adjustConfigToImgSize(gconf, XS_IMG_SIZE);
@@ -75,7 +69,12 @@ async function showTempSounds() {
       let img = a.querySelector('img');
       img.src = URL.createObjectURL(image);
       let sr = config?.sampleRate || 48000;
-      a.querySelector('.a img').onclick = () => base.playTempSound(sid, sr);
+      a.querySelector('.a').onclick = () => base.playTempSound(sid, sr);
+      a.querySelector('a').href = '/create?src=db:' + sid;
+      let title = (audio.name || '').replace(/_/g, ' ').replace(/\..+$/, '');
+      let parts = title.split(' ');
+      a.querySelector('.a').textContent = parts.slice(0, 2).join(' ');
+      a.querySelector('.b').textContent = parts.slice(2).join(' ');
       a.className = image ? '' : 'ready';
     } catch (err) {
       a.className = 'error';
