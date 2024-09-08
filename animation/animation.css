@@ -15,3 +15,7 @@ p {
   top: 0;
   z-index: 1;
 }
+
+#fullscreen {
+  margin: 0 auto;
+}

@@ -76,6 +76,11 @@ async function initWebGL() {
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
 
+  if (canvas.requestFullscreen)
+    $('#fullscreen').onclick = () => canvas.requestFullscreen();
+  else
+  $('fullscreen').style.display = 'none';
+
   canvas.onclick = () => {
     if (animationId) {
       cancelAnimationFrame(animationId);
