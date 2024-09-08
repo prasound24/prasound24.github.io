@@ -18,28 +18,12 @@
 .stage {
   display: flex;
   flex-direction: row;
-}
-
-.stage>* {
-  max-height: 12rem;
-}
-
-.stage>*:nth-child(1) {
-  display: none;
-}
-
-.stage>*:nth-child(3) {
-  display: none;
-}
-
-.stage>*:nth-child(2) {
-  flex: 1;
   height: 10vw;
-  background: no-repeat center/125% url('/img/xl/violin_Gs6_15_mezzo-forte_arco-normal.jpg');
+  background: no-repeat center/125% url('/img/background.jpg');
   transition: background-size 1.5s;
 }
 
-.stage>*:nth-child(2):hover {
+.stage:hover {
   background-size: 50vw;
 }
 
