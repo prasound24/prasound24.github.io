@@ -1,3 +1,6 @@
+#define TEX_IMAGE iChannel2
+#define TEX_NOISE iChannel1
+
 vec2 sphere2(vec3 origin, vec3 dir, vec3 center, float radius) {
   vec3 rc = center - origin;
   float b = dot(dir, rc); // dist to the closest point (B) to the center (C)
@@ -20,7 +23,7 @@ vec3 spherical_tex(vec3 pos) {
   vec2 sp = spherical_uv(pos);
   sp.y += -iTime * 0.10;
   vec2 tex = 0.5 + 0.5 * vec2(cos(sp.y), sin(sp.y)) * sp.x / PI;
-  return texture(iChannel2, tex).rgb * (1.0 + 0.1 * texture(iChannel1, tex).r);
+  return texture(TEX_IMAGE, tex).rgb; // * (1.0 + 0.1 * texture(TEX_NOISE, tex).r);
 }
 
 mat3 camera_mat3(in vec3 ro, in vec3 ta, float cr) {
