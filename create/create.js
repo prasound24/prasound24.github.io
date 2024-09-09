@@ -9,6 +9,7 @@ const DB_PATH_IMAGE = DB_PATH + '/_last/image';
 const DB_PATH_CONFIG = DB_PATH + '/_last/config';
 const TEMP_GRADIENT = '/img/blackbody.png';
 
+let args = new URLSearchParams(location.search);
 let recorder = null;
 let rec_timer = null;
 let is_drawing = false;
@@ -43,12 +44,10 @@ async function init() {
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
 
-  //if (await showMultipleFiles() == 0) {
   if (await loadAudioSignal()) {
     await drawWaveform();
     await redrawImg();
   }
-  //}
 }
 
 function initSettings() {
@@ -497,7 +496,6 @@ async function saveAudioSignal() {
 
 async function loadAudioSignal() {
   try {
-    let args = new URLSearchParams(location.search);
     let src = args.get('src');
 
     if (src) {
@@ -577,7 +575,7 @@ async function downloadImage() {
   let blob = await new Promise(resolve =>
     $('canvas#disk').toBlob(resolve, 'image/jpeg', 0.85));
   let a = document.createElement('a');
-  a.download = mem.audio_name;
+  a.download = mem.audio_name + '.jpg';
   a.href = URL.createObjectURL(blob);
   a.click();
 }

@@ -12,7 +12,13 @@ async function init() {
   let img_inline = $('img.inline');
   let args = new URLSearchParams(location.search);
   let filename = args.get('src');
+  let note_class = args.get('c');
   let img_url;
+
+  if (note_class) {
+    img_main.classList.add(note_class);
+    img_inline.classList.add(note_class);
+  }
 
   if (filename) {
     img_url = IMG_BASE + filename + '.jpg';
