@@ -1,12 +1,17 @@
 
 import * as utils from '../utils.js';
 
-const { $, dcheck, clone, sleep, DB } = utils;
+const { $, check, dcheck, clone, sleep, DB } = utils;
 
 const DB_TEMP = 'temp_sounds';
 const DB_TEMP_SOUNDS = DB_TEMP + '/sounds';
 const DB_TEMP_IMAGES = DB_TEMP + '/images';
 const DB_TEMP_CONFIGS = DB_TEMP + '/configs';
+
+export const DB_PATH = 'user_samples';
+export const DB_PATH_AUDIO = DB_PATH + '/_last/audio';
+export const DB_PATH_IMAGE = DB_PATH + '/_last/image';
+export const DB_PATH_CONFIG = DB_PATH + '/_last/config';
 
 export const gconf = {};
 gconf.sampleRate = 48000;
@@ -60,6 +65,19 @@ function findSilenceLeft(signal, threshold) {
   }
 
   return signal.length;
+}
+
+export async function loadAudioSignal(src) {
+  if (!src)
+    return await DB.get(DB_PATH_AUDIO);
+
+  if (src.startsWith('db:'))
+    return await base.loadTempSound(src.slice(3));
+
+  let res = await fetch('/mp3/' + src + '.mp3');
+  check(res.status == 200, src + '.mp3 not found');
+  let blob = await res.blob();
+  return new File([blob], src + '.mp3', { type: blob.type });
 }
 
 export async function saveTempSounds(files) {

@@ -3,10 +3,6 @@ import * as base from './base.js';
 
 const { $, sleep, clamp, check, dcheck, DB } = utils;
 const { gconf } = base;
-const DB_PATH = 'user_samples';
-const DB_PATH_AUDIO = DB_PATH + '/_last/audio';
-const DB_PATH_IMAGE = DB_PATH + '/_last/image';
-const DB_PATH_CONFIG = DB_PATH + '/_last/config';
 const TEMP_GRADIENT = '/img/blackbody.png';
 
 let args = new URLSearchParams(location.search);
@@ -462,12 +458,12 @@ async function saveDiskImage() {
     canvas.toBlob(resolve, 'image/jpeg', 0.85));
   let file = new File([blob], mem.audio_name, { type: blob.type });
   console.log('Saving disk image to DB:', file.size, file.type);
-  await DB.set(DB_PATH_IMAGE, file);
+  await DB.set(base.DB_PATH_IMAGE, file);
 }
 
 async function saveImageConfig() {
   let json = utils.clone(gconf);
-  await DB.set(DB_PATH_CONFIG, json);
+  await DB.set(base.DB_PATH_CONFIG, json);
 }
 
 async function downloadAudio() {
@@ -488,7 +484,7 @@ async function saveAudioSignal() {
     if (!mem.audio_signal) return;
     let file = utils.generateWavFile(mem.audio_signal, gconf.sampleRate, mem.audio_name);
     console.log('Saving audio to DB:', file.size, file.type);
-    await DB.set(DB_PATH_AUDIO, file);
+    await DB.set(base.DB_PATH_AUDIO, file);
   } catch (err) {
     console.error(err);
   }
@@ -497,23 +493,9 @@ async function saveAudioSignal() {
 async function loadAudioSignal() {
   try {
     let src = args.get('src');
-
-    if (src) {
-      console.log('loading audio file:', src);
-      if (src.startsWith('db:')) {
-        mem.audio_file = await base.loadTempSound(src.slice(3));
-      } else {
-        let res = await fetch('/mp3/' + src + '.mp3');
-        check(res.status == 200, src + '.mp3 not found');
-        let blob = await res.blob();
-        mem.audio_file = new File([blob], src + '.mp3', { type: blob.type });
-      }
-    } else {
-      console.log('loading audio signal from DB');
-      mem.audio_file = await DB.get(DB_PATH_AUDIO);
+    mem.audio_file = await base.loadAudioSignal(src);
+    if (!src)
       mem.sig_start = mem.sig_end = 0;
-    }
-
     return mem.audio_file;
   } catch (err) {
     console.error(err);
