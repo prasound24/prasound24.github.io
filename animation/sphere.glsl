@@ -17,19 +17,27 @@ vec2 spherical_uv(vec3 p) {
 }
 
 vec3 spherical_tex(vec3 pos) {
-  float aa1 = iTime * 0.15, aa2 = iTime * 0.20;
-  pos.yz *= mat2(cos(aa1), sin(aa1), -sin(aa1), cos(aa1));
-  pos.xy *= mat2(cos(aa2), sin(aa2), -sin(aa2), cos(aa2));
   vec2 sp = spherical_uv(pos);
+  sp.y += -iTime * 0.10;
   vec2 tex = 0.5 + 0.5 * vec2(cos(sp.y), sin(sp.y)) * sp.x / PI;
-  return texture(iChannel3, tex).rgb;
+  return texture(iChannel2, tex).rgb * (1.0 + 0.1 * texture(iChannel1, tex).r);
+}
+
+mat3 camera_mat3(in vec3 ro, in vec3 ta, float cr) {
+  vec3 cw = normalize(ta - ro);
+  vec3 cp = vec3(sin(cr), cos(cr), 0.0);
+  vec3 cu = normalize(cross(cw, cp));
+  vec3 cv = normalize(cross(cu, cw));
+  return mat3(cu, cv, cw);
 }
 
 vec3 raytrace(vec2 fragCoord) {
   vec2 uv = (-1.0 + 2.0 * fragCoord.xy / iResolution.xy) *
     vec2(iResolution.x / iResolution.y, 1.0);
-  vec3 origin = vec3(0.0, 0.0, -1.5);
-  vec3 dir = normalize(vec3(uv, 1.0));
+  vec3 origin = vec3(0.0, -1.1, -1.2);
+  vec3 lookat = vec3(0);
+  mat3 cam = camera_mat3(origin, lookat, 0.0);
+  vec3 dir = cam * normalize(vec3(uv, 1.0));
 
   vec3 center = vec3(0);
   float radius = 1.0;
@@ -46,9 +54,9 @@ vec3 raytrace(vec2 fragCoord) {
   // find the 2nd intersection
   float dist2 = max(dist12.x, dist12.y);
   vec3 color2 = spherical_tex(origin + dir * dist2);
-  const float RSQ3 = 1. / sqrt(3.);
-  float lum = length(color) / RSQ3;
-  return mix(color, color2, 1. - lum);
+  float lum1 = dot(color, color);
+  float lum2 = dot(color2, color2);
+  return mix(color, color2, lum2 / (lum1 + lum2));
 }
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {

@@ -7,12 +7,21 @@ const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
 const DEFAULT_IMG_ID = 'flute_6';
 const CW = 1024, CH = CW;
+const IMG_W = 2048, IMG_H = 2048;
 let canvas = $('canvas#webgl');
 let shaders = {};
 let conf = {};
 
+initErrHandler();
 initImgRGBA();
 initWebGL();
+
+function initErrHandler() {
+  utils.setUncaughtErrorHandlers((err) => {
+    if (err instanceof Error)
+      $('#error_info').textContent = err.message;
+  });
+}
 
 function resizeCanvas() {
   let w = window.innerWidth;
@@ -42,6 +51,9 @@ async function initImgRGBA(width, height) {
   if (!img_url)
     img_url = '/img/xl/' + img_id + '.jpg'
 
+  $('#preview').src = img_url;
+  canvas.style.display = 'none';
+
   return await fetchRGBA(img_url, width, height);
 }
 
@@ -58,6 +70,7 @@ async function initWebGL() {
   canvas.width = CW;
   canvas.height = CH;
 
+  let img = await initImgRGBA(IMG_W, IMG_H);
   let ctx = new GpuContext(canvas);
   ctx.init();
 
@@ -65,7 +78,7 @@ async function initWebGL() {
   await initShader(ctx, 'fireball');
   await initShader(ctx, 'fluid_img');
   await initShader(ctx, 'fluid_ch0');
-  let img = await initImgRGBA(CW, CH);
+
   let iChannel2 = ctx.createFrameBufferFromRGBA(img);
   let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
@@ -75,11 +88,12 @@ async function initWebGL() {
   let bufferC = ctx.createFrameBuffer(CW, CH, 4);
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
+  let base_time = 0;
 
   if (canvas.requestFullscreen)
     $('#fullscreen').onclick = () => canvas.requestFullscreen();
   else
-  $('fullscreen').style.display = 'none';
+    $('fullscreen').style.display = 'none';
 
   canvas.onclick = () => {
     if (animationId) {
@@ -93,13 +107,14 @@ async function initWebGL() {
   };
 
   function drawFrame(time_msec = 0) {
-    let iTime = time_msec / 1000;
+    if (iFrame == 0) base_time = time_msec;
+    let iTime = (time_msec - base_time) / 1000;
     let iResolution = [canvas.width, canvas.height];
     let args = { iTime, iFrame, iResolution, iChannel0, iChannel1, iChannel2, iChannel3 };
 
     shaders['fireball'].draw(args, bufferB);
-    shaders['fluid_ch0'].draw(args, bufferA);
-    shaders['fluid_img'].draw(args, bufferC);
+    //shaders['fluid_ch0'].draw(args, bufferA);
+    //shaders['fluid_img'].draw(args, bufferC);
     shaders['sphere'].draw(args);
 
     [iChannel0, bufferA] = [bufferA, iChannel0];
@@ -117,6 +132,11 @@ async function initWebGL() {
         stats.frames = 0;
       }
       animationId = requestAnimationFrame(drawFrame);
+    }
+
+    if (iFrame == 1) {
+      $('#preview').style.display = 'none';
+      canvas.style.display = '';
     }
   }
 
