@@ -27,7 +27,7 @@ gconf.brightness = 0.0;
 gconf.exposure = -2.0;
 gconf.maxDuration = 15.0; // sec
 gconf.maxFileSize = 100e3; // 100 KB
-gconf.silenceThreshold = 0.003;
+gconf.silenceThreshold = 0.01;
 gconf.silencePadding = 2.0;
 gconf.color = null;
 gconf.hue = 0; // 0..360 degrees
@@ -41,13 +41,13 @@ export function padAudioWithSilence(a) {
   return b;
 }
 
-export function findSilenceMarks(signal, threshold) {
-  let right = signal.length - findSilenceLeft(signal.reverse(), threshold);
-  let left = findSilenceLeft(signal.reverse(), threshold);
+export function findSilenceMarks(signal, threshold, num_frames) {
+  let right = signal.length - findSilenceLeft(signal.reverse(), threshold, num_frames);
+  let left = findSilenceLeft(signal.reverse(), threshold, num_frames);
   return [left, right];
 }
 
-function findSilenceLeft(signal, threshold) {
+function findSilenceLeft(signal, threshold, num_frames) {
   let n = signal.length;
   let smin = signal[0], smax = signal[0];
 
@@ -56,11 +56,19 @@ function findSilenceLeft(signal, threshold) {
     smax = Math.max(smax, signal[i]);
   }
 
-  let cmin = signal[0], cmax = signal[0];
+  let cmin = 0, cmax = 0, frame = -1;
+
   for (let i = 0; i < n; i++) {
+    let f = i / n * num_frames | 0;
+    dcheck(f >= 0);
+    if (f > frame) {
+      cmin = Infinity;
+      cmax = -Infinity;
+      frame = f;
+    }
     cmin = Math.min(cmin, signal[i]);
     cmax = Math.max(cmax, signal[i]);
-    if (cmax - cmin >= threshold * (smax - smin))
+    if (cmax - cmin > threshold * (smax - smin))
       return i;
   }
 
@@ -72,7 +80,7 @@ export async function loadAudioSignal(src) {
     return await DB.get(DB_PATH_AUDIO);
 
   if (src.startsWith('db:'))
-    return await base.loadTempSound(src.slice(3));
+    return await loadTempSound(src.slice(3));
 
   let res = await fetch('/mp3/' + src + '.mp3');
   check(res.status == 200, src + '.mp3 not found');

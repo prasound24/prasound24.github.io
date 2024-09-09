@@ -56,7 +56,7 @@ async function showTempSounds() {
         config = config || adjustConfigToImgSize(gconf, XS_IMG_SIZE);
         let signal = await utils.decodeAudioFile(audio, config.sampleRate);
         signal = base.padAudioWithSilence(signal);
-        let [ll, rr] = base.findSilenceMarks(signal, config.silenceThreshold);
+        let [ll, rr] = base.findSilenceMarks(signal, config.silenceThreshold, config.numSteps);
         signal = signal.subarray(ll, -1);
         let canvas = document.createElement('canvas');
         await base.drawStringOscillations(signal, canvas, config);

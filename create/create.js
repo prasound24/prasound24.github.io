@@ -339,7 +339,7 @@ async function drawWaveform() {
   }
 
   if (!mem.sig_start && !mem.sig_end) {
-    let [sleft, sright] = base.findSilenceMarks(mem.audio_signal, gconf.silenceThreshold);
+    let [sleft, sright] = base.findSilenceMarks(mem.audio_signal, gconf.silenceThreshold, gconf.numSteps);
     setSilenceMarks(sleft / gconf.sampleRate, 0.1 + sright / gconf.sampleRate);
   }
 }
