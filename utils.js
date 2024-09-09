@@ -957,3 +957,93 @@ export function sumArray(a) {
     sum += a[i];
   return sum;
 }
+
+export class MinMaxFilter {
+  constructor() {
+    this.count = 0;
+    this.min = +Infinity;
+    this.max = -Infinity;
+  }
+
+  get range() {
+    return this.count > 0 ? this.max - this.min : 0;
+  }
+
+  push(x) {
+    this.count++;
+    if (x < this.min) this.min = x;
+    if (x > this.max) this.max = x;
+  }
+
+  reset() {
+    this.count = 0;
+    this.min = +Infinity;
+    this.max = -Infinity;
+  }
+}
+
+class HaarFilter {
+  constructor() {
+    this.n = 0;
+    this.prev = 0;
+    this.hipass = null;
+    this.lopass = null;
+  }
+
+  push(x) {
+    this.n++;
+    if (this.n % 2 == 0) {
+      this.hipass.push((x - this.prev) * 0.5);
+      this.lopass.push((x + this.prev) * 0.5);
+    } else {
+      this.prev = x;
+    }
+  }
+
+  reset() {
+    this.n = 0;
+    this.prev = 0;
+  }
+}
+
+export class DWTFilter {
+  constructor(n = 0) {
+    this.haar = [];
+    this.minmax = [];
+
+    for (let i = 0; i < n; i++) {
+      this.minmax[i] = new MinMaxFilter;
+      this.haar[i] = new HaarFilter;
+    }
+
+    this.minmax[n] = new MinMaxFilter;
+    this.minmax[n + 1] = new MinMaxFilter;
+
+    for (let i = 0; i < n; i++) {
+      this.haar[i].hipass = this.minmax[i + 1];
+      this.haar[i].lopass = this.haar[i + 1] || this.minmax[n + 1];
+    }
+  }
+
+  // -1  = the entire signal
+  // n   = hi-pass level n
+  // 1   = hi-pass level 1
+  // 0   = lo-pass level 0
+  range(i) {
+    let n = this.minmax.length;
+    i = ((n - 1 - i) % n + n) % n
+    return this.minmax[i].range;
+  }
+
+  push(x) {
+    this.minmax[0].push(x);
+    this.haar[0].push(x);
+  }
+
+  reset() {
+    for (let h of this.haar)
+      h.reset();
+    for (let mm of this.minmax)
+      mm.reset();
+  }
+}

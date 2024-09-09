@@ -427,7 +427,7 @@ async function redrawImg() {
     is_drawing = false;
   }
 
-  console.log('image ready:', Date.now() - time, 'ms');
+  console.debug('image ready:', Date.now() - time, 'ms');
 }
 
 // normalized: avg sig[t]^2 = 1.0

@@ -27,16 +27,21 @@ async function drawStringOscillations(signal, conf) {
   let width = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
   let height = conf.numSteps;
   let oscillator = new StringOscillator({ width });
-  let wave_min = new Float32Array(width);
-  let wave_max = new Float32Array(width);
-  let wave_res = new Float32Array(width);
   let img = { data: new Uint8Array(width * height * 4), width, height };
   let y_prev = 0, y_curr = 0, ts = Date.now();
   let autoBrightness = 1.0;
 
   console.debug('string length:', width);
 
-  img_rect = new Float32Tensor([height, width]);
+  img_rect = new Float32Tensor([2, height, width]);
+  let img_mag = img_rect.subtensor(0);
+  let img_hue = img_rect.subtensor(1);
+
+  let wave_minmax = [];
+  let dwt_levels = 4;
+  for (let x = 0; x < width; x++)
+    wave_minmax[x] = new utils.DWTFilter(dwt_levels);
+  console.debug('DWT levels:', dwt_levels);
 
   oscillator.damping = 10 ** conf.damping;
   oscillator.frequency = 10 ** conf.frequency;
@@ -46,51 +51,55 @@ async function drawStringOscillations(signal, conf) {
   oscillator.dx = oscillator.dt;
 
   for (let t = 0; t < sn; t++) {
+    oscillator.update();
     oscillator.wave[0] += oscillator.dt * (signal[t] - oscillator.wave[0]) * conf.boundary;
     // oscillator.wave[0] = signal[t];
-    oscillator.update();
 
-    for (let x = 0; x < width; x++) {
-      let w = oscillator.wave[x] - signal[t];
-      wave_min[x] = Math.min(wave_min[x], w);
-      wave_max[x] = Math.max(wave_max[x], w);
-    }
+    for (let x = 0; x < width; x++)
+      wave_minmax[x].push(oscillator.wave[x] - signal[t]);
 
     let y = Math.round(t / (sn - 1) * (height - 1));
     dcheck(y >= 0 && y < height);
 
     if (y > y_curr) {
-      for (let x = 0; x < width; x++)
-        wave_res[x] = wave_max[x] - wave_min[x];
-      img_rect.data.set(wave_res, y_curr * width);
-      drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
+      let wave_mag = img_mag.data.subarray(y_curr * width, y_curr * width + width);
+      let wave_hue = img_hue.data.subarray(y_curr * width, y_curr * width + width);
+
+      for (let x = 0; x < width; x++) {
+        let mm = wave_minmax[x];
+        wave_mag[x] = mm.range(-1);
+        wave_hue[x] = mm.range(0); // 16x low-pass filter
+      }
+
+      //drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
       y_curr = y;
 
-      wave_min.fill(0);
-      wave_max.fill(0);
-      wave_res.fill(0);
+      for (let mm of wave_minmax)
+        mm.reset();
 
       if (y_curr > y_prev && Date.now() > ts + 250) {
         ts = Date.now();
-        let img_data = img.data.subarray(y_prev * width * 4, y_curr * width * 4);
-        postMessage({ type: 'img_data', img_data, rows: [y_prev, y_curr - 1] });
+        // let img_data = img.data.subarray(y_prev * width * 4, y_curr * width * 4);
+        postMessage({ type: 'img_data', img_data: null, rows: [y_prev, y_curr - 1] });
         y_prev = y_curr;
       }
     }
   }
 
-  autoBrightness = adjustBrightness(img_rect, conf);
+  autoBrightness = adjustBrightness(img_mag, conf);
   drawImgData(img, img_rect, [0, height - 1], autoBrightness, conf);
   postMessage({ type: 'img_data', img_data: img.data, rows: [0, height - 1] });
   postMessage({ type: 'img_done' });
 }
 
 async function drawDiskImage(conf) {
-  let img_disk = new Float32Tensor([conf.imageSize, conf.imageSize]);
+  let img_disk = new Float32Tensor([2, conf.imageSize, conf.imageSize]);
   let resample = conf.smooth ? resampleDisk : reverseDiskMapping;
-  await resample(img_rect, img_disk, { num_reps: conf.symmetry });
 
-  let autoBrightness = adjustBrightness(img_rect, conf);
+  for (let i = 0; i < img_rect.dims[0]; i++)
+    await resample(img_rect.subtensor(i), img_disk.subtensor(i), { num_reps: conf.symmetry });
+
+  let autoBrightness = adjustBrightness(img_rect.subtensor(0), conf);
   // console.debug('auto brightness:', autoBrightness.toFixed(1));
   let img_data = new Uint8Array(conf.imageSize ** 2 * 4);
   let canvas_img = { data: img_data, width: conf.imageSize, height: conf.imageSize };
@@ -101,25 +110,32 @@ async function drawDiskImage(conf) {
 function adjustBrightness(img, { exposure }) {
   dcheck(img.data instanceof Float32Array);
   let q = utils.approxPercentile(img.data, 1.0 - 10 ** exposure, 1e4);
-  return q > 0 ? -Math.log10(q) : Infinity;
+  return q > 0 ? -Math.log10(q) : 0;
 }
 
 function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.height - 1], autoBrightness, conf) {
   dcheck(canvas_img.data);
-  dcheck(temperature.data);
+  dcheck(temperature instanceof Float32Tensor);
   dcheck(Number.isFinite(autoBrightness));
+
+  if (!autoBrightness)
+    console.warn('auto brightness:', autoBrightness);
 
   let width = canvas_img.width;
   let brightness = 10 ** (autoBrightness + conf.brightness);
+  let temps = temperature.subtensor(0);
+  let hues = temperature.subtensor(1);
 
   for (let y = ymin; y <= ymax; y++) {
     for (let x = 0; x < width; x++) {
       let i = y * width + x;
-      let temp = Math.abs(temperature.data[i]) * brightness;
-      let [r, g, b] = fireballRGB(temp);
-      canvas_img.data[i * 4 + 0] = 255 * clamp(r);
-      canvas_img.data[i * 4 + 1] = 255 * clamp(g);
-      canvas_img.data[i * 4 + 2] = 255 * clamp(b);
+      let t = Math.abs(temps.data[i]) * brightness;
+      let [r, g, b] = fireballRGB(t);
+      let [r2, g2, b2] = fireballRGB(Math.abs(hues.data[i]) * brightness * 0.3);
+
+      canvas_img.data[i * 4 + 0] = 255 * clamp(r + g2);
+      canvas_img.data[i * 4 + 1] = 255 * clamp(g + b2);
+      canvas_img.data[i * 4 + 2] = 255 * clamp(b + r2);
       canvas_img.data[i * 4 + 3] = 255;
     }
   }
