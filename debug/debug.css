@@ -4,6 +4,10 @@ canvas {
   margin: 0.5rem 0;
 }
 
+#start {
+  margin: 1rem auto;
+}
+
 progress-gif {
   font-size: 4rem;
   width: 1em;
