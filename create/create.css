@@ -6,6 +6,14 @@ canvas#wave {
   width: 100%;
 }
 
+body.final #disk {
+  display: none;
+}
+
+body:not(.final) #final {
+  display: none;
+}
+
 p {
   text-align: center;
 }

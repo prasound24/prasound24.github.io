@@ -40,6 +40,8 @@ async function init() {
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
 
+  $('img#final').classList.add(args.get('c'));
+
   if (await loadAudioSignal()) {
     await drawWaveform();
     await redrawImg();
@@ -378,10 +380,12 @@ async function redrawImg() {
   $('#error_info').textContent = '';
 
   try {
+    document.body.classList.remove('final');
     await drawStringOscillations();
     await drawDiskImage();
     await saveDiskImage();
     await saveImageConfig();
+    document.body.classList.add('final');
   } finally {
     is_drawing = false;
   }
@@ -421,8 +425,9 @@ async function saveDiskImage() {
   let blob = await new Promise(resolve =>
     canvas.toBlob(resolve, 'image/jpeg', 0.85));
   let file = new File([blob], mem.audio_name, { type: blob.type });
-  console.log('Saving disk image to DB:', file.size, file.type);
+  console.log('Saving disk image to DB:', file.type, file.size / 1024 | 0, 'KB');
   await DB.set(base.DB_PATH_IMAGE, file);
+  $('img#final').src = URL.createObjectURL(blob);
 }
 
 async function saveImageConfig() {
