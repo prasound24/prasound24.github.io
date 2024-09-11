@@ -16,11 +16,8 @@ async function showTempSounds() {
   let time = Date.now();
   let sound_ids = await base.getTempSoundIds();
 
-  $('#info').textContent = 'Displaying ' + sound_ids.length + ' sounds';
-  if (sound_ids.length == 0) {
-    $('#info').textContent = 'No sounds to display';
+  if (sound_ids.length == 0)
     return 0;
-  }
 
   let grid = $('.grid');
   let sample = grid.firstElementChild;

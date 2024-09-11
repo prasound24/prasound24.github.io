@@ -12,6 +12,10 @@
    cursor: pointer;
  }
 
+.grid .a, .grid .b {
+  display: none;
+}
+
  .grid a,
  .grid>*>span {
    text-decoration: none;
@@ -21,8 +25,8 @@
  }
 
  .grid .a:not(:empty):before {
-  content: ' ';
-  display: inline-block;
+   content: ' ';
+   display: inline-block;
    width: 1em;
    height: 1em;
    margin-right: 0.25em;
