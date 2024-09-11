@@ -18,13 +18,20 @@
 .stage {
   display: flex;
   flex-direction: row;
+  align-items: center;
+  justify-content: center;
   height: 10vw;
-  background: no-repeat center/125% url('/img/background.jpg');
-  transition: background-size 1.5s;
+  overflow: hidden;
 }
 
-.stage:hover {
-  background-size: 50vw;
+.stage img {
+  width: 100%;
+  transform: rotate(60deg);
+  transition: width 1.5s;
+}
+
+.stage:hover img {
+  width: 50%;
 }
 
 #make_your_own {
