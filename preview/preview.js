@@ -43,15 +43,15 @@ async function init() {
     }
   }
 
-  img_main.onclick = async () => {
+  let sample_rate = conf?.sampleRate || base.gconf.sampleRate;
+
+  $('canvas#wave').onclick = async () => {
     if (is_playing)
       return;
     try {
       is_playing = true;
-      let blob = await base.loadAudioSignal(args.get('src'));
-      let sr = conf?.sampleRate || base.gconf.sampleRate;
-      let signal = await utils.decodeAudioFile(blob, sr);
-      await utils.playSound(signal, sr);
+      let signal = await initAudioSignal(sample_rate);
+      await utils.playSound(signal, sample_rate);
     } finally {
       is_playing = false;
     }
@@ -63,4 +63,18 @@ async function init() {
     img_main.src = img_url;
     img_inline.src = img_url;
   }
+
+  try {
+    let wd = base.initWaveformDrawer($('canvas#wave'));
+    let sig = await initAudioSignal();
+    wd.draw(sig);
+  } catch (err) {
+    $('canvas#wave').style.display = 'none';
+    throw err;
+  }
+}
+
+async function initAudioSignal(sample_rate) {
+  let blob = await base.loadAudioSignal(args.get('src'));
+  return await utils.decodeAudioFile(blob, sample_rate);
 }

@@ -243,3 +243,43 @@ export function setCircleProgress(value = 100, svg = $('svg.progress')) {
   c.setAttribute('stroke-dashoffset', 100 - utils.clamp(Math.round(value), 0, 100));
   svg.style.display = Number.isFinite(value) ? '' : 'none';
 }
+
+export function initWaveformDrawer(canvas) {
+  let cw = canvas.width;
+  let ch = canvas.height;
+  let ctx = canvas.getContext('2d', { willReadFrequently: true });
+  let img = ctx.getImageData(0, 0, cw, ch);
+
+  new Int32Array(img.data.buffer).fill(0x00FFFFFF);
+  ctx.putImageData(img, 0, 0);
+
+  function draw(sig, [xmin, xmax] = [0, 1], aminmax = []) {
+    if (xmax < 0.0 || xmin > 1.0 || !sig.length)
+      return;
+
+    let [amin, amax] = aminmax;
+
+    if (!amin && !amax) {
+      amin = sig[0];
+      amax = sig[0];
+      for (let i = 0; i < sig.length; i++) {
+        amin = Math.min(amin, sig[i]);
+        amax = Math.max(amax, sig[i]);
+      }
+    }
+
+    for (let t = 0; t < sig.length; t++) {
+      let x = Math.round(cw * utils.mix(xmin, xmax, t / (sig.length - 1)));
+      let a = (sig[t] - amin) / (amax - amin);
+      let y = Math.round(ch * (1 - a));
+      if (x >= 0 || x < cw || y >= 0 || y < ch)
+        img.data[(y * cw + x) * 4 + 3] += 255 * cw / sig.length * 25;
+    }
+
+    let dirty_xmin = Math.floor(xmin * cw);
+    let dirty_xmax = Math.ceil(xmax * cw);
+    ctx.putImageData(img, 0, 0, dirty_xmin, 0, dirty_xmax - dirty_xmin + 1, ch);
+  }
+
+  return { draw };
+}

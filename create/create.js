@@ -324,15 +324,8 @@ async function drawWaveform() {
 
     await decodeAudio();
 
-    let drawer = initWaveformDrawer();
-    let amin = Infinity, amax = -Infinity;
-
-    for (let i = 0; i < mem.audio_signal.length; i++) {
-      amin = Math.min(amin, mem.audio_signal[i]);
-      amax = Math.max(amax, mem.audio_signal[i]);
-    }
-
-    drawer.draw(mem.audio_signal, [0, 1], [amin, amax]);
+    let drawer = base.initWaveformDrawer($('canvas#wave'));
+    drawer.draw(mem.audio_signal, [0, 1]);
     await sleep(50);
   } finally {
     is_drawing = false;
@@ -374,35 +367,6 @@ function getSelectedAudio() {
   let from = mem.sig_start * gconf.sampleRate;
   let to = mem.sig_end * gconf.sampleRate;
   return mem.audio_signal.subarray(from, to);
-}
-
-function initWaveformDrawer(canvas = $('canvas#wave')) {
-  let cw = canvas.width;
-  let ch = canvas.height;
-  let ctx = canvas.getContext('2d', { willReadFrequently: true });
-  let img = ctx.getImageData(0, 0, cw, ch);
-
-  new Int32Array(img.data.buffer).fill(0x00FFFFFF);
-  ctx.putImageData(img, 0, 0);
-
-  function draw(sig, [xmin, xmax] = [0, 1], [amin, amax] = [-1, 1]) {
-    if (xmax < 0.0 || xmin > 1.0)
-      return;
-
-    for (let t = 0; t < sig.length; t++) {
-      let x = Math.round(cw * utils.mix(xmin, xmax, t / (sig.length - 1)));
-      let a = (sig[t] - amin) / (amax - amin);
-      let y = Math.round(ch * (1 - a));
-      if (x >= 0 || x < cw || y >= 0 || y < ch)
-        img.data[(y * cw + x) * 4 + 3] += 255 * cw / sig.length * 25;
-    }
-
-    let dirty_xmin = Math.floor(xmin * cw);
-    let dirty_xmax = Math.ceil(xmax * cw);
-    ctx.putImageData(img, 0, 0, dirty_xmin, 0, dirty_xmax - dirty_xmin + 1, ch);
-  }
-
-  return { draw };
 }
 
 async function redrawImg() {
@@ -516,7 +480,7 @@ async function stopRecording() {
 
 async function recordAudio() {
   recorder = await utils.recordMic({ sample_rate: gconf.sampleRate });
-  let wave_drawer = initWaveformDrawer();
+  let wave_drawer = base.initWaveformDrawer($('canvas#wave'));
   let num_samples = 0, duration_sec = '';
   let label = $('#stop_recording span');
 
@@ -526,7 +490,7 @@ async function recordAudio() {
   recorder.onaudiochunk = (chunk) => {
     let xmin = num_samples / gconf.sampleRate / gconf.maxDuration;
     let xlen = chunk.length / gconf.sampleRate / gconf.maxDuration;
-    wave_drawer.draw(chunk, [xmin, xmin + xlen]);
+    wave_drawer.draw(chunk, [xmin, xmin + xlen], [-1, 1]);
     num_samples += chunk.length;
     updateButton();
     if (xmin + xlen > 1.0)
