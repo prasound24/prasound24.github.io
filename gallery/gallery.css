@@ -12,9 +12,10 @@
    cursor: pointer;
  }
 
-.grid .a, .grid .b {
-  display: none;
-}
+ .grid .a,
+ .grid .b {
+   display: none;
+ }
 
  .grid a,
  .grid>*>span {
@@ -48,4 +49,23 @@
 
  .grid .ready {
    background: no-repeat center/10% url("/img/ico/fav.png");
+ }
+
+ .grid .progress.current {
+   animation: 1s linear 0s infinite normal keyframes3;
+ }
+
+ @keyframes keyframes3 {
+   from {
+     transform: rotate(0deg);
+   }
+
+   to {
+     transform: rotate(360deg);
+   }
+ }
+
+
+ body {
+   overflow-x: hidden;
  }

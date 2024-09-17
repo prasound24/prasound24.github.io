@@ -409,15 +409,16 @@ async function drawStringOscillations() {
   try {
     base.setCircleProgress(0);
     await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf, {
-      onprogress: (value) => base.setCircleProgress(value * 100 | 0),
+      onprogress: (value) => base.setCircleProgress(value * 95 | 0),
     });
   } finally {
-    base.setCircleProgress(null);
+    base.setCircleProgress(90);
   }
 }
 
 async function drawDiskImage() {
   await base.drawDiskImage($('canvas#disk'), gconf);
+  base.setCircleProgress(null);
 }
 
 async function saveDiskImage() {

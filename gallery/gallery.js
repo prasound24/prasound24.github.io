@@ -50,6 +50,7 @@ async function showTempSounds() {
     try {
       if (!image) {
         console.log('Rendering', XS_IMG_SIZE + 'x' + XS_IMG_SIZE, 'sound image:', audio.name);
+        a.classList.add('current');
         config = config || adjustConfigToImgSize(gconf, XS_IMG_SIZE);
         let signal = await utils.decodeAudioFile(audio, config.sampleRate);
         signal = base.padAudioWithSilence(signal);

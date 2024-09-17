@@ -1,7 +1,7 @@
 import { StringOscillator } from './oscillator.js';
 import * as utils from '/utils.js';
 
-let { dcheck, clamp, fireballRGB, resampleDisk, reverseDiskMapping, Float32Tensor } = utils;
+let { dcheck, clamp, fireballRGB, Float32Tensor } = utils;
 
 let img_rect = null;
 
@@ -38,7 +38,7 @@ async function drawStringOscillations(signal, conf) {
   let img_hue = img_rect.subtensor(1);
 
   let wave_minmax = [];
-  let dwt_levels = 4;
+  let dwt_levels = 1;
   for (let x = 0; x < width; x++)
     wave_minmax[x] = new utils.DWTFilter(dwt_levels);
   console.debug('DWT levels:', dwt_levels);
@@ -94,7 +94,7 @@ async function drawStringOscillations(signal, conf) {
 
 async function drawDiskImage(conf) {
   let img_disk = new Float32Tensor([2, conf.imageSize, conf.imageSize]);
-  let resample = conf.smooth ? resampleDisk : reverseDiskMapping;
+  let resample = utils.reverseDiskMapping;
 
   for (let i = 0; i < img_rect.dims[0]; i++)
     await resample(img_rect.subtensor(i), img_disk.subtensor(i), { num_reps: conf.symmetry });

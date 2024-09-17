@@ -1,7 +1,7 @@
 import * as utils from '../utils.js';
 import * as webfft from '../lib/webfft.js';
 
-const { $, clamp, sleep, dcheck, resampleSignal } = utils;
+const { $, mix, clamp, sleep, dcheck, resampleSignal } = utils;
 
 const AUDIO_URL = '/mp3/flute_A4_1_forte_normal.mp3';
 const SAMPLE_RATE_1 = 48000;
@@ -13,13 +13,19 @@ const args = new URLSearchParams(location.search);
 $('#start').onclick = start;
 
 async function start() {
+  await testAudioImage();
   await testImage();
   await testAudio();
   await testImageDFT();
 }
 
 async function testImageDFT() {
-  let img_url = '/img/xl/' + args.get('src') + '.jpg'
+  let img_id = args.get('src');
+  if (!img_id) {
+    console.warn('?src=null');
+    return;
+  }
+  let img_url = '/img/xl/' + img_id + '.jpg'
   let rgba = await utils.fetchRGBA(img_url, CW, CH);
   let canvas = $('canvas#dft');
   canvas.width = CW;
@@ -144,7 +150,7 @@ function changeSpectrumData(img2d, fn) {
   }
 }
 
-function drawDFT2D(rgba, img2d, { log = true } = {}) {
+function drawDFT2D(res_rgba, src_img2d, { log = true } = {}) {
   let max = 0;
 
   // for (let i = 0; i < CH * CW; i++) {
@@ -162,17 +168,17 @@ function drawDFT2D(rgba, img2d, { log = true } = {}) {
       let x2 = (x + CW / 2) % CW;
       let y2 = (y + CH / 2) % CH;
       let i = y2 * CW + x2;
-      let re = img2d.data[2 * i + 0];
-      let im = img2d.data[2 * i + 1];
+      let re = src_img2d.data[2 * i + 0];
+      let im = src_img2d.data[2 * i + 1];
       // let [rad, phi] = utils.xy2ra(re, im);
       let hue = 0; // phi / 2 / Math.PI;
       let lts = Math.max(Math.abs(re) + Math.abs(im)); // !rad ? 0 : (log ? Math.log(rad) : rad) / max;
       let [r, g, b] = utils.hsl2rgb(hue, 0.0, lts);
       let j = y * CW + x;
-      rgba.data[j * 4 + 0] = r * 256;
-      rgba.data[j * 4 + 1] = g * 256;
-      rgba.data[j * 4 + 2] = b * 256;
-      rgba.data[j * 4 + 3] = 1 * 256;
+      res_rgba.data[j * 4 + 0] = r * 256;
+      res_rgba.data[j * 4 + 1] = g * 256;
+      res_rgba.data[j * 4 + 2] = b * 256;
+      res_rgba.data[j * 4 + 3] = 1 * 256;
     }
   }
 }
@@ -251,4 +257,44 @@ function timed(name, fn) {
   let t = Date.now();
   fn();
   console.log(name + ':', Date.now() - t, 'ms');
+}
+
+async function testAudioImage() {
+  let res = await fetch('/mp3/bass-clarinet_G5_1_forte_normal.mp3');
+  let blob = await res.blob();
+  let signal = await utils.decodeAudioFile(blob, SAMPLE_RATE_1);
+  let canvas = $('canvas#audio_img3');
+  canvas.width = CW;
+  canvas.height = CH;
+  let ctx = canvas.getContext('2d');
+  let img = ctx.getImageData(0, 0, CW, CH);
+  let s_max = 0, t_max = 0;
+  let tmp = new utils.Float32Tensor([CH, CW]);
+
+  for (let t = 0; t < signal.length; t++)
+    s_max = Math.max(s_max, Math.abs(signal[t]));
+
+  for (let t = 0; t < signal.length; t++) {
+    let r = signal[t] / s_max;
+    let a = Math.PI * t / signal.length;
+    let y = Math.round(mix(0, CH / 2, 1 + r * Math.cos(a)));
+    let x = Math.round(mix(0, CW / 2, 1 + r * Math.sin(a)));
+    if (x >= 0 && x < CW && y >= 0 && y < CH)
+      tmp.data[y * CW + x]++;
+  }
+
+  let tmp2 = new utils.Float32Tensor([CH, CW, 2]);
+  for (let i = 0; i < CH * CW; i++)
+    tmp2.data[i * 2] = tmp.data[i];
+
+  webfft.fft_2d(tmp2.data, CW);
+
+  for (let i = 0; i < CH * CW; i++)
+    t_max = Math.max(t_max, Math.abs(tmp2.data[2 * i]), Math.abs(tmp2.data[2 * i + 1]));
+
+  for (let i = 0; i < CH * CW * 2; i++)
+    tmp2.data[i] /= t_max;
+
+  drawDFT2D(img, tmp2);
+  ctx.putImageData(img, 0, 0);
 }

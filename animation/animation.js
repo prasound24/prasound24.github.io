@@ -74,6 +74,7 @@ async function initWebGL() {
   let ctx = new GpuContext(canvas);
   ctx.init();
 
+  await initShader(ctx, 'disk');
   await initShader(ctx, 'sphere');
   await initShader(ctx, 'fireball');
   await initShader(ctx, 'fluid_img');
@@ -115,7 +116,8 @@ async function initWebGL() {
     shaders['fireball'].draw(args, bufferB);
     //shaders['fluid_ch0'].draw(args, bufferA);
     //shaders['fluid_img'].draw(args, bufferC);
-    shaders['sphere'].draw(args);
+    //shaders['sphere'].draw(args);
+    shaders['disk'].draw(args);
 
     [iChannel0, bufferA] = [bufferA, iChannel0];
     [iChannel1, bufferB] = [bufferB, iChannel1];

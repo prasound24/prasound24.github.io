@@ -45,7 +45,7 @@ const FSHADER_DEFAULT = `
 export class GpuContext {
   constructor(canvas, { log = true } = {}) {
     if (log === true)
-      log = { i: console.info, v: console.log, w: console.warn, e: console.error };
+      log = { i: console.log, d: console.debug, w: console.warn, e: console.error };
 
     this.canvas = canvas;
     this.ext = null;
@@ -120,16 +120,16 @@ export class GpuContext {
 
     let gl = canvas.getContext('webgl2', params);
     if (!gl) throw new Error('WebGL 2.0 not available');
-    this.log?.i('WebGL v' + gl.VERSION);
+    this.log?.d('WebGL v' + gl.VERSION);
 
-    this.log?.i('Texture access in vertex shaders:',
+    this.log?.d('Texture access in vertex shaders:',
       gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS));
-    this.log?.i('Max gl_PointSize:',
+    this.log?.d('Max gl_PointSize:',
       gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE));
 
     let fsprec = (fp) => gl.getShaderPrecisionFormat(
       gl.FRAGMENT_SHADER, fp).precision;
-    this.log?.i('Shader precision:',
+    this.log?.d('Shader precision:',
       'highp=' + fsprec(gl.HIGH_FLOAT),
       'mediump=' + fsprec(gl.MEDIUM_FLOAT),
       'lowp=' + fsprec(gl.LOW_FLOAT));
@@ -302,7 +302,7 @@ export class GpuFrameBuffer {
 
   destroy() {
     if (!this.webgl) return;
-    this.log?.v('Deleting texture', this.name);
+    this.log?.d('Deleting texture', this.name);
     let gl = this.webgl.gl;
     gl.deleteTexture(this.texture);
     gl.deleteFramebuffer(this.fbo);
@@ -399,7 +399,7 @@ export class GpuFrameBuffer {
     let note = `${spec} = ${count >> 20}M x float`;
     let tmax = gl.getParameter(gl.MAX_TEXTURE_SIZE);
 
-    this.log?.v('Creating texture', this.name);
+    this.log?.d('Creating texture', this.name);
 
     if (count > FBO_MAX_SIZE || Math.max(width, height) > tmax)
       throw new Error(`Texture too large: ${note}`);

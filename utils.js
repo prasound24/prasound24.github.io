@@ -126,7 +126,7 @@ export class Float32Tensor {
 export function xy2ra(x, y) {
   let r = Math.sqrt(x * x + y * y);
   let a = Math.atan2(y, x); // -PI..PI
-  return [r, a]
+  return [r, a];
 }
 
 // Returns null if no file was selected.
@@ -702,122 +702,43 @@ export async function ctcheck(ctoken) {
   ctoken.time = Date.now();
 }
 
-export async function reverseDiskMapping(src, res, { fs_full = false, r_zoom = 1, num_reps = 1, ctoken }) {
+export async function reverseDiskMapping(src, res, { num_reps = 1 }) {
   dcheck(res.rank == 2 && src.rank == 2);
   let [h, w] = res.dims;
-  let [sh, sw] = src.dims;
-  dcheck(h * w > 0 && sh * sw > 0);
+  let [nt, nf] = src.dims;
+  dcheck(h * w > 0 && nt * nf > 0);
 
-  for (let y = 0; y < h; y++) {
-    await ctcheck(ctoken);
-    for (let x = 0; x < w; x++) {
-      let dx = (x - 0.5) / w * 2 - 1;
-      let dy = (y - 0.5) / h * 2 - 1;
+  let num = new Float32Tensor([h, w]);
+  let dxy = 1.0;
+  let wh_tf = 2 * Math.PI * w * h / (nt * nf * num_reps);
+
+  for (let y = 0; y < h; y += dxy) {
+    for (let x = 0; x < w; x += dxy) {
+      let dx = (x + 0.5) / w * 2 - 1;
+      let dy = (y + 0.5) / h * 2 - 1;
       let [r, a] = xy2ra(dy, dx);
+      dxy = 0.33 * clamp(wh_tf * r, 0.1, 1.0);
       if (r >= 1.0) continue;
 
       a = (a / Math.PI * 0.5 + 1.0) % 1.0;
 
-      if (fs_full)
-        r = r * (a > 0.5 ? 0.5 : -0.5);
-      r = r / r_zoom;
       r = (r % 1 + 1) % 1;
       a = a * num_reps % 1;
-      // dcheck(r >= 0 && r <= 1);
-      // dcheck(a >= 0 && a <= 1);
 
-      let t = Math.min(Math.round(r * sh), sh - 1);
-      let f = Math.min(Math.round(a * sw), sw - 1);
-      res.data[y * w + x] = src.data[t * sw + f];
-    }
-  }
-}
+      let t = Math.round(r * nt);
+      let f = Math.round(a * nf);
 
-async function resampleData(src, res, { ctoken, coords_fn, num_steps }) {
-  dcheck(src.rank == 2 && res.rank == 2);
-  const lw = 1;
-  let [src_r, src_a] = src.dims;
-  let [res_h, res_w] = res.dims;
-  let r_steps = src_r * max(1, Math.ceil(num_steps[0] / src_r));
-  let a_steps = src_a * max(1, Math.ceil(num_steps[1] / src_a));
-  let weights = new Float32Tensor([res_h, res_w]);
-
-  res.data.fill(0);
-
-  let lanczos_xy = (x, y) =>
-    lanczos(x, lw) * lanczos(y, lw);
-
-  let interpolate_src = (r, a) => {
-    let a0 = Math.round(a);
-    let r0 = Math.round(r);
-    if (a == a0 && r == r0 || lw == 0)
-      return src.at(r0, a0);
-    let sum = 0;
-    for (let i = -lw; i <= lw; i++) {
-      for (let j = -lw; j <= lw; j++) {
-        if (i && j) continue;
-        let a1 = a0 + i, r1 = r0 + j;
-        if (a1 < 0 || a1 >= src_a || r1 < 0 || r1 >= src_r)
-          continue;
-        let w = lanczos_xy(a1 - a, r1 - r);
-        sum += src.at(r1, a1) * w;
-      }
-    }
-    return sum;
-  };
-
-  for (let sr = 0; sr < r_steps; sr++) {
-    await ctcheck(ctoken);
-    for (let sa = 0; sa < a_steps; sa++) {
-      let r = sr / r_steps * src_r;
-      let a = sa / a_steps * src_a;
-
-      for (let [x, y] of coords_fn(a, r)) {
-        x = Math.round(x);
-        y = Math.round(y);
-        if (x < 0 || x >= res_w || y < 0 || y >= res_h)
-          continue;
-        let val = interpolate_src(r, a);
-        res.data[y * res_w + x] += val;
-        weights.data[y * res_w + x] += 1.0;
+      if (t < nt && f < nf) {
+        let i = Math.round(y) * w + Math.round(x);
+        res.data[i] += src.data[t * nf + f];
+        num.data[i] += 1;
       }
     }
   }
 
-  for (let i = 0; i < res.data.length; i++)
-    if (weights.data[i] > 0)
-      res.data[i] /= weights.data[i];
-}
-
-export async function resampleDisk(src, res, { ctoken, fs_full = false, r_zoom = 1, num_reps = 1 } = {}) {
-  dcheck(src.rank == 2 && res.rank == 2);
-  let [src_r, src_a] = src.dims; // src.at(radius, arg)
-  let [res_h, res_w] = res.dims;
-
-  await resampleData(src, res, {
-    ctoken,
-    num_steps: [
-      0.5 * max(res_w, res_h), // radius
-      0.5 * (res_w + res_h) * PI], // circumference
-    coords_fn: (a, r) => {
-      let coords = [];
-      for (let i = 0; i < num_reps; i++) {
-        let rad = (r + 0.5) / src_r;
-        let arg = (a + 0.5) / src_a;
-        // dcheck(arg >= 0 && arg <= 1);
-        // dcheck(rad >= 0 && rad <= 1);
-        if (fs_full)
-          rad = arg > 0.5 ? rad * 2 : 1 - rad * 2;
-        rad = rad * r_zoom;
-        // arg = (0.0 + arg + i) * 2 * PI / num_reps;
-        arg = (0.0 + arg + i) * 2 * PI / num_reps;
-        let x = (rad * Math.sin(arg) * 0.5 + 0.5) * res_w;
-        let y = (rad * Math.cos(arg) * 0.5 + 0.5) * res_h;
-        coords.push([x, y]);
-      }
-      return coords;
-    },
-  });
+  for (let i = 0; i < h * w; i++)
+    if (num.data[i] > 0)
+      res.data[i] /= num.data[i];
 }
 
 // https://en.wikipedia.org/wiki/Lanczos_resampling
