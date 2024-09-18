@@ -64,21 +64,30 @@ async function showTempSounds() {
         await base.saveTempSoundImage(sid, image);
       }
 
-      let title = (audio.name || '').replace(/_/g, ' ').replace(/\..+$/, '');
-      let parts = title.split(' ');
-      a.querySelector('.a').textContent = parts.slice(0, 2).join(' ');
-      a.querySelector('.b').textContent = parts.slice(2).join(' ');
-      
-      let keynote = parts[1].replace(/\d$/, '');
-      if (!/^[A-G]s?$/.test(keynote))
+      let keynote = '';
+
+      try {
+        let title = (audio.name || '').replace(/_/g, ' ').replace(/\..+$/, '');
+        let parts = title.split(' ');
+        a.querySelector('.a').textContent = parts.slice(0, 2).join(' ');
+        a.querySelector('.b').textContent = parts.slice(2).join(' ');
+
+        keynote = parts[1].replace(/\d$/, '');
+        if (!/^[A-G]s?$/.test(keynote))
+          keynote = '';
+      } catch (err) {
         keynote = '';
+        console.warn(err);
+      }
 
       let img = a.querySelector('img');
       img.src = URL.createObjectURL(image);
-      img.classList.add(keynote);
+      if (keynote) img.classList.add(keynote);
       let sr = config?.sampleRate || 48000;
       a.querySelector('.a').onclick = () => base.playTempSound(sid, sr);
-      a.querySelector('a').href = '/create?src=db:' + sid + '&c=' + keynote;
+      let href = '/create?src=db:' + sid;
+      if (keynote) href += '&c=' + keynote;
+      a.querySelector('a').href = href;
       a.className = image ? '' : 'ready';
     } catch (err) {
       a.className = 'error';

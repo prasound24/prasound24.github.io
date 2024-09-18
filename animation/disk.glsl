@@ -2,6 +2,7 @@
 #define TEX_NOISE iChannel1
 #define STEPS 256
 #define TDISK 0.05
+#define DENSITY 0.75
 
 mat2 rot2x2(float a) {
   float c = cos(a), s = sin(a);
@@ -28,12 +29,12 @@ vec4 tex3d(vec3 pos) {
   float w1 = max(c.r, max(c.g, c.b)); // 0..1
   float w2 = min(c.r, min(c.g, c.b)); // 0..1
   float w = mix(w1, w2, 0.5);
-  w *= 1.0 + 0.1*texture(TEX_NOISE, pos.xy * 0.5 + 0.5).r;
+  w *= 1.0 + 0.3*texture(TEX_NOISE, pos.xy * 0.5 + 0.5).r;
   if(w < 0.001)
     return vec4(0);
   float a = cos2(pos.z / (w * TDISK)) / (w * TDISK);
   a = clamp(a, 0., 1.);
-  return vec4(c, a * 0.1);
+  return vec4(c, a * DENSITY);
 }
 
 float sdCappedCylinder(vec3 p, float h, float r) {
@@ -44,7 +45,7 @@ float sdCappedCylinder(vec3 p, float h, float r) {
 vec3 raytrace(vec2 fragCoord) {
   vec2 uv = (-1.0 + 2.0 * fragCoord.xy / iResolution.xy) *
     vec2(iResolution.x / iResolution.y, 1.0);
-  vec3 eye = vec3(0., -1.5, -1.0)/2.0;
+  vec3 eye = vec3(0., -1.5, -1.0)/1.5;
   vec3 lookat = vec3(0);
   mat3 cam = cam3x3(eye, lookat, 0.0);
   vec3 dir = cam * normalize(vec3(uv, 1.0));

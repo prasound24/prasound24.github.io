@@ -424,11 +424,13 @@ async function drawDiskImage() {
 async function saveDiskImage() {
   let canvas = $('canvas#disk');
   let blob = await new Promise(resolve =>
-    canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    canvas.toBlob(resolve, 'image/png', 0.85));
   let file = new File([blob], mem.audio_name, { type: blob.type });
   console.log('Saving disk image to DB:', file.type, file.size / 1024 | 0, 'KB');
   await DB.set(base.DB_PATH_IMAGE, file);
-  $('img#final').src = URL.createObjectURL(blob);
+  let url = URL.createObjectURL(blob);
+  $('img#final').src = url
+  $('html > head > link[rel=icon]').href = url;
 }
 
 async function saveImageConfig() {

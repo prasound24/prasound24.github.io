@@ -19,6 +19,37 @@ onmessage = (e) => {
   }
 };
 
+class MinMaxFilter {
+  constructor(len) {
+    this.len = len;
+    this.reset();
+  }
+
+  reset() {
+    this.n = 0;
+    this.min1 = +Infinity;
+    this.max1 = -Infinity;
+    this.min2 = +Infinity;
+    this.max2 = -Infinity;
+  }
+
+  push(x) {
+    if (this.n <= this.len / 2) {
+      this.min1 = Math.min(this.min1, x);
+      this.max1 = Math.max(this.max1, x);
+    } else {
+      this.min2 = Math.min(this.min2, x);
+      this.max2 = Math.max(this.max2, x);
+    }
+    this.n++;
+  }
+
+  range(s) {
+    return s < 0 ? Math.max(this.max1, this.max2) - Math.min(this.min1, this.min2) :
+      this.max2 - this.min2 + this.max1 - this.min1;
+  }
+}
+
 async function drawStringOscillations(signal, conf) {
   let sn = signal.length;
   // let upsampling = Math.max(1, Math.floor(100 * conf.stringLen / conf.sampleRate));
@@ -40,20 +71,15 @@ async function drawStringOscillations(signal, conf) {
   let wave_minmax = [];
   let dwt_levels = 1;
   for (let x = 0; x < width; x++)
-    wave_minmax[x] = new utils.DWTFilter(dwt_levels);
-  console.debug('DWT levels:', dwt_levels);
+    wave_minmax[x] = new MinMaxFilter(sn / height); // new utils.DWTFilter(dwt_levels);
 
   oscillator.damping = 10 ** conf.damping;
-  oscillator.frequency = 10 ** conf.frequency;
-  oscillator.stiffness = 10 ** conf.stiffness;
-  oscillator.gravity = 0.0;
   oscillator.dt = 1.0;
-  oscillator.dx = oscillator.dt;
+  oscillator.dx = 1.0;
 
   for (let t = 0; t < sn; t++) {
     oscillator.update();
-    oscillator.wave[0] += oscillator.dt * (signal[t] - oscillator.wave[0]) * conf.boundary;
-    // oscillator.wave[0] = signal[t];
+    oscillator.wave[0] = signal[t];
 
     for (let x = 0; x < width; x++)
       wave_minmax[x].push(oscillator.wave[x] - signal[t]);
@@ -68,7 +94,7 @@ async function drawStringOscillations(signal, conf) {
       for (let x = 0; x < width; x++) {
         let mm = wave_minmax[x];
         wave_mag[x] = mm.range(-1);
-        wave_hue[x] = mm.range(0); // 16x low-pass filter
+        wave_hue[x] = mm.range(0)/2; // a low-pass filter
       }
 
       //drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
@@ -133,10 +159,14 @@ function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.heig
       let [r, g, b] = fireballRGB(t);
       let [r2, g2, b2] = fireballRGB(Math.abs(hues.data[i]) * brightness * 0.3);
 
-      canvas_img.data[i * 4 + 0] = 255 * clamp(r + g2);
-      canvas_img.data[i * 4 + 1] = 255 * clamp(g + b2);
-      canvas_img.data[i * 4 + 2] = 255 * clamp(b + r2);
-      canvas_img.data[i * 4 + 3] = 255;
+      r += g2;
+      g += b2;
+      b += r2;
+
+      canvas_img.data[i * 4 + 0] = 255 * clamp(r);
+      canvas_img.data[i * 4 + 1] = 255 * clamp(g);
+      canvas_img.data[i * 4 + 2] = 255 * clamp(b);
+      canvas_img.data[i * 4 + 3] = 255 * (r > 0 && g > 0 && b > 0 ? 1 : 0);
     }
   }
 }
