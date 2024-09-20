@@ -1,26 +1,39 @@
 import * as utils from '../utils.js';
+import * as base from '../create/base.js';
 import { GpuContext } from '../webgl2.js';
 
 const { $, DB, fetchText, fetchRGBA } = utils;
 
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
-const DEFAULT_IMG_ID = 'flute_6';
+const DEFAULT_IMG_ID = 'bass-clarinet_As2_very-long_mezzo-piano_harmonic';
 const CW = 1024, CH = CW;
 const IMG_W = 2048, IMG_H = 2048;
+const SAMPLE_RATE = 48000;
+let sound = [0];
 let canvas = $('canvas#webgl');
 let shaders = {};
-let conf = {};
 
-initErrHandler();
-initImgRGBA();
-initWebGL();
+init();
+
+async function init() {
+  await initErrHandler();
+  await initSound();
+  await initImgRGBA();
+  await initWebGL();
+}
 
 function initErrHandler() {
   utils.setUncaughtErrorHandlers((err) => {
     if (err instanceof Error)
       $('#error_info').textContent = err.message;
   });
+}
+
+async function initSound() {
+  let blob = await base.loadAudioSignal(DEFAULT_IMG_ID);
+  sound = await utils.decodeAudioFile(blob, SAMPLE_RATE);
+  console.log('Sound:', (sound.length / SAMPLE_RATE).toFixed(1), 'sec,', sound.length, 'samples');
 }
 
 function resizeCanvas() {
@@ -41,8 +54,6 @@ async function initImgRGBA(width, height) {
     if (file) {
       img_url = URL.createObjectURL(file);
       conf = await DB.get(DB_PATH_CONFIG);
-      // if (conf.hue > 0)
-      //   canvas.style.filter = 'hue-rotate(' + conf.hue + 'deg)';
     } else {
       img_id = DEFAULT_IMG_ID;
     }
@@ -79,11 +90,14 @@ async function initWebGL() {
   await initShader(ctx, 'fireball');
   await initShader(ctx, 'fluid_img');
   await initShader(ctx, 'fluid_ch0');
+  await initShader(ctx, 'drum');
+  await initShader(ctx, 'minmax');
+  await initShader(ctx, 'drum_img');
 
-  let iChannel2 = ctx.createFrameBufferFromRGBA(img);
+  let iChannel3 = ctx.createFrameBufferFromRGBA(img);
+  let iChannel2 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel3 = ctx.createFrameBuffer(CW, CH, 4);
   let bufferA = ctx.createFrameBuffer(CW, CH, 4);
   let bufferB = ctx.createFrameBuffer(CW, CH, 4);
   let bufferC = ctx.createFrameBuffer(CW, CH, 4);
@@ -107,38 +121,54 @@ async function initWebGL() {
     }
   };
 
+  function runShader(name, args, out = null) {
+    let iResolution = out ? [out.width, out.height] : [canvas.width, canvas.height];
+    shaders[name].draw({ ...args, iResolution }, out);
+  }
+
   function drawFrame(time_msec = 0) {
-    if (iFrame == 0) base_time = time_msec;
-    let iTime = (time_msec - base_time) / 1000;
-    let iResolution = [canvas.width, canvas.height];
-    let args = { iTime, iFrame, iResolution, iChannel0, iChannel1, iChannel2, iChannel3 };
-
-    shaders['fireball'].draw(args, bufferB);
-    //shaders['fluid_ch0'].draw(args, bufferA);
-    //shaders['fluid_img'].draw(args, bufferC);
-    //shaders['sphere'].draw(args);
-    shaders['disk'].draw(args);
-
-    [iChannel0, bufferA] = [bufferA, iChannel0];
-    [iChannel1, bufferB] = [bufferB, iChannel1];
-    [iChannel3, bufferC] = [bufferC, iChannel3];
-
-    iFrame++;
-
-    if (time_msec) {
-      stats.frames++;
-      if (time_msec > stats.time + 5000) {
-        let fps = stats.frames / (time_msec - stats.time) * 1000;
-        $('#fps').textContent = fps.toFixed(0) + ' fps';
-        stats.time = time_msec;
-        stats.frames = 0;
-      }
-      animationId = requestAnimationFrame(drawFrame);
-    }
-
-    if (iFrame == 1) {
+    if (iFrame == 0) {
+      base_time = time_msec;
       $('#preview').style.display = 'none';
       canvas.style.display = '';
+    }
+
+    for (let k = 1; k > 0; k--) {
+      let iTime = (time_msec - base_time) / 1000;
+      let args = { iTime, iFrame, iChannel0, iChannel1, iChannel2, iChannel3 };
+
+      runShader('fireball', args, bufferB);
+      runShader('fluid_ch0', args, bufferA);
+      if (k == 1) runShader('fluid_img', args);
+
+      //runShader('fireball', args, bufferB);
+      //runShader('sphere', args);
+
+      //runShader('fireball', args, bufferB);
+      //runShader('disk', args);
+
+      //let iSound = sound[iFrame % sound.length];
+      //runShader('fireball', args, bufferC);
+      //runShader('drum', { ...args, iSound }, bufferA);
+      //runShader('minmax', { ...args, iSound }, bufferB);
+      //if (k == 1) runShader('drum_img', args);
+
+      [iChannel0, bufferA] = [bufferA, iChannel0];
+      [iChannel1, bufferB] = [bufferB, iChannel1];
+      [iChannel2, bufferC] = [bufferC, iChannel2];
+
+      iFrame++;
+    }
+
+    if (time_msec) {
+      if (time_msec > stats.time + 5000) {
+        let fps = (iFrame - stats.frames) / (time_msec - stats.time) * 1000;
+        $('#fps').textContent = fps.toFixed(0) + ' fps';
+        stats.time = time_msec;
+        stats.frames = iFrame;
+        console.debug('sound:', (iFrame / sound.length * 100).toFixed() + '%');
+      }
+      animationId = requestAnimationFrame(drawFrame);
     }
   }
 

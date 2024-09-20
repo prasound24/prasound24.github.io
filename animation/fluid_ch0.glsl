@@ -4,10 +4,12 @@
 // iChannel1: x = fireball noise
 // iChannel2: rgba = image data
 
+#define TEX_FLUID iChannel0
+#define TEX_NOISE iChannel1
+#define TEX_IMAGE iChannel3
+
 #define T(s,p) texture((s), (p)/iResolution)
-#define T0(p) texture(iChannel0,(p)/iResolution)
-#define T1(p) texture(iChannel1,(p)/iResolution)
-#define T2(p) texture(iChannel2,(p)/iResolution)
+#define T0(p) texture(TEX_FLUID,(p)/iResolution)
 
 #define dt 0.1
 #define visc 0.5 // viscosity
@@ -53,8 +55,8 @@ void mainImage(out vec4 c, in vec2 p) {
 	c.xy -= 0.2 * pgrad; // nullify divergence with pressure field gradient
 
 	vec2 ext; // external forces: https://en.wikipedia.org/wiki/Potential_flow
-	vec2 fire = grad(iChannel1, p);
-	ext += grad(iChannel2, p - 0.5*fire*iResolution) * 1.0; // image
+	vec2 fire = grad(TEX_NOISE, p);
+	ext += grad(TEX_IMAGE, p - 0.5*fire*iResolution) * 1.0; // image
 	ext += fire * 0.1;
 	c.xy += dt * ext;
 

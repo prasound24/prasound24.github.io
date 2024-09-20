@@ -1,4 +1,4 @@
-#define TEX_IMAGE iChannel2
+#define TEX_IMAGE iChannel3
 #define TEX_NOISE iChannel1
 
 vec2 sphere2(vec3 origin, vec3 dir, vec3 center, float radius) {

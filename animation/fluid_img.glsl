@@ -3,14 +3,6 @@ vec3 fire_rgb(float t) {
   return clamp(vec3(q, q*q*.4, q*q*q*.15), 0., 1.);
 }
 
-vec2 xy2ra(vec2 q) {
-  const float PI = radians(180.);
-  q = q / iResolution - 0.5;
-  float r = length(q); // 0..1/sqrt(2)
-  float a = atan(q.y, q.x); // -PI..PI
-  return vec2(a/PI*0.5+0.5, r*2.0) * iResolution;
-}
-
 void mainImage(out vec4 o, in vec2 p) {
   vec4 c = texture(iChannel0, p.xy / iResolution.xy);
   o.rgb += fire_rgb(c.z - 0.5).gbr; // pressure

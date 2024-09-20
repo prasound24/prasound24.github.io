@@ -29,11 +29,11 @@ export class StringOscillator {
     laplacian(wave, wave_xx);
 
     for (let x = 0; x < w; x++) {
-      let sum = 0.0;
+      let sum = wave[x];
 
+      sum += wave[x];
       sum += wave_xx[x] * (dt2 / dx2);
       sum -= prev[x] * r1;
-      sum += 2 * wave[x];
 
       next[x] = clamp(sum / r2, -1000, +1000);
     }

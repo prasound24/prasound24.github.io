@@ -1,4 +1,4 @@
-#define TEX_IMAGE iChannel2
+#define TEX_IMAGE iChannel3
 #define TEX_NOISE iChannel1
 #define STEPS 256
 #define TDISK 0.05
