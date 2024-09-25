@@ -169,7 +169,7 @@ function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.heig
       canvas_img.data[i * 4 + 0] = 255 * clamp(r);
       canvas_img.data[i * 4 + 1] = 255 * clamp(g);
       canvas_img.data[i * 4 + 2] = 255 * clamp(b);
-      canvas_img.data[i * 4 + 3] = 255 * (r > 0 && g > 0 && b > 0 ? 1 : 0);
+      canvas_img.data[i * 4 + 3] = 255 * 1;
     }
   }
 }

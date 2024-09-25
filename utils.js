@@ -784,13 +784,13 @@ export function rect2disk(rect, disk, { num_reps = 1 } = {}) {
   dcheck(n % 2 == 0);
 
   draw((x, y) => [x, y]);
-  draw((x, y) => [x, n - 1 - y]);
-  draw((x, y) => [y, x]);
-  draw((x, y) => [n - 1 - y, x]);
+  draw((x, y) => [x, n - y - 1]);
+  draw((x, y) => [y, n - x - 1]);
+  draw((x, y) => [n - y - 1, x]);
 
   function draw(transform) {
     let line = new Float32Array(n);
-    let tmp2 = new Float32Array(n);
+    let tmp = new Float32Array(n);
     let aa = new Float32Array(n);
     let rr = new Float32Array(n);
 
@@ -798,32 +798,34 @@ export function rect2disk(rect, disk, { num_reps = 1 } = {}) {
       let [x2, y2] = transform(x, 0);
       let dx = (x2 + 0.5) / n * 2 - 1; // -1..1
       let dy = (y2 + 0.5) / n * 2 - 1; // -1..1
-      aa[x] = Math.atan2(dx, -dy); // -PI..PI
+      aa[x] = Math.atan2(dx, dy); // -PI..PI
       rr[x] = Math.hypot(dx, dy); // 0..sqrt(2)
     }
 
     for (let y = 0; y < n / 2; y++) {
       line.fill(0);
-      tmp2.fill(0);
+      tmp.fill(0);
 
       for (let x = 0; x < n; x++) {
         let kr = rr[x] * (n - y * 2) / n * nr; // 0..nr*sqrt(2)
         let ka = aa[x] / (2 * Math.PI) * na; // -na/2..na/2
         ka = (ka + na) * num_reps % na;
-        if (kr > nr - 1)
+        if (kr > nr)
           continue;
         line[x] = interpolate2D(rect, kr, ka);
         dcheck(Number.isFinite(line[x]));
       }
 
+      let tmp2 = tmp.subarray(y, n - y);
+
       for (let x = 0; x < n; x++) {
-        let scale = (n - y * 2) / n;
-        let xs = (x + 0.5) * scale;
+        let ny2 = (n - y * 2);
+        let scale = ny2 / n;
+        let xs = (x + 0.5) * scale - 0.5;
         let i = Math.floor(xs);
         let j = Math.ceil(xs);
-        tmp2[i] += line[x] * scale * (i + 1 - xs);
-        if (j > i && j < tmp2.length - 1)
-          tmp2[j] += line[x] * scale * (xs - i);
+        tmp2[(i + ny2) % ny2] += line[x] * scale * (i + 1 - xs);
+        tmp2[j % ny2] += line[x] * scale * (xs - i);
       }
 
       for (let x = y; x < n - y; x++) {
