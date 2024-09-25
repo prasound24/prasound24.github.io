@@ -29,6 +29,7 @@ utils.setUncaughtErrorHandlers((err) => {
 });
 
 async function init() {
+  base.initConfFromURL();
   initMouseEvents();
   initTempGradientImg();
   initSettings();
@@ -91,7 +92,7 @@ function initSettings() {
   });
 
   initSetting('imageSize', {
-    addStep: (x, d) => clamp(x * 2 ** d, 256, 4096),
+    addStep: (x, d) => clamp(x * 2 ** d, 1, 4096),
     onChanged: () => {
       // conf.stringLen = conf.imageSize;
       // conf.numSteps = conf.imageSize / 2;
@@ -100,7 +101,7 @@ function initSettings() {
   });
 
   initSetting('numSteps', {
-    addStep: (x, d) => clamp(x * 2 ** d, 4, 8192),
+    addStep: (x, d) => clamp(x * 2 ** d, 1, 8192),
     onChanged: () => redrawImg(),
   });
 

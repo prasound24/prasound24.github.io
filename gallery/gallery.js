@@ -47,11 +47,15 @@ async function showTempSounds() {
   for (let [sid, s] of sounds.entries()) {
     let { a, audio, image, config } = s;
 
+    let pitch = -1;
+
     try {
-      if (!image) {
+      let conf2 = adjustConfigToImgSize(gconf, XS_IMG_SIZE);
+
+      if (!image || JSON.stringify(conf2) != JSON.stringify(config)) {
         console.log('Rendering', XS_IMG_SIZE + 'x' + XS_IMG_SIZE, 'sound image:', audio.name);
         a.classList.add('current');
-        config = config || adjustConfigToImgSize(gconf, XS_IMG_SIZE);
+        config = conf2;
         let signal = await utils.decodeAudioFile(audio, config.sampleRate);
         signal = base.padAudioWithSilence(signal);
         let [ll, rr] = base.findSilenceMarks(signal, config.silenceThreshold, config.numSteps);
@@ -62,6 +66,8 @@ async function showTempSounds() {
         image = await new Promise(resolve =>
           canvas.toBlob(resolve, 'image/jpeg', 0.85));
         await base.saveTempSoundImage(sid, image);
+        await base.saveTempSoundConfig(sid, config);
+        pitch = utils.meanPitch(signal); // 0..1
       }
 
       let keynote = '';
@@ -77,16 +83,21 @@ async function showTempSounds() {
           keynote = '';
       } catch (err) {
         keynote = '';
-        console.warn(err);
+        console.debug('Cannot parse audio name "' + audio.name + '":', err.message);
       }
 
       let img = a.querySelector('img');
       img.src = URL.createObjectURL(image);
-      if (keynote) img.classList.add(keynote);
+      if (keynote)
+        img.classList.add(keynote);
+      //else if (pitch >= 0)
+      //  img.style.filter = 'hue-rotate(' + Math.round(pitch * 360) + 'deg)';
+
       let sr = config?.sampleRate || 48000;
       a.querySelector('.a').onclick = () => base.playTempSound(sid, sr);
       let href = '/create?src=db:' + sid;
       if (keynote) href += '&c=' + keynote;
+      href += location.search.replace('?', '&');
       a.querySelector('a').href = href;
       a.className = image ? '' : 'ready';
     } catch (err) {
@@ -106,6 +117,7 @@ function adjustConfigToImgSize(conf, img_size) {
   dcheck(scale > 0);
   conf.imageSize *= scale;
   conf.numSteps *= scale;
+  base.initConfFromURL(conf);
   // conf.stringLen *= scale;
   // conf.sampleRate *= scale;
   return conf;

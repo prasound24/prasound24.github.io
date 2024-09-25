@@ -818,14 +818,15 @@ export function rect2disk(rect, disk, { num_reps = 1 } = {}) {
 
       let tmp2 = tmp.subarray(y, n - y);
 
-      for (let x = 0; x < n; x++) {
+      for (let x = 0, xstep = 0.5; x < n; x += xstep) {
         let ny2 = (n - y * 2);
         let scale = ny2 / n;
         let xs = (x + 0.5) * scale - 0.5;
         let i = Math.floor(xs);
         let j = Math.ceil(xs);
-        tmp2[(i + ny2) % ny2] += line[x] * scale * (i + 1 - xs);
-        tmp2[j % ny2] += line[x] * scale * (xs - i);
+        let v = line[x | 0] * scale * xstep;
+        tmp2[(i + ny2) % ny2] += v * (i + 1 - xs);
+        tmp2[j % ny2] += v * (xs - i);
       }
 
       for (let x = y; x < n - y; x++) {
@@ -1050,3 +1051,30 @@ export class DWTFilter {
       mm.reset();
   }
 }
+
+// Return value: 0..1/2. Maps to 0..sample_rate/2.
+export function meanFreq(sound) {
+  dcheck(sound instanceof Float32Array);
+  let n = sound.length;
+  let a = new Float32Array(n * 2);
+  for (let i = 0; i < n; i++)
+    a[i * 2] = sound[i];
+
+  webfft.bluestein_fft_1d(a, a);
+
+  let sum1 = 0, sum2 = 0;
+  for (let i = 1; i < n / 2; i++) {
+    let re = a[i * 2], im = a[i * 2 + 1];
+    let sqr = re * re + im * im;
+    sum1 += i * sqr;
+    sum2 += sqr;
+  }
+
+  return sum1 / sum2 / n * 2; // 0..0.5
+}
+
+export function meanPitch(sound) {
+  let f = meanFreq(sound);
+  return f > 0 ? ((Math.log2(f) % 1) + 1) % 1 : -1;
+}
+

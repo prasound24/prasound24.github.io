@@ -34,6 +34,18 @@ gconf.hue = 0; // 0..360 degrees
 
 let bg_thread = null;
 
+export function initConfFromURL(conf = gconf) {
+  let args = new URLSearchParams(location.search);
+  for (let name in conf) {
+    let str = args.get('conf.' + name);
+    let val = parseFloat(str);
+    if (str && Number.isFinite(val)) {
+      console.debug('Overridden param: conf.' + name + '=' + val);
+      conf[name] = val;
+    }
+  }
+}
+
 export function padAudioWithSilence(a) {
   let n = a.length;
   let b = new Float32Array(n * gconf.silencePadding);
@@ -141,6 +153,10 @@ export async function saveTempSoundImage(sid, image) {
 
 export async function loadTempSoundConfig(sid) {
   return await DB.get(DB_TEMP_CONFIGS + '/' + sid);
+}
+
+export async function saveTempSoundConfig(sid, conf) {
+  return await DB.set(DB_TEMP_CONFIGS + '/' + sid, conf);
 }
 
 export async function getTempSoundIds() {

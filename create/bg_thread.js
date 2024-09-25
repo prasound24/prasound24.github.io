@@ -1,5 +1,5 @@
 import { StringOscillator } from './oscillator.js';
-import * as utils from '/utils.js';
+import * as utils from '../utils.js';
 
 let { dcheck, clamp, fireballRGB, Float32Tensor } = utils;
 
@@ -69,20 +69,28 @@ async function drawStringOscillations(signal, conf) {
   let img_hue = img_rect.subtensor(1);
 
   let wave_minmax = [];
+  let wave_segments = [];
   let dwt_levels = 1;
-  for (let x = 0; x < width; x++)
+  for (let x = 0; x < width; x++) {
     wave_minmax[x] = new MinMaxFilter(sn / height); // new utils.DWTFilter(dwt_levels);
+    wave_segments[x] = new Float32Array(sn / height);
+  }
 
   oscillator.damping = 10 ** conf.damping;
   oscillator.dt = 1.0;
   oscillator.dx = 1.0;
 
+  let mfreq = 2 * utils.meanFreq(signal);
+
   for (let t = 0; t < sn; t++) {
     oscillator.update();
     oscillator.wave[0] = signal[t];
 
-    for (let x = 0; x < width; x++)
+    for (let x = 0; x < width; x++) {
       wave_minmax[x].push(oscillator.wave[x] - signal[t]);
+      let ws = wave_segments[x];
+      ws[t % ws.length] = oscillator.wave[x] - signal[t];
+    }
 
     let y = Math.round(t / (sn - 1) * (height - 1));
     dcheck(y >= 0 && y < height);
@@ -94,7 +102,9 @@ async function drawStringOscillations(signal, conf) {
       for (let x = 0; x < width; x++) {
         let mm = wave_minmax[x];
         wave_mag[x] = mm.range(-1);
-        wave_hue[x] = mm.range(0) / 2; // a low-pass filter
+        // wave_hue[x] = mm.range(0) / 2; // a low-pass filter
+        wave_hue[x] = mfreq + 0.25 * 2*(utils.meanFreq(wave_segments[x]) || 0);
+        dcheck(Number.isFinite(wave_hue[x]));
       }
 
       //drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
@@ -102,6 +112,8 @@ async function drawStringOscillations(signal, conf) {
 
       for (let mm of wave_minmax)
         mm.reset();
+      for (let ws of wave_segments)
+        ws.fill(0);
 
       if (y_curr > y_prev && Date.now() > ts + 250) {
         ts = Date.now();
@@ -160,11 +172,8 @@ function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.heig
       let i = y * width + x;
       let t = Math.abs(temps.data[i]) * brightness;
       let [r, g, b] = fireballRGB(t);
-      let [r2, g2, b2] = fireballRGB(Math.abs(hues.data[i]) * brightness * 0.3);
-
-      r += g2;
-      g += b2;
-      b += r2;
+      let [h, s, l] = utils.rgb2hsl(r, g, b);
+      [r, g, b] = utils.hsl2rgb(hues.data[i] + h, s, l);
 
       canvas_img.data[i * 4 + 0] = 255 * clamp(r);
       canvas_img.data[i * 4 + 1] = 255 * clamp(g);
