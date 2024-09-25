@@ -52,7 +52,3 @@
 .grid:not(.active) {
   display: none;
 }
-
-#vowels img {
-  filter: hue-rotate(90deg);
-}
