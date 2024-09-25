@@ -94,7 +94,7 @@ async function drawStringOscillations(signal, conf) {
       for (let x = 0; x < width; x++) {
         let mm = wave_minmax[x];
         wave_mag[x] = mm.range(-1);
-        wave_hue[x] = mm.range(0)/2; // a low-pass filter
+        wave_hue[x] = mm.range(0) / 2; // a low-pass filter
       }
 
       //drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
@@ -121,9 +121,12 @@ async function drawStringOscillations(signal, conf) {
 async function drawDiskImage(conf) {
   let img_disk = new Float32Tensor([2, conf.imageSize, conf.imageSize]);
   let resample = utils.reverseDiskMapping;
+  resample = utils.rect2disk;
 
+  let ts = Date.now();
   for (let i = 0; i < img_rect.dims[0]; i++)
     await resample(img_rect.subtensor(i), img_disk.subtensor(i), { num_reps: conf.symmetry });
+  console.debug('rect2disk:', Date.now() - ts, 'ms');
 
   let autoBrightness = adjustBrightness(img_rect.subtensor(0), conf);
   // console.debug('auto brightness:', autoBrightness.toFixed(1));

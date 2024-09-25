@@ -1,3 +1,5 @@
+import * as webfft from './lib/webfft.js';
+
 let { min, max, sin, cos, abs, PI } = Math;
 
 export const DEBUG = location.hostname == '0.0.0.0' || location.hostname == 'localhost';
@@ -771,6 +773,67 @@ export function resampleSignal(input, output, q = 12) {
   return output;
 }
 
+// https://elad.cs.technion.ac.il/wp-content/uploads/2018/02/Polar_FFT_FoCM.pdf
+export function rect2disk(rect, disk, { num_reps = 1 } = {}) {
+  dcheck(rect.dims.length == 2);
+  dcheck(disk.dims.length == 2);
+  dcheck(disk.dims[0] == disk.dims[1]);
+
+  let [nr, na] = rect.dims;
+  let [n] = disk.dims;
+  dcheck(n % 2 == 0);
+
+  draw((x, y) => [x, y]);
+  draw((x, y) => [x, n - 1 - y]);
+  draw((x, y) => [y, x]);
+  draw((x, y) => [n - 1 - y, x]);
+
+  function draw(transform) {
+    let line = new Float32Array(n);
+    let tmp2 = new Float32Array(n);
+    let aa = new Float32Array(n);
+    let rr = new Float32Array(n);
+
+    for (let x = 0; x < n; x++) {
+      let [x2, y2] = transform(x, 0);
+      let dx = (x2 + 0.5) / n * 2 - 1; // -1..1
+      let dy = (y2 + 0.5) / n * 2 - 1; // -1..1
+      aa[x] = Math.atan2(dx, -dy); // -PI..PI
+      rr[x] = Math.hypot(dx, dy); // 0..sqrt(2)
+    }
+
+    for (let y = 0; y < n / 2; y++) {
+      line.fill(0);
+      tmp2.fill(0);
+
+      for (let x = 0; x < n; x++) {
+        let kr = rr[x] * (n - y * 2) / n * nr; // 0..nr*sqrt(2)
+        let ka = aa[x] / (2 * Math.PI) * na; // -na/2..na/2
+        ka = (ka + na) * num_reps % na;
+        if (kr > nr - 1)
+          continue;
+        line[x] = interpolate2D(rect, kr, ka);
+        dcheck(Number.isFinite(line[x]));
+      }
+
+      for (let x = 0; x < n; x++) {
+        let scale = (n - y * 2) / n;
+        let xs = (x + 0.5) * scale;
+        let i = Math.floor(xs);
+        let j = Math.ceil(xs);
+        tmp2[i] += line[x] * scale * (i + 1 - xs);
+        if (j > i && j < tmp2.length - 1)
+          tmp2[j] += line[x] * scale * (xs - i);
+      }
+
+      for (let x = y; x < n - y; x++) {
+        let [x2, y2] = transform(x, y);
+        disk.data[y2 * n + x2] = tmp2[x - y];
+      }
+    }
+  }
+}
+
 // Returns a Promise<Blob>.
 export async function recordMic({ sample_rate = 48000 } = {}) {
   let mic_stream, resolve, reject;
@@ -849,6 +912,23 @@ export function interpolateLinear(t, list) {
   let i1 = Math.floor(i0);
   let i2 = Math.ceil(i0);
   return mix(list[i1], list[i2], i0 - i1);
+}
+
+export function interpolate2D(a, p, q) {
+  let [n, m] = a.dims;
+  let p0 = Math.floor(p);
+  let p1 = Math.ceil(p) % n;
+  let q0 = Math.floor(q);
+  let q1 = Math.ceil(q) % m;
+  let qs = q - q0;
+  let ps = p - p0;
+  let a00 = a.data[p0 * m + q0];
+  let a01 = a.data[p0 * m + q1];
+  let a10 = a.data[p1 * m + q0];
+  let a11 = a.data[p1 * m + q1];
+  let a0 = mix(a00, a01, qs);
+  let a1 = mix(a10, a11, qs);
+  return mix(a0, a1, ps);
 }
 
 export function interpolateSmooth(sig, t, kernel_size = 2, wrap = false) {

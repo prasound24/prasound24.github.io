@@ -100,7 +100,7 @@ function initSettings() {
   });
 
   initSetting('numSteps', {
-    addStep: (x, d) => clamp(x * 2 ** d, 128, 4096),
+    addStep: (x, d) => clamp(x * 2 ** d, 4, 8192),
     onChanged: () => redrawImg(),
   });
 
