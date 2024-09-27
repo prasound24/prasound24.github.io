@@ -20,33 +20,66 @@ onmessage = (e) => {
 };
 
 class MinMaxFilter {
-  constructor(len) {
-    this.len = len;
+  constructor(len, [gmin, gmax]) {
+    this.gmin = gmin;
+    this.gmax = gmax;
+    this.max = new MaxNormFilter(len);
+    this.min = new MaxNormFilter(len);
     this.reset();
   }
 
   reset() {
-    this.n = 0;
-    this.min1 = +Infinity;
-    this.max1 = -Infinity;
-    this.min2 = +Infinity;
-    this.max2 = -Infinity;
+    this.max.reset();
+    this.min.reset();
   }
 
   push(x) {
-    if (this.n <= this.len / 2) {
-      this.min1 = Math.min(this.min1, x);
-      this.max1 = Math.max(this.max1, x);
-    } else {
-      this.min2 = Math.min(this.min2, x);
-      this.max2 = Math.max(this.max2, x);
-    }
-    this.n++;
+    let a = this.gmin, b = this.gmax;
+    this.max.push((x - a) / (b - a));
+    this.min.push((b - x) / (b - a));
   }
 
-  range(s) {
-    return s < 0 ? Math.max(this.max1, this.max2) - Math.min(this.min1, this.min2) :
-      this.max2 - this.min2 + this.max1 - this.min1;
+  range() {
+    let a = this.gmin, b = this.gmax;
+    return (this.max.norm() + this.min.norm() - 1) * (b - a);
+  }
+}
+
+class MaxNormFilter {
+  constructor(len) {
+    this.reset();
+  }
+
+  reset() {
+    this.max = 0;
+  }
+
+  push(x) {
+    this.max = Math.max(Math.abs(x), this.max);
+  }
+
+  norm() {
+    return this.max;
+  }
+}
+
+// https://en.wikipedia.org/wiki/Norm_(mathematics)
+class PNormFilter {
+  constructor(len) {
+    this.decay = 0.9;
+    this.sum = 0;
+    this.reset();
+  }
+
+  reset() {
+  }
+
+  push(x) {
+    this.sum = this.sum * this.decay + Math.abs(x) ** 1024;
+  }
+
+  norm() {
+    return this.sum ** (1 / 1024);
   }
 }
 
@@ -63,6 +96,7 @@ async function drawStringOscillations(signal, conf) {
   let autoBrightness = 1.0;
 
   console.debug('string length:', width);
+  console.debug('sn/height=' + (sn/height));
 
   img_rect = new Float32Tensor([2, height, width]);
   let img_mag = img_rect.subtensor(0);
@@ -72,8 +106,8 @@ async function drawStringOscillations(signal, conf) {
   let wave_segments = [];
   let dwt_levels = 1;
   for (let x = 0; x < width; x++) {
-    wave_minmax[x] = new MinMaxFilter(sn / height); // new utils.DWTFilter(dwt_levels);
-    wave_segments[x] = new Float32Array(sn / height);
+    wave_minmax[x] = new MinMaxFilter(sn / height, [-1, 1]); // new utils.DWTFilter(dwt_levels);
+    //wave_segments[x] = new Float32Array(sn / height);
   }
 
   oscillator.damping = 10 ** conf.damping;
@@ -88,8 +122,8 @@ async function drawStringOscillations(signal, conf) {
 
     for (let x = 0; x < width; x++) {
       wave_minmax[x].push(oscillator.wave[x] - signal[t]);
-      let ws = wave_segments[x];
-      ws[t % ws.length] = oscillator.wave[x] - signal[t];
+      //let ws = wave_segments[x];
+      //ws[t % ws.length] = oscillator.wave[x] - signal[t];
     }
 
     let y = Math.round(t / (sn - 1) * (height - 1));
@@ -101,9 +135,8 @@ async function drawStringOscillations(signal, conf) {
 
       for (let x = 0; x < width; x++) {
         let mm = wave_minmax[x];
-        wave_mag[x] = mm.range(-1);
-        // wave_hue[x] = mm.range(0) / 2; // a low-pass filter
-        wave_hue[x] = mfreq + 0.25 * 2*(utils.meanFreq(wave_segments[x]) || 0);
+        wave_mag[x] = mm.range();
+        wave_hue[x] = mfreq; // + 2*(utils.meanFreq(wave_segments[x]) || 0);
         dcheck(Number.isFinite(wave_hue[x]));
       }
 

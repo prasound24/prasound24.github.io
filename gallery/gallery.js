@@ -64,7 +64,7 @@ async function showTempSounds() {
         await base.drawStringOscillations(signal, canvas, config);
         await base.drawDiskImage(canvas, config);
         image = await new Promise(resolve =>
-          canvas.toBlob(resolve, 'image/jpeg', 0.85));
+          canvas.toBlob(resolve, 'image/jpeg', 1.00));
         await base.saveTempSoundImage(sid, image);
         await base.saveTempSoundConfig(sid, config);
         pitch = utils.meanPitch(signal); // 0..1

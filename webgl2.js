@@ -71,10 +71,10 @@ export class GpuContext {
     return new GpuFrameBuffer(this, { log: this.log, ...args });
   }
 
-  createFrameBufferFromRGBA(img) {
+  createFrameBufferFromRGBA(img, scale = 1 / 255) {
     let rgba = new Float32Array(img.data);
     for (let i = 0; i < rgba.length; i++)
-      rgba[i] /= 255;
+      rgba[i] *= scale;
 
     let fbuffer = this.createFrameBuffer({
       width: img.width,

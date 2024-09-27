@@ -10,6 +10,8 @@ export const log = (...args) => console.log(args.join(' '));
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 export const mix = (a, b, x) => a * (1 - x) + b * x;
 export const step = (min, x) => x < min ? 0 : 1;
+export const smoothstep_01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x);
+export const smoothstep = (a, b, x) => smoothstep_01((x - a) / (b - a));
 export const sqr = (x) => x * x;
 export const clamp = (x, min = 0, max = 1) => Math.max(Math.min(x, max), min);
 export const hann = (x) => x > 0 && x < 1 ? sqr(Math.sin(Math.PI * x)) : 0;
@@ -810,8 +812,7 @@ export function rect2disk(rect, disk, { num_reps = 1 } = {}) {
         let kr = rr[x] * (n - y * 2) / n * nr; // 0..nr*sqrt(2)
         let ka = aa[x] / (2 * Math.PI) * na; // -na/2..na/2
         ka = (ka + na) * num_reps % na;
-        if (kr > nr)
-          continue;
+        if (kr > nr) continue;
         line[x] = interpolate2D(rect, kr, ka);
         dcheck(Number.isFinite(line[x]));
       }
@@ -825,8 +826,9 @@ export function rect2disk(rect, disk, { num_reps = 1 } = {}) {
         let i = Math.floor(xs);
         let j = Math.ceil(xs);
         let v = line[x | 0] * scale * xstep;
-        tmp2[(i + ny2) % ny2] += v * (i + 1 - xs);
-        tmp2[j % ny2] += v * (xs - i);
+        let s = smoothstep_01(xs - i);
+        tmp2[(i + ny2) % ny2] += v * (1 - s);
+        tmp2[j % ny2] += v * s;
       }
 
       for (let x = y; x < n - y; x++) {
@@ -923,8 +925,8 @@ export function interpolate2D(a, p, q) {
   let p1 = Math.ceil(p) % n;
   let q0 = Math.floor(q);
   let q1 = Math.ceil(q) % m;
-  let qs = q - q0;
-  let ps = p - p0;
+  let qs = (q - q0);
+  let ps = (p - p0);
   let a00 = a.data[p0 * m + q0];
   let a01 = a.data[p0 * m + q1];
   let a10 = a.data[p1 * m + q0];
@@ -1073,6 +1075,7 @@ export function meanFreq(sound) {
   return sum1 / sum2 / n * 2; // 0..0.5
 }
 
+// 0..1 maps to 0..360 deg
 export function meanPitch(sound) {
   let f = meanFreq(sound);
   return f > 0 ? ((Math.log2(f) % 1) + 1) % 1 : -1;

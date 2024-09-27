@@ -266,8 +266,12 @@ export function initWaveformDrawer(canvas) {
   let ctx = canvas.getContext('2d', { willReadFrequently: true });
   let img = ctx.getImageData(0, 0, cw, ch);
 
-  new Int32Array(img.data.buffer).fill(0x00FFFFFF);
-  ctx.putImageData(img, 0, 0);
+  clear();
+
+  function clear() {
+    new Int32Array(img.data.buffer).fill(0x00FFFFFF);
+    ctx.putImageData(img, 0, 0);
+  }
 
   function draw(sig, [xmin, xmax] = [0, 1], aminmax = []) {
     if (xmax < 0.0 || xmin > 1.0 || !sig.length)
@@ -295,7 +299,8 @@ export function initWaveformDrawer(canvas) {
     let dirty_xmin = Math.floor(xmin * cw);
     let dirty_xmax = Math.ceil(xmax * cw);
     ctx.putImageData(img, 0, 0, dirty_xmin, 0, dirty_xmax - dirty_xmin + 1, ch);
+    return img;
   }
 
-  return { draw };
+  return { draw, clear };
 }

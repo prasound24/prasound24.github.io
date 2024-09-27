@@ -425,10 +425,10 @@ async function drawDiskImage() {
 async function saveDiskImage() {
   let canvas = $('canvas#disk');
   let blob = await new Promise(resolve =>
-    canvas.toBlob(resolve, 'image/png', 0.85));
+    canvas.toBlob(resolve, 'image/png', 1.00));
   let file = new File([blob], mem.audio_name, { type: blob.type });
-  console.log('Saving disk image to DB:', file.type, file.size / 1024 | 0, 'KB');
   await DB.set(base.DB_PATH_IMAGE, file);
+  console.log('Saved disk image to DB:', file.type, (file.size / 1e6).toFixed(1), 'MB');
   let url = URL.createObjectURL(blob);
   $('img#final').src = url
   $('html > head > link[rel=icon]').href = url;
@@ -528,7 +528,7 @@ async function recordAudio() {
 async function downloadImage() {
   dcheck(mem.audio_name);
   let blob = await new Promise(resolve =>
-    $('canvas#disk').toBlob(resolve, 'image/jpeg', 0.85));
+    $('canvas#disk').toBlob(resolve, 'image/jpeg', 1.00));
   let a = document.createElement('a');
   a.download = mem.audio_name + '.jpg';
   a.href = URL.createObjectURL(blob);
