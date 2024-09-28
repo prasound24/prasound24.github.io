@@ -53,7 +53,7 @@ async function initImgRGBA(width, height) {
     let file = await DB.get(DB_PATH_IMAGE);
     if (file) {
       img_url = URL.createObjectURL(file);
-      conf = await DB.get(DB_PATH_CONFIG);
+      // conf = await DB.get(DB_PATH_CONFIG);
     } else {
       img_id = DEFAULT_IMG_ID;
     }

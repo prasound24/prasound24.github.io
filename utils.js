@@ -158,19 +158,21 @@ export async function decodeAudioFile(file, sample_rate = 48000) {
   }
 }
 
-export async function playSound(sound_data, sample_rate, { onstarted } = {}) {
-  let audio_ctx = new AudioContext({ sampleRate: sample_rate });
+export async function playSound(sound_data, sample_rate, { audio = {}, onstarted } = {}) {
+  audio.ctx = new AudioContext({ sampleRate: sample_rate });
   try {
-    let buffer = audio_ctx.createBuffer(1, sound_data.length, sample_rate);
+    let buffer = audio.ctx.createBuffer(1, sound_data.length, sample_rate);
     buffer.getChannelData(0).set(sound_data);
-    let source = audio_ctx.createBufferSource();
+    let source = audio.ctx.createBufferSource();
     source.buffer = buffer;
-    source.connect(audio_ctx.destination);
+    source.connect(audio.ctx.destination);
     source.start();
+    audio.startedTime = audio.ctx.currentTime;
+    audio.duration = buffer.duration;
     onstarted?.call(null);
     await new Promise(resolve => source.onended = resolve);
   } finally {
-    audio_ctx.close();
+    audio.ctx.close();
   }
 }
 
