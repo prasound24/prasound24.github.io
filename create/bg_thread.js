@@ -165,12 +165,9 @@ async function drawStringOscillations(signal, conf) {
 
 async function drawDiskImage(conf) {
   let img_disk = new Float32Tensor([2, conf.imageSize, conf.imageSize]);
-  let resample = utils.reverseDiskMapping;
-  resample = utils.rect2disk;
-
   let ts = Date.now();
   for (let i = 0; i < img_rect.dims[0]; i++)
-    await resample(img_rect.subtensor(i), img_disk.subtensor(i), { num_reps: conf.symmetry });
+    await utils.rect2disk(img_rect.subtensor(i), img_disk.subtensor(i), { num_reps: conf.symmetry });
   console.debug('rect2disk:', Date.now() - ts, 'ms');
 
   let autoBrightness = adjustBrightness(img_rect.subtensor(0), conf);

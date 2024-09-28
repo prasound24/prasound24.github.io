@@ -708,45 +708,6 @@ export async function ctcheck(ctoken) {
   ctoken.time = Date.now();
 }
 
-export async function reverseDiskMapping(src, res, { num_reps = 1 }) {
-  dcheck(res.rank == 2 && src.rank == 2);
-  let [h, w] = res.dims;
-  let [nt, nf] = src.dims;
-  dcheck(h * w > 0 && nt * nf > 0);
-
-  let num = new Float32Tensor([h, w]);
-  let dxy = 1.0;
-  let wh_tf = 2 * Math.PI * w * h / (nt * nf * num_reps);
-
-  for (let y = 0; y < h; y += dxy) {
-    for (let x = 0; x < w; x += dxy) {
-      let dx = (x + 0.5) / w * 2 - 1;
-      let dy = (y + 0.5) / h * 2 - 1;
-      let [r, a] = xy2ra(dy, dx);
-      dxy = 0.33 * clamp(wh_tf * r, 0.1, 1.0);
-      if (r >= 1.0) continue;
-
-      a = (a / Math.PI * 0.5 + 1.0) % 1.0;
-
-      r = (r % 1 + 1) % 1;
-      a = a * num_reps % 1;
-
-      let t = Math.round(r * nt);
-      let f = Math.round(a * nf);
-
-      if (t < nt && f < nf) {
-        let i = Math.round(y) * w + Math.round(x);
-        res.data[i] += src.data[t * nf + f];
-        num.data[i] += 1;
-      }
-    }
-  }
-
-  for (let i = 0; i < h * w; i++)
-    if (num.data[i] > 0)
-      res.data[i] /= num.data[i];
-}
-
 // https://en.wikipedia.org/wiki/Lanczos_resampling
 export function resampleSignal(input, output, q = 12) {
   if (typeof output == 'number')
