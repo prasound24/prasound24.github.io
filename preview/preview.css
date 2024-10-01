@@ -3,10 +3,23 @@
   margin: 1rem 0;
 }
 
+#wave_wrapper {
+  position: relative;
+  overflow-x: hidden;
+}
+
 #wave {
   height: 3rem;
   width: 100%;
   cursor: pointer;
+}
+
+#vline {
+  position: absolute;
+  height: 100%;
+  right: 0;
+  display: inline-block;
+  background: #0008;
 }
 
 i {

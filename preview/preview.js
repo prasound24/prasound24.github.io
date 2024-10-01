@@ -65,17 +65,11 @@ async function init() {
 
     try {
       is_playing = true;
-      await utils.playSound(signal, sample_rate, { audio });
+      await utils.playSound(signal, sample_rate, {
+        audio,
+        onstarted: () => startAudioProgressAnimation(audio),
+      });
       audio.ctx = null;
-      /* if (audio?.ctx) {
-        let time = (audio.ctx.currentTime - audio.startedTime) / audio.duration;
-        let ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffff';
-        ctx.strokeWidth = 1;
-        ctx.moveTo(time * canvas.width, 0);
-        ctx.lineTo(time * canvas.width, canvas.height);
-        ctx.stroke();
-      } */
     } finally {
       is_playing = false;
     }
@@ -92,6 +86,23 @@ async function init() {
 async function initAudioSignal(sample_rate) {
   let blob = await base.loadAudioSignal(args.get('src'));
   return await utils.decodeAudioFile(blob, sample_rate);
+}
+
+function startAudioProgressAnimation(audio) {
+  let vline = $('#vline');
+
+  function update() {
+    if (!audio.ctx) {
+      vline.style.display = 'none';
+      return;
+    }
+    let time = (audio.ctx.currentTime - audio.startedTime) / audio.duration;
+    vline.style.left = (time * 100).toFixed(2) + '%';
+    requestAnimationFrame(update);
+  }
+
+  vline.style.display = 'inline-block';
+  update();
 }
 
 function startWaveformAnimation(sig1, wd, canvas, animation) {
