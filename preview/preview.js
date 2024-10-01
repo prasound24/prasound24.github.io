@@ -18,6 +18,8 @@ async function init() {
   let note_class = args.get('c');
   let conf, img_url, is_playing = false;
 
+  $('.preview a').href += location.search;
+
   if (note_class) {
     img_main.classList.add(note_class);
     img_inline.classList.add(note_class);
@@ -108,11 +110,8 @@ function startAudioProgressAnimation(audio) {
 function startWaveformAnimation(sig1, wd, canvas, animation) {
   let sig2 = webfft.harmonic_conjugate(sig1);
   let tmp = new Float32Array(sig1.length);
-  let amin1 = sig1.reduce((s, x) => Math.min(s, x), +1);
-  let amax1 = sig1.reduce((s, x) => Math.max(s, x), -1);
-  let amin2 = sig2.reduce((s, x) => Math.min(s, x), +1);
-  let amax2 = sig2.reduce((s, x) => Math.max(s, x), -1);
-  let amin = Math.min(amin1, amin2), amax = Math.max(amax1, amax2);
+  let max1 = sig1.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
+  let max2 = sig2.reduce((s, x) => Math.max(s, Math.abs(x)), max1);
   let frameId = 0, frames = Array(256);
   let ctx = canvas.getContext('2d');
 
@@ -128,7 +127,7 @@ function startWaveformAnimation(sig1, wd, canvas, animation) {
         tmp[i] = sig1[i] * cos + sig2[i] * sin;
 
       wd.clear();
-      wd.draw(tmp, [0, 1], [amin, amax]);
+      wd.draw(tmp, [0, 1], [-max2, +max2]);
 
       let img = ctx.getImageData(0, 0, canvas.width, canvas.height);
       frames[id] = ctx.createImageData(canvas.width, canvas.height);

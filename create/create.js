@@ -38,6 +38,7 @@ async function init() {
   $('#record').onclick = () => recordAudio();
   $('#stop_recording').onclick = () => stopRecording();
   $('#download_image').onclick = () => downloadImage();
+  $('#show_settings').onclick = () => showSettings();
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
 
@@ -47,6 +48,10 @@ async function init() {
     await drawWaveform();
     await redrawImg();
   }
+}
+
+function showSettings() {
+  document.body.classList.toggle('settings');
 }
 
 function initSettings() {
@@ -70,7 +75,7 @@ function initSettings() {
     addStep: (x, d) => (x + 10 * d + 360) % 360,
     toText: (x) => x.toFixed(0),
     onChanged: () => {
-      $('#disk').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
+      $('#final').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
       saveImageConfig();
     },
   });
@@ -86,6 +91,7 @@ function initSettings() {
   });
 
   initSetting('exposure', {
+    debug: true,
     addStep: (x, d) => clamp(x + d * 0.5, -9.5, -0.5),
     toText: (x) => x.toFixed(1),
     onChanged: () => redrawImg(),
@@ -117,30 +123,10 @@ function initSettings() {
     onChanged: () => redrawImg(),
   });
 
-  initSetting('boundary', {
-    debug: true,
-    addStep: (x, d) => clamp(x + d * 0.01, 0.0, 1.0),
-    toText: (x) => x.toFixed(2),
-    onChanged: () => redrawImg(),
-  });
-
   initSetting('damping', {
+    debug: true,
     addStep: (x, d) => clamp(x + d * 0.1, -5.0, 0.0),
     toText: (x) => x.toFixed(1),
-    onChanged: () => redrawImg(),
-  });
-
-  initSetting('frequency', {
-    debug: true,
-    addStep: (x, d) => clamp(x + d * 0.1, -10.0, 0.0),
-    toText: (x) => x.toFixed(1),
-    onChanged: () => redrawImg(),
-  });
-
-  initSetting('stiffness', {
-    debug: true,
-    addStep: (x, d) => clamp(x + d * 0.01, -10.0, 0.0),
-    toText: (x) => x.toFixed(2),
     onChanged: () => redrawImg(),
   });
 }

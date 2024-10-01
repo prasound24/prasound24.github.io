@@ -73,6 +73,7 @@ body.recording #record {
 #upload,
 #play_sound,
 #download_image,
+#show_settings,
 #download_audio {
   text-align: center;
   cursor: pointer;
@@ -212,6 +213,10 @@ canvas#wave,
   border-left: 1px solid #668;
 }
 
+#art_main {
+  position: relative;
+}
+
 #img_info {
   position: relative;
   height: 0;
@@ -220,6 +225,12 @@ canvas#wave,
 #download_image {
   position: absolute;
   right: 0.5em;
+  bottom: 0.5em;
+}
+
+#show_settings {
+  position: absolute;
+  left: 0.5em;
   bottom: 0.5em;
 }
 
@@ -256,10 +267,16 @@ button.small_btn:hover {
 }
 
 #settings {
-  padding: 1em;
   display: flex;
+  flex-direction: column;
   flex-wrap: wrap;
   gap: 1em;
+  position: absolute;
+  bottom: 3em;
+}
+
+body:not(.settings) #settings {
+  display: none;
 }
 
 .setting:first-child {
@@ -285,13 +302,18 @@ button.small_btn:hover {
 
 .setting div {
   font-weight: bold;
-  text-align: center;
-  margin-bottom: 0.5em;
+  text-align: right;
+  width: 6em;
+  padding-right: 0.5em;
+  display: inline-block;
 }
 
 .setting span {
   border: 1px solid var(--color1);
-  padding: 0 1em;
+  width: 8em;
+  display: inline-block;
+  text-align: center;
+  background: #000;
 }
 
 .setting s:not(:empty) {
