@@ -1,4 +1,4 @@
-import * as utils from '../utils.js';
+import * as utils from '../lib/utils.js';
 import * as base from './base.js';
 
 const { $, sleep, clamp, check, dcheck, DB } = utils;
@@ -9,6 +9,7 @@ let args = new URLSearchParams(location.search);
 let recorder = null;
 let rec_timer = null;
 let is_drawing = false;
+let ui_settings = {};
 
 let mem = {
   audio_name: '',
@@ -42,7 +43,8 @@ async function init() {
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
 
-  $('img#final').classList.add(args.get('c'));
+  if (args.get('c'))
+    $('#disk').classList.add(args.get('c'));
 
   if (await loadAudioSignal()) {
     await drawWaveform();
@@ -75,7 +77,7 @@ function initSettings() {
     addStep: (x, d) => (x + 10 * d + 360) % 360,
     toText: (x) => x.toFixed(0),
     onChanged: () => {
-      $('#final').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
+      $('#disk').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
       saveImageConfig();
     },
   });
@@ -129,6 +131,14 @@ function initSettings() {
     toText: (x) => x.toFixed(1),
     onChanged: () => redrawImg(),
   });
+
+  initSetting('phase', {
+    debug: true,
+    units: '\u00b0',
+    addStep: (x, d) => ((x + d * 10 / 360) % 1 + 1) % 1,
+    toText: (x) => (x * 360).toFixed(0),
+    onChanged: () => redrawImg(),
+  });
 }
 
 function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText }) {
@@ -157,10 +167,16 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
     if (x == gconf[name])
       return;
     gconf[name] = x;
-    value.textContent = toText(x);
+    refresh();
     clearTimeout(timer);
     timer = setTimeout(() => onChanged(gconf[name]), delay * 1000);
   }
+
+  function refresh() {
+    value.textContent = toText(gconf[name]);
+  }
+
+  ui_settings[name] = { refresh };
 }
 
 async function initTempGradientImg() {
@@ -300,6 +316,17 @@ async function decodeAudio() {
     await saveAudioSignal();
     // normalizeAudioSignal(mem.audio_signal);
     mem.audio_signal = base.padAudioWithSilence(mem.audio_signal);
+
+    let freq = utils.meanFreq(mem.audio_signal, sample_rate) | 0;
+    let pitch = utils.meanPitch(freq);
+    let note = utils.pitchToNote(pitch);
+    console.debug('Avg freq:', freq + ' Hz', note + '=' + (pitch*360).toFixed(0) + 'deg');
+
+    if (!args.get('c')) {
+      gconf.hue = Math.round(pitch * 360 / 30) * 30;
+      ui_settings.hue.refresh();
+      $('#disk').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
+    }
   }
 }
 
@@ -367,12 +394,10 @@ async function redrawImg() {
   $('#error_info').textContent = '';
 
   try {
-    document.body.classList.remove('final');
     await drawStringOscillations();
     await drawDiskImage();
     await saveDiskImage();
     await saveImageConfig();
-    document.body.classList.add('final');
   } finally {
     is_drawing = false;
   }
@@ -416,7 +441,6 @@ async function saveDiskImage() {
   await DB.set(base.DB_PATH_IMAGE, file);
   console.log('Saved disk image to DB:', file.type, (file.size / 1e6).toFixed(1), 'MB');
   let url = URL.createObjectURL(blob);
-  $('img#final').src = url
   $('html > head > link[rel=icon]').href = url;
 }
 

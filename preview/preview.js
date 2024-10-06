@@ -1,4 +1,4 @@
-import * as utils from '../utils.js';
+import * as utils from '../lib/utils.js';
 import * as webfft from '../lib/webfft.js';
 import * as base from '../create/base.js';
 

@@ -6,12 +6,9 @@ canvas#wave {
   width: 100%;
 }
 
-body.final #disk {
-  display: none;
-}
-
-body:not(.final) #final {
-  display: none;
+canvas#disk {
+  position: relative;
+  z-index: -1;
 }
 
 p {
@@ -270,7 +267,7 @@ button.small_btn:hover {
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
-  gap: 1em;
+  gap: 0.5em;
   position: absolute;
   bottom: 3em;
 }

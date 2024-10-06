@@ -240,50 +240,50 @@ svg.progress circle {
 
 /* https://en.wikipedia.org/wiki/Piano_key_frequencies */
 
-img.C {
+.C {
   filter: hue-rotate(0deg);
 }
 
-img.Cs {
+.Cs {
   filter: hue-rotate(30deg);
 }
 
-img.D {
+.D {
   filter: hue-rotate(60deg);
 }
 
-img.Ds {
+.Ds {
   filter: hue-rotate(90deg);
 }
 
-img.E {
+.E {
   filter: hue-rotate(120deg);
 }
 
-img.F {
+.F {
   filter: hue-rotate(150deg);
 }
 
-img.Fs {
+.Fs {
   filter: hue-rotate(180deg);
 }
 
-img.G {
+.G {
   filter: hue-rotate(210deg);
 }
 
-img.Gs {
+.Gs {
   filter: hue-rotate(240deg);
 }
 
-img.A {
+.A {
   filter: hue-rotate(270deg);
 }
 
-img.As {
+.As {
   filter: hue-rotate(300deg);
 }
 
-img.B {
+.B {
   filter: hue-rotate(330deg);
 }

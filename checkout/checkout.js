@@ -1,4 +1,4 @@
-import * as utils from '../utils.js';
+import * as utils from '../lib/utils.js';
 
 const { $, DB } = utils;
 const DB_PATH_IMAGE = 'user_samples/_last/image';

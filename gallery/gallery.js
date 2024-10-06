@@ -1,4 +1,4 @@
-import * as utils from '../utils.js';
+import * as utils from '../lib/utils.js';
 import * as base from '../create/base.js';
 
 const { $, dcheck } = utils;
@@ -67,7 +67,7 @@ async function showTempSounds() {
           canvas.toBlob(resolve, 'image/jpeg', 1.00));
         await base.saveTempSoundImage(sid, image);
         await base.saveTempSoundConfig(sid, config);
-        pitch = utils.meanPitch(signal); // 0..1
+        pitch = utils.meanPitch(utils.meanFreq(signal, config.sampleRate)); // 0..1
       }
 
       let keynote = '';
@@ -90,8 +90,8 @@ async function showTempSounds() {
       img.src = URL.createObjectURL(image);
       if (keynote)
         img.classList.add(keynote);
-      //else if (pitch >= 0)
-      //  img.style.filter = 'hue-rotate(' + Math.round(pitch * 360) + 'deg)';
+      else if (pitch >= 0)
+        img.style.filter = 'hue-rotate(' + Math.round(pitch * 360) + 'deg)';
 
       let sr = config?.sampleRate || 48000;
       a.querySelector('.a').onclick = () => base.playTempSound(sid, sr);

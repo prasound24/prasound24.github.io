@@ -1,5 +1,5 @@
 
-import * as utils from '../utils.js';
+import * as utils from '../lib/utils.js';
 
 const { $, check, dcheck, clone, sleep, DB } = utils;
 
@@ -19,9 +19,7 @@ gconf.stringLen = 9.1; // msec
 gconf.numSteps = 512;
 gconf.imageSize = 1024;
 gconf.damping = -3.1;
-gconf.stiffness = -10.0;
-gconf.frequency = -10.0;
-gconf.boundary = 1.0;
+gconf.phase = 0; // 0..1 maps to 0..2PI
 gconf.symmetry = 2;
 gconf.brightness = 0.0;
 gconf.exposure = -2.0;
@@ -176,7 +174,6 @@ function postWorkerCommand({ command, handlers }) {
   let txid = Math.random().toString(16).slice(2);
   bg_thread.postMessage({ ...command, txid });
   bg_thread.onmessage = (e) => {
-    console.debug('received message:', e.data.type);
     let handler = handlers[e.data.type];
     dcheck(handler);
     handler.call(null, e);

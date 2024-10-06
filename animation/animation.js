@@ -1,4 +1,4 @@
-import * as utils from '../utils.js';
+import * as utils from '../lib/utils.js';
 import * as base from '../create/base.js';
 import { GpuContext } from '../webgl2.js';
 
