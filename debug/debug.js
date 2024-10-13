@@ -190,6 +190,7 @@ async function testImage() {
   showTempGradient(t => [tc(t / 0.45), tc(t / 0.62), tc(t)], 'bb-sim');
 
   showTempGradient(utils.fireballRGB, 'fireball');
+  showTempGradient(t => utils.hsl2rgb(t * 0.15, 1.0, t), 'fireball-hsl');
   showTempGradient(t => [t * 4, t * 2, t], '421');
 }
 
@@ -206,6 +207,7 @@ function showTempGradient(temp, title) {
 
   for (let x = 0; x < w; x++) {
     let [r, g, b] = temp(x / w);
+    let [hue, sat, lts] = utils.rgb2hsl(r, g, b);
     let rgb32 = 0xFF000000;
     rgb32 += Math.round(clamp(r) * 0xFF) << 0;
     rgb32 += Math.round(clamp(g) * 0xFF) << 8;
@@ -221,6 +223,13 @@ function showTempGradient(temp, title) {
         c = 0xFF00FF00;
       if (Math.abs(h - b * h - y + 0.5) < 1)
         c = 0xFFFF0000;
+
+      if (Math.abs(h - hue * h - y + 0.5) < 2)
+        c = 0xFFFF00FF;
+      if (Math.abs(h - sat * h - y + 0.5) < 2)
+        c = 0xFF000000;
+      if (Math.abs(h - lts * h - y + 0.5) < 2)
+        c = 0xFFFFFFFF;
 
       img32[p] = c;
     }

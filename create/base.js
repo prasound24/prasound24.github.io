@@ -181,23 +181,12 @@ function postWorkerCommand({ command, handlers }) {
 }
 
 export async function drawStringOscillations(signal, canvas, cfg, { onprogress } = {}) {
-  // let width = cfg.stringLen; // oscillating string length
-  // canvas.width = cfg.stringLen;
-  // canvas.height = cfg.numSteps;
-  // let ctx = canvas.getContext('2d', { willReadFrequently: true });
-  // let img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
   await new Promise((resolve) => {
     postWorkerCommand({
       command: { type: 'wave_1d', signal, config: clone(cfg) },
       handlers: {
         img_data: (e) => {
           let [ymin, ymax] = e.data.rows;
-          //let img_data = e.data.img_data;
-          //dcheck(img_data.length == (ymax - ymin + 1) * width * 4);
-          //img.data.set(img_data, ymin * width * 4);
-          //ctx.putImageData(img, 0, 0);
-          //console.debug('updated img data: ' + ymin + '..' + ymax);
           onprogress?.call(null, ymax / cfg.numSteps);
         },
         img_done: (e) => {
@@ -206,15 +195,27 @@ export async function drawStringOscillations(signal, canvas, cfg, { onprogress }
       },
     });
   });
-
-  // ctx.putImageData(img, 0, 0);
-  await sleep(5);
 }
 
-export async function drawDiskImage(canvas, cfg, { smooth = false } = {}) {
+export async function drawOscillationFreqs(conf, { onprogress } = {}) {
+  await new Promise((resolve) => {
+    postWorkerCommand({
+      command: { type: 'img_freqs', config: clone(conf) },
+      handlers: {
+        img_freqs: (e) => {
+          if (e.data.progress < 1.00)
+            onprogress?.call(null, e.data.progress);
+          else
+            resolve();
+        },
+      },
+    });
+  });
+}
+
+export async function drawDiskImage(canvas, cfg) {
   let ds = cfg.imageSize;
   let config = clone(cfg);
-  config.smooth = smooth;
 
   let img_data = await new Promise((resolve) => {
     postWorkerCommand({

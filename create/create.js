@@ -320,7 +320,7 @@ async function decodeAudio() {
     let freq = utils.meanFreq(mem.audio_signal, sample_rate) | 0;
     let pitch = utils.meanPitch(freq);
     let note = utils.pitchToNote(pitch);
-    console.debug('Avg freq:', freq + ' Hz', note + '=' + (pitch*360).toFixed(0) + 'deg');
+    console.debug('Avg freq:', freq + ' Hz', note + '=' + (pitch * 360).toFixed(0) + 'deg');
 
     if (!args.get('c')) {
       gconf.hue = Math.round(pitch * 360 / 30) * 30;
@@ -395,9 +395,10 @@ async function redrawImg() {
 
   try {
     await drawStringOscillations();
-    await drawDiskImage();
+    let ts = Date.now();
     await saveDiskImage();
     await saveImageConfig();
+    console.debug('saveDiskImage:', Date.now() - ts, 'ms');
   } finally {
     is_drawing = false;
   }
@@ -405,27 +406,22 @@ async function redrawImg() {
   console.debug('image ready:', Date.now() - time, 'ms');
 }
 
-// normalized: avg sig[t]^2 = 1.0
-function normalizeAudioSignal(sig) {
-  let sum = 0.0;
-  for (let i = 0; i < sig.length; i++)
-    sum += utils.sqr(sig[i]);
-  if (!sum) return;
-
-  let sq2 = Math.sqrt(sum / sig.length * gconf.sampleRate);
-  for (let i = 0; i < sig.length; i++)
-    sig[i] /= sq2;
-}
-
 async function drawStringOscillations() {
-  try {
-    base.setCircleProgress(0);
-    await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf, {
-      onprogress: (value) => base.setCircleProgress(value * 95 | 0),
-    });
-  } finally {
-    base.setCircleProgress(90);
-  }
+  base.setCircleProgress(0);
+
+  await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf, {
+    onprogress: (pct) => base.setCircleProgress(pct * 90),
+  });
+
+  await drawDiskImage();
+  //base.setCircleProgress(50);
+
+  /*await base.drawOscillationFreqs(gconf, {
+    onprogress: (pct) => base.setCircleProgress(pct * 40 + 50),
+  });
+
+  await drawDiskImage();*/
+  base.setCircleProgress(null);
 }
 
 async function drawDiskImage() {

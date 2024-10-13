@@ -1,10 +1,11 @@
 import { StringOscillator } from './oscillator.js';
 import * as utils from '../lib/utils.js';
-import { harmonic_conjugate } from '../lib/webfft.js';
 
 let { dcheck, clamp, fireballRGB, Float32Tensor } = utils;
 
-let img_rect = null;
+let osc_lines;
+let img_amps;
+let img_freqs;
 
 onmessage = (e) => {
   // console.log('received command:', e.data.type);
@@ -15,99 +16,153 @@ onmessage = (e) => {
     case 'draw_disk':
       drawDiskImage(e.data.config);
       break;
+    case 'img_freqs':
+      computeImgFreqs(e.data.config);
+      break;
     default:
       console.warn('unknown command:', e.data.type);
   }
 };
 
-async function drawStringOscillations(signal, conf) {
-  let sn = signal.length;
-  let width = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
-  let height = conf.numSteps;
-  let oscillator = new StringOscillator({ width });
-  let img = { data: new Uint8Array(width * height * 4), width, height };
-  let y_prev = 0, y_curr = 0, ts = Date.now();
-  let autoBrightness = 1.0;
+function computeOscLines(signal, conf) {
+  let strlen = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
+  let oscillator = new StringOscillator({ width: strlen });
+  let siglen = signal.length;
 
-  console.debug('string length:', width);
-  console.debug('sn/height=' + (sn / height));
-
-  img_rect = new Float32Tensor([1, height, width]);
-  let img_mag = img_rect.subtensor(0);
-  //let img_hue = img_rect.subtensor(1);
-
-  let wave_minmax = [];
-  let wave_segments = [];
-  let dwt_levels = 1;
-  for (let x = 0; x < width; x++) {
-    wave_minmax[x] = new utils.MinMaxFilter(Math.ceil(sn / height)); // new utils.DWTFilter(dwt_levels);
-    //wave_segments[x] = new Float32Array(sn / height);
-  }
-
+  osc_lines = new Float32Tensor([siglen, strlen]);
   oscillator.damping = 10 ** conf.damping;
 
-  let ts0 = Date.now();
-
-  for (let t = 0; t < sn; t++) {
+  for (let t = 0; t < siglen; t++) {
     oscillator.update();
     oscillator.wave[0] = signal[t];
 
-    for (let x = 0; x < width; x++) {
-      wave_minmax[x].push(oscillator.wave[x] - signal[t]);
-      //let ws = wave_segments[x];
-      //ws[t % ws.length] = oscillator.wave[x] - signal[t];
-    }
+    for (let x = 0; x < strlen; x++)
+      osc_lines.data[t * strlen + x] = oscillator.wave[x] - signal[t];
+  }
+}
 
-    let y = clamp(Math.round(t / sn * height), 0, height - 1);
+function computeImgAmps(conf) {
+  let [siglen, width] = osc_lines.dims;
+  let steps = conf.numSteps;
+  //let img = { data: new Uint8Array(width * height * 4), width, height };
+  let y_prev = 0, y_curr = 0, ts = Date.now();
 
-    if (y > y_curr) {
-      let wave_mag = img_mag.data.subarray(y_curr * width, y_curr * width + width);
-      //let wave_hue = img_hue.data.subarray(y_curr * width, y_curr * width + width);
+  console.debug('siglen=' + siglen, 'strlen=' + width, 'steps=' + steps);
+  console.debug('sn/height=' + (siglen / steps));
 
+  img_amps = new Float32Tensor([steps, width]);
+  //let img_hue = img_rect.subtensor(1);
+
+  let wave_minmax = [];
+  for (let x = 0; x < width; x++)
+    wave_minmax[x] = new utils.MinMaxFilter(Math.ceil(siglen / steps)); // new utils.DWTFilter(dwt_levels);
+
+  utils.time('img_freqs:', () => {
+    for (let t = 0; t < siglen; t++) {
       for (let x = 0; x < width; x++) {
-        let mm = wave_minmax[x];
-        wave_mag[x] = mm.range();
-        // https://en.wikipedia.org/wiki/Instantaneous_phase_and_frequency
-        //wave_hue[x] = mfreq; // + 2*(utils.meanFreq(wave_segments[x]) || 0);
-        //dcheck(Number.isFinite(wave_hue[x]));
+        let amp = osc_lines.data[t * width + x];
+        wave_minmax[x].push(amp);
       }
 
-      //drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
-      y_curr = y;
+      let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
 
-      for (let mm of wave_minmax)
-        mm.reset();
-      for (let ws of wave_segments)
-        ws.fill(0);
+      if (y > y_curr) {
+        let wave_mag = img_amps.data.subarray(y_curr * width, y_curr * width + width);
 
-      if (y_curr > y_prev && Date.now() > ts + 250) {
+        for (let x = 0; x < width; x++) {
+          let mm = wave_minmax[x];
+          wave_mag[x] = mm.range();
+        }
+
+        //drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
+        y_curr = y;
+
+        for (let mm of wave_minmax)
+          mm.reset();
+
+        if (y_curr > y_prev && Date.now() > ts + 250) {
+          ts = Date.now();
+          // let img_data = img.data.subarray(y_prev * width * 4, y_curr * width * 4);
+          postMessage({ type: 'img_data', img_data: null, rows: [y_prev, y_curr - 1] });
+          y_prev = y_curr;
+        }
+      }
+    }
+  });
+
+  //let autoBrightness = adjustBrightness(img_amps, conf);
+  //console.debug('brightness:', 10 ** -autoBrightness);
+  //drawImgData(img, img_rect, [0, height - 1], autoBrightness, conf);
+  postMessage({ type: 'img_data', img_data: null, rows: [0, steps - 1] });
+}
+
+function computeImgFreqs(conf) {
+  let [siglen, strlen] = osc_lines.dims;
+  let steps = conf.numSteps;
+
+  img_freqs = new Float32Tensor([steps, strlen]);
+
+  let wave_segments = [];
+  let seglen = Math.ceil(siglen / steps);
+  let y_prev = 0, ts = Date.now();
+
+  for (let x = 0; x < strlen; x++)
+    wave_segments[x] = new Float32Array(seglen);
+
+  for (let t = 0; t < siglen; t++) {
+    for (let x = 0; x < strlen; x++)
+      wave_segments[x][t % seglen] = osc_lines.data[t * strlen + x];
+
+    let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
+
+    if (y > y_prev) {
+      let freqs = img_freqs.subtensor(y_prev).data;
+      y_prev = y;
+
+      for (let x = 0; x < strlen; x++) {
+        // https://en.wikipedia.org/wiki/Instantaneous_phase_and_frequency
+        freqs[x] = utils.meanFreq(wave_segments[x], conf.sampleRate);
+        wave_segments[x].fill(0);
+        dcheck(freqs[x] >= 0);
+      }
+
+      if (Date.now() > ts + 250) {
+        postMessage({ type: 'img_freqs', progress: t / siglen });
         ts = Date.now();
-        // let img_data = img.data.subarray(y_prev * width * 4, y_curr * width * 4);
-        postMessage({ type: 'img_data', img_data: null, rows: [y_prev, y_curr - 1] });
-        y_prev = y_curr;
       }
     }
   }
 
-  console.debug('dso time:', Date.now() - ts0, 'ms');
-  autoBrightness = adjustBrightness(img_mag, conf);
-  drawImgData(img, img_rect, [0, height - 1], autoBrightness, conf);
-  postMessage({ type: 'img_data', img_data: img.data, rows: [0, height - 1] });
+  postMessage({ type: 'img_freqs', progress: 1.00 });
+}
+
+async function drawStringOscillations(signal, conf) {
+  utils.time('oscillator:', () =>
+    computeOscLines(signal, conf));
+
+  utils.time('minmax:', () =>
+    computeImgAmps(conf));
+
   postMessage({ type: 'img_done' });
 }
 
 async function drawDiskImage(conf) {
-  let img_disk = new Float32Tensor([2, conf.imageSize, conf.imageSize]);
-  let ts = Date.now();
-  for (let i = 0; i < img_rect.dims[0]; i++)
-    await utils.rect2disk(img_rect.subtensor(i), img_disk.subtensor(i), { num_reps: conf.symmetry });
-  console.debug('rect2disk:', Date.now() - ts, 'ms');
+  utils.time('rect2disk:', () => {
+    for (let img of [img_amps, img_freqs]) {
+      if (!img || img.disk) continue;
+      img.disk = new Float32Tensor([conf.imageSize, conf.imageSize]);
+      utils.rect2disk(img, img.disk, { num_reps: conf.symmetry });
+    }
+  });
 
-  let autoBrightness = adjustBrightness(img_rect.subtensor(0), conf);
-  // console.debug('auto brightness:', autoBrightness.toFixed(1));
+  let autoBrightness = adjustBrightness(img_amps, conf);
+  console.debug('brightness:', 10 ** -autoBrightness);
   let img_data = new Uint8Array(conf.imageSize ** 2 * 4);
   let canvas_img = { data: img_data, width: conf.imageSize, height: conf.imageSize };
-  drawImgData(canvas_img, img_disk, [0, conf.imageSize - 1], autoBrightness, conf);
+
+  utils.time('img_rgba:', () =>
+    drawImgData(canvas_img, [0, conf.imageSize - 1], autoBrightness, conf));
+
   postMessage({ type: 'disk', img_data });
 }
 
@@ -117,9 +172,12 @@ function adjustBrightness(img, { exposure }) {
   return q > 0 ? -Math.log10(q) : 0;
 }
 
-function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.height - 1], autoBrightness, conf) {
+function drawImgData(canvas_img, [ymin, ymax] = [0, canvas_img.height - 1], autoBrightness, conf) {
+  let temps = img_amps.disk;
+  let freqs = img_freqs?.disk;
+
   dcheck(canvas_img.data);
-  dcheck(temperature instanceof Float32Tensor);
+  dcheck(temps instanceof Float32Tensor);
   dcheck(Number.isFinite(autoBrightness));
 
   if (!autoBrightness)
@@ -127,21 +185,23 @@ function drawImgData(canvas_img, temperature, [ymin, ymax] = [0, canvas_img.heig
 
   let width = canvas_img.width;
   let brightness = 10 ** (autoBrightness + conf.brightness);
-  let temps = temperature.subtensor(0);
-  //let hues = temperature.subtensor(1);
 
   for (let y = ymin; y <= ymax; y++) {
     for (let x = 0; x < width; x++) {
       let i = y * width + x;
-      let t = Math.abs(temps.data[i]) * brightness;
-      let [r, g, b] = fireballRGB(t);
-      //let [h, s, l] = utils.rgb2hsl(r, g, b);
-      //[r, g, b] = utils.hsl2rgb(hues.data[i] + h, s, l);
+      let temp = temps.data[i] * brightness;
+      let [r, g, b] = fireballRGB(temp);
+
+      if (freqs) {
+        let [h, s, l] = utils.rgb2hsl(r, g, b);
+        h -= freqs.data[i] / conf.sampleRate * 2;
+        [r, g, b] = utils.hsl2rgb(h, s, l);
+      }
 
       canvas_img.data[i * 4 + 0] = 255 * clamp(r);
       canvas_img.data[i * 4 + 1] = 255 * clamp(g);
       canvas_img.data[i * 4 + 2] = 255 * clamp(b);
-      canvas_img.data[i * 4 + 3] = 255 * 1;
+      canvas_img.data[i * 4 + 3] = 255;
     }
   }
 }

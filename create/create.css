@@ -23,6 +23,7 @@ p {
 #stop_recording {
   z-index: 1;
   background: #211;
+  border: 1px solid #322;
   padding: 0.5em;
   border-radius: 2.5em;
   font-family: monospace;
@@ -115,10 +116,6 @@ body:not(.debug) #audio_info {
   justify-content: center;
 }
 
-canvas#wave {
-  background: #335;
-}
-
 body.recording #wave_bounds {
   display: none;
 }
@@ -131,29 +128,29 @@ body.recording #wave_bounds {
 #wave_bounds>* {
   position: absolute;
   top: 0;
-  background: #112c;
 }
 
 canvas#wave,
 #wave_wrapper_2,
 #wave_bounds>* {
-  height: 6rem;
+  height: 4rem;
 }
 
 #wave_start {
   left: 0;
   width: 25vw;
+  background: #000c;
 }
 
 #wave_end {
   right: 0;
   width: 25vw;
+  background: #000c;
 }
 
 #wave_end #wave_label {
   position: absolute;
   color: #fff;
-  background: #112;
   opacity: 0.5;
   border-radius: 0.5em;
   font-size: 0.75rem;
@@ -170,7 +167,6 @@ canvas#wave,
   font-size: 1vw;
   width: 5em;
   height: 100%;
-  background: no-repeat center/100% url("/img/ico/vert.png"), #446;
   border-radius: 2.5em;
   display: flex;
   align-items: center;
@@ -192,22 +188,21 @@ canvas#wave,
 }
 
 #wave_bounds .ptr:hover {
-  background-color: #888;
-  color: #000;
+  border-color: #fff !important;
 }
 
 #wave_bounds .ptr.left {
   right: 0;
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
-  border-right: 1px solid #668;
+  border-right: 2px solid #668;
 }
 
 #wave_bounds .ptr.right {
   left: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
-  border-left: 1px solid #668;
+  border-left: 2px solid #668;
 }
 
 #art_main {
