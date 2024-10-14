@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="create.css" />
 </head>
 
-<body>
+<body class="empty">
   <h1 style="margin-bottom:0; display:flex">
     <a href="/">Pra<span>sound</span></a>
     <img src="/img/ico/cart.png">
@@ -24,16 +24,12 @@
 
   <p>Click the button to start recording or <span id="upload"><u>upload audio</u></span>.</p>
 
-  <div id="wave_wrapper">
-    <div id="wave_wrapper_1">
-      <div id="wave_wrapper_2">
-        <div id="wave_wrapper_3">
-          <button id="record"><img src="/img/ico/mic.png"></button>
-          <button id="stop_recording"><img src="/img/ico/stop.png"><span>00:00</span></button>
-        </div>
-      </div>
-    </div>
+  <div id="rec_btn_wrapper">
+    <button id="record"><img src="/img/ico/mic.png"></button>
+    <button id="stop_recording"><img src="/img/ico/stop.png"><span>00:00</span></button>
+  </div>
 
+  <div id="wave_wrapper">
     <div id="wave_bounds">
       <div id="wave_start">
         <div id="ptr_start" class="ptr left"></div>

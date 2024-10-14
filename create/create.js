@@ -327,6 +327,8 @@ async function decodeAudio() {
       ui_settings.hue.refresh();
       $('#disk').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
     }
+
+    document.body.classList.remove('empty');
   }
 }
 
