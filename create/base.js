@@ -8,6 +8,13 @@ const DB_TEMP_SOUNDS = DB_TEMP + '/sounds';
 const DB_TEMP_IMAGES = DB_TEMP + '/images';
 const DB_TEMP_CONFIGS = DB_TEMP + '/configs';
 
+// sounds saved by the user
+export const DB_SAVED = 'saved_sounds';
+export const DB_SAVED_SOUNDS = DB_SAVED + '/sounds';
+export const DB_SAVED_IMAGES = DB_SAVED + '/images';
+export const DB_SAVED_IMAGES_XS = DB_SAVED + '/images_xs';
+export const DB_SAVED_CONFIGS = DB_SAVED + '/configs';
+
 export const DB_PATH = 'user_samples';
 export const DB_PATH_AUDIO = DB_PATH + '/_last/audio';
 export const DB_PATH_IMAGE = DB_PATH + '/_last/image';
@@ -85,12 +92,34 @@ function findSilenceLeft(signal, threshold, num_frames) {
   return signal.length;
 }
 
+export function createSID() {
+  return new Date().toJSON().replace(/[-:T]|\.\d+Z$/g, '');
+}
+
+export async function loadAudioConfig(src) {
+  if (!src)
+    return await DB.get(DB_PATH_CONFIG);
+
+  if (src.startsWith('db:'))
+    return await DB.get(DB_SAVED_CONFIGS + '/' + src.slice(3));
+}
+
+export async function loadAudioImage(src) {
+  if (!src)
+    return await DB.get(DB_PATH_IMAGE);
+
+  if (src.startsWith('db:'))
+    return await DB.get(DB_SAVED_IMAGES + '/' + src.slice(3));
+}
+
 export async function loadAudioSignal(src) {
   if (!src)
     return await DB.get(DB_PATH_AUDIO);
 
-  if (src.startsWith('db:'))
-    return await loadTempSound(src.slice(3));
+  if (src.startsWith('db:')) {
+    let tmp = await loadTempSound(src.slice(3));
+    return tmp || await DB.get(DB_SAVED_SOUNDS + '/' + src.slice(3));
+  }
 
   let res = await fetch('/mp3/' + src + '.mp3');
   check(res.status == 200, src + '.mp3 not found');
@@ -106,7 +135,7 @@ export async function saveTempSounds(files) {
   await DB.remove(DB_TEMP_CONFIGS);
 
   console.log('Saving sounds to DB');
-  let db_id_base = new Date().toJSON().replace(/[-:T]|\.\d+Z$/g, '');
+  let db_id_base = createSID();
   let count = 0;
   let additions = [...files].map(async (file) => {
     count++;

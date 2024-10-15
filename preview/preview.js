@@ -14,9 +14,9 @@ init();
 async function init() {
   let img_main = $('.preview img');
   let img_inline = $('img.inline');
-  let filename = args.get('src');
+  let src = args.get('src');
   let note_class = args.get('c');
-  let conf, img_url, is_playing = false;
+  let conf, img_file, img_url, is_playing = false;
 
   $('.preview a').href += location.search;
 
@@ -25,20 +25,19 @@ async function init() {
     img_inline.classList.add(note_class);
   }
 
-  if (filename) {
-    img_url = IMG_BASE + filename + '.jpg';
+  if (src && !src.startsWith('db:')) {
+    img_url = IMG_BASE + src + '.jpg';
 
     for (let a of $$('#hires_buttons a.button'))
-      a.href += '?src=' + filename;
+      a.href += '?src=' + src;
     for (let a of $$('#gif_buttons a.button'))
-      a.href += '?src=' + filename;
+      a.href += '?src=' + src;
   } else {
-    let img_file = await DB.get(DB_PATH_IMAGE);
+    img_file = await base.loadAudioImage(src);
 
     if (img_file) {
       img_url = URL.createObjectURL(img_file);
-      filename = img_file.name;
-      conf = await DB.get(DB_PATH_CONFIG);
+      conf = await base.loadAudioConfig(src);
       if (conf?.hue > 0) {
         for (let img of [img_main, img_inline])
           img.style.filter = 'hue-rotate(' + conf.hue + 'deg)';
@@ -77,7 +76,8 @@ async function init() {
     }
   };
 
-  document.querySelector('#sound_info').textContent = filename;
+  if (img_file?.name)
+    document.querySelector('#sound_info').textContent = img_file.name;
 
   if (img_url) {
     img_main.src = img_url;

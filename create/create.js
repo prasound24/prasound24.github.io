@@ -35,6 +35,7 @@ async function init() {
   //initTempGradientImg();
   initSettings();
 
+  $('#preview').onclick = () => saveToGallery();
   $('#upload').onclick = () => uploadAudio();
   $('#record').onclick = () => recordAudio();
   $('#stop_recording').onclick = () => stopRecording();
@@ -409,7 +410,8 @@ async function redrawImg() {
   try {
     await drawStringOscillations();
     let ts = Date.now();
-    await saveDiskImage();
+    let url = await saveDiskImage();
+    $('html > head > link[rel=icon]').href = url;
     await saveImageConfig();
     console.debug('saveDiskImage:', Date.now() - ts, 'ms');
     //await drawGallery();
@@ -457,20 +459,50 @@ async function drawDiskImage() {
   base.setCircleProgress(null);
 }
 
-async function saveDiskImage() {
-  let canvas = $('canvas#disk');
+async function saveDiskImage(db_path = base.DB_PATH_IMAGE, canvas = $('canvas#disk'),
+  mime = 'image/png', quality = 1.00) {
   let blob = await new Promise(resolve =>
-    canvas.toBlob(resolve, 'image/png', 1.00));
+    canvas.toBlob(resolve, mime, quality));
   let file = new File([blob], mem.audio_name, { type: blob.type });
-  await DB.set(base.DB_PATH_IMAGE, file);
+  await DB.set(db_path, file);
   console.log('Saved disk image to DB:', file.type, (file.size / 1e6).toFixed(1), 'MB');
-  let url = URL.createObjectURL(blob);
-  $('html > head > link[rel=icon]').href = url;
+  return URL.createObjectURL(blob);
 }
 
-async function saveImageConfig() {
+async function saveDiskImagePreview(db_path, img_url) {
+  dcheck(img_url);
+  let img = new Image();
+  img.width = 256;
+  img.height = 256;
+  img.src = img_url;
+  await new Promise((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject();
+  });
+
+  let canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  canvas.getContext('2d').drawImage(img, 0, 0, img.width, img.height);
+
+  return await saveDiskImage(db_path, canvas, 'image/jpeg', 0.85);
+}
+
+async function saveImageConfig(db_path = base.DB_PATH_CONFIG) {
   let json = utils.clone(gconf);
-  await DB.set(base.DB_PATH_CONFIG, json);
+  await DB.set(db_path, json);
+}
+
+async function saveToGallery() {
+  let sid = base.createSID();
+  await utils.time('saveToGallery:', async () => {
+    await saveImageConfig(base.DB_SAVED_CONFIGS + '/' + sid);
+    await saveAudioSignal(base.DB_SAVED_SOUNDS + '/' + sid);
+    let url = await saveDiskImage(base.DB_SAVED_IMAGES + '/' + sid);
+    let xs = await saveDiskImagePreview(base.DB_SAVED_IMAGES_XS + '/' + sid, url);
+    console.log(xs);
+  });
+  location.href = '/preview?src=db:' + sid;
 }
 
 async function downloadAudio() {
@@ -486,12 +518,12 @@ async function playAudioSignal() {
     await utils.playSound(getSelectedAudio(), gconf.sampleRate);
 }
 
-async function saveAudioSignal() {
+async function saveAudioSignal(db_path = base.DB_PATH_AUDIO) {
   try {
     if (!mem.audio_signal) return;
     let file = utils.generateWavFile(mem.audio_signal, gconf.sampleRate, mem.audio_name);
     console.log('Saving audio to DB:', file.size, file.type);
-    await DB.set(base.DB_PATH_AUDIO, file);
+    await DB.set(db_path, file);
   } catch (err) {
     console.error(err);
   }
