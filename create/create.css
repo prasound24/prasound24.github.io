@@ -207,8 +207,9 @@ body.empty #art_main {
 }
 
 #gallery {
-  display: none;
+  display: flex;
   flex-direction: row;
+  display: none;
 }
 
 #gallery canvas {

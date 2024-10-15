@@ -421,14 +421,14 @@ async function redrawImg() {
 }
 
 async function drawGallery() {
-  let gid = 0, sig = getSelectedAudio();
+  let index = 0, sig = getSelectedAudio();
 
   for (let canvas of $$('#gallery canvas')) {
-    gid++;
+    index++;
     let conf = clone(gconf);
     conf.imageSize = 256;
-    conf.numSteps >>= gid;
-    console.debug('Drawing small img #' + gid, 'steps=' + conf.numSteps);
+    conf.stringLen *= index == 1 ? 2 : 2 ** -(index - 1);
+    console.debug('Drawing small img #' + index, 'stringLen=' + conf.stringLen);
     await base.drawStringOscillations(sig, canvas, conf);
     await base.drawDiskImage(canvas, conf);
   }

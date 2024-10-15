@@ -44,14 +44,12 @@ function computeOscLines(signal, conf) {
 function computeImgAmps(conf) {
   let [siglen, width] = osc_lines.dims;
   let steps = conf.numSteps;
-  //let img = { data: new Uint8Array(width * height * 4), width, height };
   let y_prev = 0, y_curr = 0, ts = Date.now();
 
   console.debug('siglen=' + siglen, 'strlen=' + width, 'steps=' + steps);
   console.debug('sn/height=' + (siglen / steps));
 
   img_amps = new Float32Tensor([steps, width]);
-  //let img_hue = img_rect.subtensor(1);
 
   let wave_minmax = [];
   for (let x = 0; x < width; x++)
@@ -66,31 +64,24 @@ function computeImgAmps(conf) {
     let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
 
     if (y > y_curr) {
-      let wave_mag = img_amps.data.subarray(y_curr * width, y_curr * width + width);
-
       for (let x = 0; x < width; x++) {
         let mm = wave_minmax[x];
-        wave_mag[x] = mm.range();
+        img_amps.data[y_curr * width + x] = (mm.max - mm.min)/2;
       }
 
-      //drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
       y_curr = y;
 
       for (let mm of wave_minmax)
         mm.reset();
 
-      if (y_curr > y_prev && Date.now() > ts + 250) {
+      if (Date.now() > ts + 250) {
         ts = Date.now();
-        // let img_data = img.data.subarray(y_prev * width * 4, y_curr * width * 4);
         postMessage({ type: 'wave_1d', progress: Math.min(y_curr / steps, 0.99) });
         y_prev = y_curr;
       }
     }
   }
 
-  //let autoBrightness = adjustBrightness(img_amps, conf);
-  //console.debug('brightness:', 10 ** -autoBrightness);
-  //drawImgData(img, img_rect, [0, height - 1], autoBrightness, conf);
   postMessage({ type: 'wave_1d', progress: 1.00 });
 }
 
