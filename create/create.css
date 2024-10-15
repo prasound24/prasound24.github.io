@@ -206,6 +206,17 @@ body.empty #art_main {
   display: none;
 }
 
+#gallery {
+  display: none;
+  flex-direction: row;
+}
+
+#gallery canvas {
+  width: 25%;
+  height: auto;
+  aspect-ratio: 1.0;
+}
+
 #img_info {
   position: relative;
   height: 0;
@@ -247,7 +258,7 @@ button.small_btn {
   margin: 0.5em;
   border-radius: 1em;
   background-color: #222;
-  opacity: 0.25;
+  opacity: 0.5;
   transition: all 250ms;
 }
 
@@ -259,9 +270,9 @@ button.small_btn:hover {
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
-  gap: 0.5em;
+  gap: 0.75em;
   position: absolute;
-  bottom: 3em;
+  top: 3em;
 }
 
 body:not(.settings) #settings {
@@ -274,7 +285,6 @@ body:not(.settings) #settings {
 
 .setting {
   --color1: #224;
-  font-size: 0.75em;
   color: #888;
   display: inline-block;
   user-select: none;
@@ -298,7 +308,6 @@ body:not(.settings) #settings {
 }
 
 .setting span {
-  border: 1px solid var(--color1);
   width: 8em;
   display: inline-block;
   text-align: center;

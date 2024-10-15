@@ -172,26 +172,27 @@ function postWorkerCommand({ command, handlers }) {
   initWorker();
   dcheck(!command.txid);
   let txid = Math.random().toString(16).slice(2);
-  bg_thread.postMessage({ ...command, txid });
   bg_thread.onmessage = (e) => {
-    let handler = handlers[e.data.type];
-    dcheck(handler);
+    let type = e.data.type;
+    let handler = handlers[type];
+    //console.info('[bg->main]', 'type=' + type, 'progress=' + e.data.progress);
+    dcheck(handler, 'handlers.' + type + ' is null');
     handler.call(null, e);
   };
+  //console.info('[main->bg]', 'type=' + command.type);
+  bg_thread.postMessage({ ...command, txid });
 }
 
-export async function drawStringOscillations(signal, canvas, cfg, { onprogress } = {}) {
+export async function drawStringOscillations(signal, canvas, conf, { onprogress } = {}) {
   await new Promise((resolve) => {
     postWorkerCommand({
-      command: { type: 'wave_1d', signal, config: clone(cfg) },
+      command: { type: 'wave_1d', signal, config: clone(conf) },
       handlers: {
-        img_data: (e) => {
-          let [ymin, ymax] = e.data.rows;
-          onprogress?.call(null, ymax / cfg.numSteps);
-        },
-        img_done: (e) => {
-          resolve();
-        },
+        'wave_1d': (e) => {
+          let p = e.data.progress;
+          onprogress?.call(null, p);
+          if (p == 1.00) resolve();
+        }
       },
     });
   });
@@ -202,7 +203,7 @@ export async function drawOscillationFreqs(conf, { onprogress } = {}) {
     postWorkerCommand({
       command: { type: 'img_freqs', config: clone(conf) },
       handlers: {
-        img_freqs: (e) => {
+        'img_freqs': (e) => {
           if (e.data.progress < 1.00)
             onprogress?.call(null, e.data.progress);
           else
@@ -221,7 +222,7 @@ export async function drawDiskImage(canvas, cfg) {
     postWorkerCommand({
       command: { type: 'draw_disk', config },
       handlers: {
-        disk: (e) => resolve(e.data.img_data),
+        'draw_disk': (e) => resolve(e.data.img_data),
       },
     });
   });

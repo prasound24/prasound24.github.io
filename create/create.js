@@ -1,7 +1,7 @@
 import * as utils from '../lib/utils.js';
 import * as base from './base.js';
 
-const { $, sleep, clamp, check, dcheck, DB } = utils;
+const { $, $$, sleep, clamp, check, dcheck, clone, DB } = utils;
 const { gconf } = base;
 const TEMP_GRADIENT = '/img/blackbody.png';
 
@@ -32,7 +32,7 @@ utils.setUncaughtErrorHandlers((err) => {
 async function init() {
   base.initConfFromURL();
   initMouseEvents();
-  initTempGradientImg();
+  //initTempGradientImg();
   initSettings();
 
   $('#upload').onclick = () => uploadAudio();
@@ -43,8 +43,7 @@ async function init() {
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
 
-  if (args.get('c'))
-    $('#disk').classList.add(args.get('c'));
+  setPitchClass();
 
   if (await loadAudioSignal()) {
     await drawWaveform();
@@ -317,18 +316,30 @@ async function decodeAudio() {
     // normalizeAudioSignal(mem.audio_signal);
     mem.audio_signal = base.padAudioWithSilence(mem.audio_signal);
 
+    document.body.classList.remove('empty');
+
     let freq = utils.meanFreq(mem.audio_signal, sample_rate) | 0;
     let pitch = utils.meanPitch(freq);
     let note = utils.pitchToNote(pitch);
     console.debug('Avg freq:', freq + ' Hz', note + '=' + (pitch * 360).toFixed(0) + 'deg');
+    setPitchColor(pitch);
+  }
+}
 
-    if (!args.get('c')) {
-      gconf.hue = Math.round(pitch * 360 / 30) * 30;
-      ui_settings.hue.refresh();
-      $('#disk').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
-    }
+function setPitchColor(pitch) {
+  if (!args.get('c')) {
+    gconf.hue = Math.round(pitch * 360 / 30) * 30;
+    ui_settings.hue.refresh();
+    for (let canvas of $$('#art_main canvas'))
+      canvas.style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
+  }
+}
 
-    document.body.classList.remove('empty');
+function setPitchClass() {
+  let c = args.get('c');
+  if (c) {
+    for (let canvas of $$('#art_main canvas'))
+      canvas.classList.add(c);
   }
 }
 
@@ -401,11 +412,26 @@ async function redrawImg() {
     await saveDiskImage();
     await saveImageConfig();
     console.debug('saveDiskImage:', Date.now() - ts, 'ms');
+    //await drawGallery();
   } finally {
     is_drawing = false;
   }
 
   console.debug('image ready:', Date.now() - time, 'ms');
+}
+
+async function drawGallery() {
+  let gid = 0, sig = getSelectedAudio();
+
+  for (let canvas of $$('#gallery canvas')) {
+    gid++;
+    let conf = clone(gconf);
+    conf.imageSize = 256;
+    conf.numSteps >>= gid;
+    console.debug('Drawing small img #' + gid, 'steps=' + conf.numSteps);
+    await base.drawStringOscillations(sig, canvas, conf);
+    await base.drawDiskImage(canvas, conf);
+  }
 }
 
 async function drawStringOscillations() {

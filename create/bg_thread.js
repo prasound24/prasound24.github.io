@@ -11,7 +11,7 @@ onmessage = (e) => {
   // console.log('received command:', e.data.type);
   switch (e.data.type) {
     case 'wave_1d':
-      drawStringOscillations(e.data.signal, e.data.config);
+      computeWave1D(e.data.signal, e.data.config);
       break;
     case 'draw_disk':
       drawDiskImage(e.data.config);
@@ -20,7 +20,7 @@ onmessage = (e) => {
       computeImgFreqs(e.data.config);
       break;
     default:
-      console.warn('unknown command:', e.data.type);
+      dcheck();
   }
 };
 
@@ -57,43 +57,41 @@ function computeImgAmps(conf) {
   for (let x = 0; x < width; x++)
     wave_minmax[x] = new utils.MinMaxFilter(Math.ceil(siglen / steps)); // new utils.DWTFilter(dwt_levels);
 
-  utils.time('img_freqs:', () => {
-    for (let t = 0; t < siglen; t++) {
+  for (let t = 0; t < siglen; t++) {
+    for (let x = 0; x < width; x++) {
+      let amp = osc_lines.data[t * width + x];
+      wave_minmax[x].push(amp);
+    }
+
+    let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
+
+    if (y > y_curr) {
+      let wave_mag = img_amps.data.subarray(y_curr * width, y_curr * width + width);
+
       for (let x = 0; x < width; x++) {
-        let amp = osc_lines.data[t * width + x];
-        wave_minmax[x].push(amp);
+        let mm = wave_minmax[x];
+        wave_mag[x] = mm.range();
       }
 
-      let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
+      //drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
+      y_curr = y;
 
-      if (y > y_curr) {
-        let wave_mag = img_amps.data.subarray(y_curr * width, y_curr * width + width);
+      for (let mm of wave_minmax)
+        mm.reset();
 
-        for (let x = 0; x < width; x++) {
-          let mm = wave_minmax[x];
-          wave_mag[x] = mm.range();
-        }
-
-        //drawImgData(img, img_rect, [y_curr, y_curr], autoBrightness, conf);
-        y_curr = y;
-
-        for (let mm of wave_minmax)
-          mm.reset();
-
-        if (y_curr > y_prev && Date.now() > ts + 250) {
-          ts = Date.now();
-          // let img_data = img.data.subarray(y_prev * width * 4, y_curr * width * 4);
-          postMessage({ type: 'img_data', img_data: null, rows: [y_prev, y_curr - 1] });
-          y_prev = y_curr;
-        }
+      if (y_curr > y_prev && Date.now() > ts + 250) {
+        ts = Date.now();
+        // let img_data = img.data.subarray(y_prev * width * 4, y_curr * width * 4);
+        postMessage({ type: 'wave_1d', progress: Math.min(y_curr / steps, 0.99) });
+        y_prev = y_curr;
       }
     }
-  });
+  }
 
   //let autoBrightness = adjustBrightness(img_amps, conf);
   //console.debug('brightness:', 10 ** -autoBrightness);
   //drawImgData(img, img_rect, [0, height - 1], autoBrightness, conf);
-  postMessage({ type: 'img_data', img_data: null, rows: [0, steps - 1] });
+  postMessage({ type: 'wave_1d', progress: 1.00 });
 }
 
 function computeImgFreqs(conf) {
@@ -136,14 +134,12 @@ function computeImgFreqs(conf) {
   postMessage({ type: 'img_freqs', progress: 1.00 });
 }
 
-async function drawStringOscillations(signal, conf) {
+async function computeWave1D(signal, conf) {
   utils.time('oscillator:', () =>
     computeOscLines(signal, conf));
 
   utils.time('minmax:', () =>
     computeImgAmps(conf));
-
-  postMessage({ type: 'img_done' });
 }
 
 async function drawDiskImage(conf) {
@@ -163,7 +159,7 @@ async function drawDiskImage(conf) {
   utils.time('img_rgba:', () =>
     drawImgData(canvas_img, [0, conf.imageSize - 1], autoBrightness, conf));
 
-  postMessage({ type: 'disk', img_data });
+  postMessage({ type: 'draw_disk', img_data });
 }
 
 function adjustBrightness(img, { exposure }) {
