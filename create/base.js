@@ -227,22 +227,6 @@ export async function drawStringOscillations(signal, canvas, conf, { onprogress 
   });
 }
 
-export async function drawOscillationFreqs(conf, { onprogress } = {}) {
-  await new Promise((resolve) => {
-    postWorkerCommand({
-      command: { type: 'img_freqs', config: clone(conf) },
-      handlers: {
-        'img_freqs': (e) => {
-          if (e.data.progress < 1.00)
-            onprogress?.call(null, e.data.progress);
-          else
-            resolve();
-        },
-      },
-    });
-  });
-}
-
 export async function drawDiskImage(canvas, cfg) {
   let ds = cfg.imageSize;
   let config = clone(cfg);

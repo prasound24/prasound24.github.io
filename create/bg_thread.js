@@ -3,7 +3,6 @@ import * as utils from '../lib/utils.js';
 
 let { dcheck, clamp, fireballRGB, Float32Tensor } = utils;
 
-let osc_lines;
 let img_amps;
 let img_freqs;
 
@@ -11,62 +10,47 @@ onmessage = (e) => {
   // console.log('received command:', e.data.type);
   switch (e.data.type) {
     case 'wave_1d':
-      computeWave1D(e.data.signal, e.data.config);
+      utils.time('wave_1d:', () =>
+        computeImgAmps(e.data.signal, e.data.config));
       break;
     case 'draw_disk':
       drawDiskImage(e.data.config);
-      break;
-    case 'img_freqs':
-      computeImgFreqs(e.data.config);
       break;
     default:
       dcheck();
   }
 };
 
-function computeOscLines(signal, conf) {
+function computeImgAmps(signal, conf) {
   let strlen = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
   let oscillator = new StringOscillator({ width: strlen });
   let siglen = signal.length;
+  let steps = conf.numSteps;
+  let y_prev = 0, y_curr = 0, ts = Date.now();
 
-  osc_lines = new Float32Tensor([siglen, strlen]);
+  console.debug('siglen=' + siglen, 'strlen=' + strlen, 'steps=' + steps);
+  console.debug('sn/height=' + (siglen / steps));
+
+  img_amps = new Float32Tensor([steps, strlen]);
   oscillator.damping = 10 ** conf.damping;
+
+  let wave_minmax = [];
+  for (let x = 0; x < strlen; x++)
+    wave_minmax[x] = new utils.MinMaxFilter(Math.ceil(siglen / steps)); // new utils.DWTFilter(dwt_levels);
 
   for (let t = 0; t < siglen; t++) {
     oscillator.update();
     oscillator.wave[0] = signal[t];
 
     for (let x = 0; x < strlen; x++)
-      osc_lines.data[t * strlen + x] = oscillator.wave[x] - signal[t];
-  }
-}
-
-function computeImgAmps(conf) {
-  let [siglen, width] = osc_lines.dims;
-  let steps = conf.numSteps;
-  let y_prev = 0, y_curr = 0, ts = Date.now();
-
-  console.debug('siglen=' + siglen, 'strlen=' + width, 'steps=' + steps);
-  console.debug('sn/height=' + (siglen / steps));
-
-  img_amps = new Float32Tensor([steps, width]);
-
-  let wave_minmax = [];
-  for (let x = 0; x < width; x++)
-    wave_minmax[x] = new utils.MinMaxFilter(Math.ceil(siglen / steps)); // new utils.DWTFilter(dwt_levels);
-
-  for (let t = 0; t < siglen; t++) {
-    for (let x = 0; x < width; x++) {
-      let amp = osc_lines.data[t * width + x];
-      wave_minmax[x].push(amp);
-    }
+      wave_minmax[x].push(oscillator.wave[x] - oscillator.wave[0]);
 
     let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
 
     if (y > y_curr) {
-      for (let x = 0; x < width; x++) {
+      for (let x = 0; x < strlen; x++) {
         let mm = wave_minmax[x];
-        img_amps.data[y_curr * width + x] = (mm.max - mm.min)/2;
+        img_amps.data[y_curr * strlen + x] = (mm.max - mm.min) / 2;
       }
 
       y_curr = y;
@@ -83,54 +67,6 @@ function computeImgAmps(conf) {
   }
 
   postMessage({ type: 'wave_1d', progress: 1.00 });
-}
-
-function computeImgFreqs(conf) {
-  let [siglen, strlen] = osc_lines.dims;
-  let steps = conf.numSteps;
-
-  img_freqs = new Float32Tensor([steps, strlen]);
-
-  let wave_segments = [];
-  let seglen = Math.ceil(siglen / steps);
-  let y_prev = 0, ts = Date.now();
-
-  for (let x = 0; x < strlen; x++)
-    wave_segments[x] = new Float32Array(seglen);
-
-  for (let t = 0; t < siglen; t++) {
-    for (let x = 0; x < strlen; x++)
-      wave_segments[x][t % seglen] = osc_lines.data[t * strlen + x];
-
-    let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
-
-    if (y > y_prev) {
-      let freqs = img_freqs.subtensor(y_prev).data;
-      y_prev = y;
-
-      for (let x = 0; x < strlen; x++) {
-        // https://en.wikipedia.org/wiki/Instantaneous_phase_and_frequency
-        freqs[x] = utils.meanFreq(wave_segments[x], conf.sampleRate);
-        wave_segments[x].fill(0);
-        dcheck(freqs[x] >= 0);
-      }
-
-      if (Date.now() > ts + 250) {
-        postMessage({ type: 'img_freqs', progress: t / siglen });
-        ts = Date.now();
-      }
-    }
-  }
-
-  postMessage({ type: 'img_freqs', progress: 1.00 });
-}
-
-async function computeWave1D(signal, conf) {
-  utils.time('oscillator:', () =>
-    computeOscLines(signal, conf));
-
-  utils.time('minmax:', () =>
-    computeImgAmps(conf));
 }
 
 async function drawDiskImage(conf) {

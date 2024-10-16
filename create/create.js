@@ -444,13 +444,6 @@ async function drawStringOscillations() {
   });
 
   await drawDiskImage();
-  //base.setCircleProgress(50);
-
-  /*await base.drawOscillationFreqs(gconf, {
-    onprogress: (pct) => base.setCircleProgress(pct * 40 + 50),
-  });
-
-  await drawDiskImage();*/
   base.setCircleProgress(null);
 }
 
