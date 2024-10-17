@@ -24,6 +24,12 @@
   overflow: hidden;
 }
 
+@media(orientation:portrait) {
+  .stage {
+    height: 8vw;
+  }
+}
+
 .stage img {
   width: 100vw;
 }
