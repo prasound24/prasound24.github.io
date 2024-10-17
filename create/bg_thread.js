@@ -27,16 +27,20 @@ function computeImgHues(sig, conf) {
   let sig2 = new Float32Array(sig);
 
   for (let t = 0; t < siglen; t++) {
-    sig1[t] *= utils.smoothstep(t / siglen);
-    sig2[t] *= 1 - utils.smoothstep(t / siglen);
+    let s = utils.smoothstep(t / siglen);
+    sig1[t] *= 1 - s;
+    sig2[t] *= s;
   }
 
   let freq1 = utils.meanFreq(sig1, conf.sampleRate);
   let freq2 = utils.meanFreq(sig2, conf.sampleRate);
   let hue1 = utils.meanPitch(freq1);
   let hue2 = utils.meanPitch(freq2);
+  let note1 = utils.pitchToNote(hue1);
+  let note2 = utils.pitchToNote(hue2);
 
-  console.debug('Pitch:', freq1.toFixed(0) + '..' + freq2.toFixed(0) + ' Hz');
+  console.debug('Pitch:', freq1.toFixed(0) + '..' + freq2.toFixed(0) + ' Hz,',
+    hue1.toFixed(2) + '..' + hue2.toFixed(2), note1 + '..' + note2);
 
   img_hues = new Float32Tensor([steps, strlen]);
 
@@ -141,7 +145,7 @@ function drawImgData(canvas_img, [ymin, ymax] = [0, canvas_img.height - 1], auto
 
       if (freqs) {
         let [h, s, l] = utils.rgb2hsl(r, g, b);
-        h += utils.meanPitch(freqs.data[i], conf.sampleRate) - 0.15;
+        h += -0.1 + utils.meanPitch(freqs.data[i], conf.sampleRate);
         [r, g, b] = utils.hsl2rgb(h, s, l);
       }
 
