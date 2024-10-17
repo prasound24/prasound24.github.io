@@ -319,11 +319,11 @@ async function decodeAudio() {
 
     document.body.classList.remove('empty');
 
-    let freq = utils.meanFreq(mem.audio_signal, sample_rate) | 0;
-    let pitch = utils.meanPitch(freq);
-    let note = utils.pitchToNote(pitch);
-    console.debug('Avg freq:', freq + ' Hz', note + '=' + (pitch * 360).toFixed(0) + 'deg');
-    setPitchColor(pitch);
+    //let freq = utils.meanFreq(mem.audio_signal, sample_rate) | 0;
+    //let pitch = utils.meanPitch(freq);
+    //let note = utils.pitchToNote(pitch);
+    //console.debug('Avg freq:', freq + ' Hz', note + '=' + (pitch * 360).toFixed(0) + 'deg');
+    //setPitchColor(pitch);
   }
 }
 

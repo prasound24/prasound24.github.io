@@ -3,15 +3,14 @@ import * as utils from '../lib/utils.js';
 
 let { dcheck, clamp, fireballRGB, Float32Tensor } = utils;
 
-let img_amps;
-let img_freqs;
+let img_amps, img_hues;
 
 onmessage = (e) => {
   // console.log('received command:', e.data.type);
   switch (e.data.type) {
     case 'wave_1d':
-      utils.time('wave_1d:', () =>
-        computeImgAmps(e.data.signal, e.data.config));
+      utils.time('img_amps:', () => computeImgAmps(e.data.signal, e.data.config));
+      utils.time('img_hues:', () => computeImgHues(e.data.signal, e.data.config));
       break;
     case 'draw_disk':
       drawDiskImage(e.data.config);
@@ -20,6 +19,23 @@ onmessage = (e) => {
       dcheck();
   }
 };
+
+function computeImgHues(sig, conf) {
+  let [siglen, strlen] = img_amps.dims;
+  let steps = conf.numSteps;
+  let sig1 = sig.subarray(0, siglen / 2 | 0);
+  let sig2 = sig.subarray(siglen / 2 | 0, siglen);
+  let freq1 = utils.meanFreq(sig1, conf.sampleRate);
+  let freq2 = utils.meanFreq(sig2, conf.sampleRate);
+
+  console.debug('Pitch:', freq1.toFixed(0) + '..' + freq2.toFixed(0) + ' Hz');
+
+  img_hues = new Float32Tensor([steps, strlen]);
+
+  for (let t = 0; t < steps; t++)
+    for (let x = 0; x < strlen; x++)
+      img_hues.data[t * strlen + x] = utils.mix(freq1, freq2, utils.smoothstep(t / steps));
+}
 
 function computeImgAmps(signal, conf) {
   let strlen = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
@@ -71,7 +87,7 @@ function computeImgAmps(signal, conf) {
 
 async function drawDiskImage(conf) {
   utils.time('rect2disk:', () => {
-    for (let img of [img_amps, img_freqs]) {
+    for (let img of [img_amps, img_hues]) {
       if (!img || img.disk) continue;
       img.disk = new Float32Tensor([conf.imageSize, conf.imageSize]);
       utils.rect2disk(img, img.disk, { num_reps: conf.symmetry });
@@ -97,7 +113,7 @@ function adjustBrightness(img, { exposure }) {
 
 function drawImgData(canvas_img, [ymin, ymax] = [0, canvas_img.height - 1], autoBrightness, conf) {
   let temps = img_amps.disk;
-  let freqs = img_freqs?.disk;
+  let freqs = img_hues?.disk;
 
   dcheck(canvas_img.data);
   dcheck(temps instanceof Float32Tensor);
@@ -117,7 +133,7 @@ function drawImgData(canvas_img, [ymin, ymax] = [0, canvas_img.height - 1], auto
 
       if (freqs) {
         let [h, s, l] = utils.rgb2hsl(r, g, b);
-        h -= freqs.data[i] / conf.sampleRate * 2;
+        h += utils.meanPitch(freqs.data[i], conf.sampleRate);;
         [r, g, b] = utils.hsl2rgb(h, s, l);
       }
 
