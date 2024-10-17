@@ -44,7 +44,7 @@ async function init() {
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
 
-  setPitchClass();
+  //setPitchClass();
 
   if (await loadAudioSignal()) {
     await drawWaveform();

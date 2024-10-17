@@ -67,7 +67,7 @@ async function showTempSounds() {
           canvas.toBlob(resolve, 'image/jpeg', 1.00));
         await base.saveTempSoundImage(sid, image);
         await base.saveTempSoundConfig(sid, config);
-        pitch = utils.meanPitch(utils.meanFreq(signal, config.sampleRate)); // 0..1
+        //pitch = utils.meanPitch(utils.meanFreq(signal, config.sampleRate)); // 0..1
       }
 
       let keynote = '';
@@ -78,9 +78,9 @@ async function showTempSounds() {
         a.querySelector('.a').textContent = parts.slice(0, 2).join(' ');
         a.querySelector('.b').textContent = parts.slice(2).join(' ');
 
-        keynote = parts[1].replace(/\d$/, '');
-        if (!/^[A-G]s?$/.test(keynote))
-          keynote = '';
+        //keynote = parts[1].replace(/\d$/, '');
+        //if (!/^[A-G]s?$/.test(keynote))
+        //  keynote = '';
       } catch (err) {
         keynote = '';
         console.debug('Cannot parse audio name "' + audio.name + '":', err.message);

@@ -229,6 +229,10 @@ body.empty #art_main {
   bottom: 0.5em;
 }
 
+body:not(.debug) #download_image {
+  display: none;
+}
+
 #show_settings {
   position: absolute;
   left: 0.5em;
@@ -238,6 +242,10 @@ body.empty #art_main {
 #wave_play_info {
   position: relative;
   height: 0;
+}
+
+body:not(.debug) #wave_play_info {
+  display: none;
 }
 
 #play_sound {

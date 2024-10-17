@@ -21,12 +21,20 @@ onmessage = (e) => {
 };
 
 function computeImgHues(sig, conf) {
-  let [siglen, strlen] = img_amps.dims;
-  let steps = conf.numSteps;
-  let sig1 = sig.subarray(0, siglen / 2 | 0);
-  let sig2 = sig.subarray(siglen / 2 | 0, siglen);
+  let siglen = sig.length;
+  let [steps, strlen] = img_amps.dims;
+  let sig1 = new Float32Array(sig);
+  let sig2 = new Float32Array(sig);
+
+  for (let t = 0; t < siglen; t++) {
+    sig1[t] *= utils.smoothstep(t / siglen);
+    sig2[t] *= 1 - utils.smoothstep(t / siglen);
+  }
+
   let freq1 = utils.meanFreq(sig1, conf.sampleRate);
   let freq2 = utils.meanFreq(sig2, conf.sampleRate);
+  let hue1 = utils.meanPitch(freq1);
+  let hue2 = utils.meanPitch(freq2);
 
   console.debug('Pitch:', freq1.toFixed(0) + '..' + freq2.toFixed(0) + ' Hz');
 
@@ -34,7 +42,7 @@ function computeImgHues(sig, conf) {
 
   for (let t = 0; t < steps; t++)
     for (let x = 0; x < strlen; x++)
-      img_hues.data[t * strlen + x] = utils.mix(freq1, freq2, utils.smoothstep(t / steps));
+      img_hues.data[t * strlen + x] = utils.mix(freq1, freq2, t / steps);
 }
 
 function computeImgAmps(signal, conf) {
@@ -133,7 +141,7 @@ function drawImgData(canvas_img, [ymin, ymax] = [0, canvas_img.height - 1], auto
 
       if (freqs) {
         let [h, s, l] = utils.rgb2hsl(r, g, b);
-        h += utils.meanPitch(freqs.data[i], conf.sampleRate);;
+        h += utils.meanPitch(freqs.data[i], conf.sampleRate) - 0.15;
         [r, g, b] = utils.hsl2rgb(h, s, l);
       }
 
