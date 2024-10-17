@@ -1,5 +1,6 @@
 import { StringOscillator } from './oscillator.js';
 import * as utils from '../lib/utils.js';
+import * as cielab from '../lib/cielab.js';
 
 let { dcheck, clamp, fireballRGB, Float32Tensor } = utils;
 
@@ -144,9 +145,8 @@ function drawImgData(canvas_img, [ymin, ymax] = [0, canvas_img.height - 1], auto
       let [r, g, b] = fireballRGB(temp);
 
       if (freqs) {
-        let [h, s, l] = utils.rgb2hsl(r, g, b);
-        h += -0.1 + utils.meanPitch(freqs.data[i], conf.sampleRate);
-        [r, g, b] = utils.hsl2rgb(h, s, l);
+        let pitch = utils.meanPitch(freqs.data[i], conf.sampleRate);
+        [r, g, b] = cielab.hue_rotate([r, g, b], (pitch - 0.1) * 2 * Math.PI);
       }
 
       canvas_img.data[i * 4 + 0] = 255 * clamp(r);
