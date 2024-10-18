@@ -131,14 +131,6 @@ function initSettings() {
     toText: (x) => x.toFixed(1),
     onChanged: () => redrawImg(),
   });
-
-  initSetting('phase', {
-    debug: true,
-    units: '\u00b0',
-    addStep: (x, d) => ((x + d * 10 / 360) % 1 + 1) % 1,
-    toText: (x) => (x * 360).toFixed(0),
-    onChanged: () => redrawImg(),
-  });
 }
 
 function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText }) {
