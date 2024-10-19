@@ -1,5 +1,6 @@
 
 import * as utils from '../lib/utils.js';
+import { GpuContext } from '../webgl2.js';
 
 const { $, check, dcheck, clone, sleep, DB } = utils;
 
@@ -226,26 +227,67 @@ export async function drawStringOscillations(signal, canvas, conf, { onprogress 
   });
 }
 
-export async function drawDiskImage(canvas, cfg) {
-  let ds = cfg.imageSize;
-  let config = clone(cfg);
+export async function drawDiskImage(canvas, { conf, onprogress } = {}) {
+  let ds = conf.imageSize;
+  let config = clone(conf);
 
-  let img_data = await new Promise((resolve) => {
+  let { img_amps, img_hues, brightness } = await new Promise((resolve) => {
     postWorkerCommand({
       command: { type: 'draw_disk', config },
       handlers: {
-        'draw_disk': (e) => resolve(e.data.img_data),
+        'draw_disk': (e) => {
+          if (onprogress && e.data.progress)
+            onprogress(e.data.progress);
+          if (e.data.result)
+            resolve(e.data.result);
+        },
       },
     });
   });
 
-  canvas.width = ds;
-  canvas.height = ds;
-  let ctx = canvas.getContext('2d', { willReadFrequently: true });
-  let img = ctx.getImageData(0, 0, ds, ds);
-  img.data.set(img_data);
-  ctx.putImageData(img, 0, 0);
-  await sleep(0);
+  await utils.time('drawFrameGPU:', async () => {
+    canvas.width = ds;
+    canvas.height = ds;
+    let img_data = await drawFrameGPU();
+    let ctx = canvas.getContext('2d', { willReadFrequently: true });
+    let img = ctx.getImageData(0, 0, ds, ds);
+    img.data.set(img_data);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  async function drawFrameGPU() {
+    let canvas_webgl = canvas.cloneNode();
+    let ctx = new GpuContext(canvas_webgl);
+    try {
+      ctx.init();
+      let shader = await initShader(ctx, 'draw_img');
+      let iChannel0 = ctx.createFrameBuffer(ds, ds, 1, img_amps);
+      let iChannel1 = ctx.createFrameBuffer(ds, ds, 1, img_hues);
+      let bufferA = ctx.createFrameBuffer(ds, ds, 4);
+      let args = {
+        iChannel0, iChannel1, iResolution: [ds, ds],
+        iBrightness: brightness, iSampleRate: conf.sampleRate
+      };
+      shader.draw(args, bufferA);
+      //bufferA.draw();
+      
+      let rgba = await utils.time('GPU->CPU download:', () => bufferA.download());
+      for (let i = 0; i < rgba.length; i++)
+        rgba[i] *= 255;
+      return rgba;
+    } finally {
+      ctx.destroy();
+      canvas_webgl.width = 0;
+      canvas_webgl.height = 0;
+    }
+  }
+
+  async function initShader(ctx, filename) {
+    let adapter = await utils.fetchText('./adapter.glsl');
+    let user_shader = await utils.fetchText('./' + filename + '.glsl');
+    let fshader = adapter.replace('//#include ${USER_SHADER}', user_shader);
+    return ctx.createTransformProgram({ fshader });
+  }
 }
 
 export function checkFileSize(file) {

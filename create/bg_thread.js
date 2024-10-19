@@ -7,14 +7,15 @@ let { dcheck, clamp, fireballRGB, Float32Tensor } = utils;
 let img_amps, img_hues;
 
 onmessage = (e) => {
-  // console.log('received command:', e.data.type);
-  switch (e.data.type) {
+  let { type, signal, config } = e.data;
+  // console.log('received command:', type);
+  switch (type) {
     case 'wave_1d':
-      utils.time('img_amps:', () => computeImgAmps(e.data.signal, e.data.config));
-      utils.time('img_hues:', () => computeImgHues(e.data.signal, e.data.config));
+      utils.time('img_amps:', () => computeImgAmps(signal, config));
+      utils.time('img_hues:', () => computeImgHues(signal, config));
       break;
     case 'draw_disk':
-      drawDiskImage(e.data.config);
+      drawDiskImage(config);
       break;
     default:
       dcheck();
@@ -100,22 +101,39 @@ function computeImgAmps(signal, conf) {
 
 async function drawDiskImage(conf) {
   utils.time('rect2disk:', () => {
-    for (let img of [img_amps, img_hues]) {
-      if (!img || img.disk) continue;
+    let imgs = [img_amps, img_hues]
+      .filter(img => img && !img.disk);
+
+    for (let i = 0; i < imgs.length; i++) {
+      let img = imgs[i];
       img.disk = new Float32Tensor([conf.imageSize, conf.imageSize]);
-      utils.rect2disk(img, img.disk, { num_reps: conf.symmetry });
+      utils.rect2disk(img, img.disk, {
+        num_reps: conf.symmetry,
+        onprogress: (pct) => {
+          postMessage({
+            type: 'draw_disk',
+            progress: (i + pct) / (imgs.length + 1),
+          });
+        },
+      });
     }
   });
 
   let autoBrightness = adjustBrightness(img_amps, conf);
   console.debug('brightness:', 10 ** -autoBrightness);
-  let img_data = new Uint8Array(conf.imageSize ** 2 * 4);
-  let canvas_img = { data: img_data, width: conf.imageSize, height: conf.imageSize };
+  //let img_data = new Uint8Array(conf.imageSize ** 2 * 4);
+  //let canvas_img = { data: img_data, width: conf.imageSize, height: conf.imageSize };
+  //utils.time('img_rgba:', () =>
+  //  drawImgData(canvas_img, [0, conf.imageSize - 1], autoBrightness, conf));
 
-  utils.time('img_rgba:', () =>
-    drawImgData(canvas_img, [0, conf.imageSize - 1], autoBrightness, conf));
-
-  postMessage({ type: 'draw_disk', img_data });
+  postMessage({
+    type: 'draw_disk',
+    result: {
+      img_amps: img_amps.disk.data,
+      img_hues: img_hues.disk.data,
+      brightness: 10 ** (autoBrightness + conf.brightness),
+    },
+  });
 }
 
 function adjustBrightness(img, { exposure }) {
@@ -152,7 +170,7 @@ function drawImgData(canvas_img, [ymin, ymax] = [0, canvas_img.height - 1], auto
       canvas_img.data[i * 4 + 0] = 255 * clamp(r);
       canvas_img.data[i * 4 + 1] = 255 * clamp(g);
       canvas_img.data[i * 4 + 2] = 255 * clamp(b);
-      canvas_img.data[i * 4 + 3] = 255 * utils.smoothstep(clamp(temp/0.005));
+      canvas_img.data[i * 4 + 3] = 255 * utils.smoothstep(clamp(temp / 0.005));
     }
   }
 }

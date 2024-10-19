@@ -1,5 +1,7 @@
 // Standalone WebGL2 wrapper.
 
+const dcheck = (x) => { if (x) return; debugger; throw new Error('webgl2 dcheck'); };
+
 const DEBUG = false;
 const FBO_MAX_SIZE = 2 ** 27;
 
@@ -66,9 +68,14 @@ export class GpuContext {
     this.gl = null;
   }
 
-  createFrameBuffer(w, h, ch = 1) {
+  createFrameBuffer(w, h, ch = 1, data = null) {
     let args = w > 0 ? { width: w, height: h, channels: ch } : w;
-    return new GpuFrameBuffer(this, { log: this.log, ...args });
+    let fb = new GpuFrameBuffer(this, { log: this.log, ...args });
+    if (data) {
+      dcheck(data.length == w * h * ch);
+      fb.upload(data);
+    }
+    return fb;
   }
 
   createFrameBufferFromRGBA(img, scale = 1 / 255) {

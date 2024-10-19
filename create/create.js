@@ -424,7 +424,7 @@ async function drawGallery() {
     conf.stringLen *= index == 1 ? 2 : 2 ** -(index - 1);
     console.debug('Drawing small img #' + index, 'stringLen=' + conf.stringLen);
     await base.drawStringOscillations(sig, canvas, conf);
-    await base.drawDiskImage(canvas, conf);
+    await base.drawDiskImage(canvas, { conf });
   }
 }
 
@@ -432,15 +432,18 @@ async function drawStringOscillations() {
   base.setCircleProgress(0);
 
   await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf, {
-    onprogress: (pct) => base.setCircleProgress(pct * 90),
+    onprogress: (pct) => base.setCircleProgress(pct * 50),
   });
 
-  await drawDiskImage();
+  await drawDiskImage([0.5, 1.0]);
   base.setCircleProgress(null);
 }
 
-async function drawDiskImage() {
-  await base.drawDiskImage($('canvas#disk'), gconf);
+async function drawDiskImage([pct_min, pct_max] = [0, 1]) {
+  await base.drawDiskImage($('canvas#disk'), {
+    conf: gconf,
+    onprogress: (pct) => base.setCircleProgress(100 * utils.mix(pct_min, pct_max, pct)),
+  });
   base.setCircleProgress(null);
 }
 
@@ -579,7 +582,7 @@ async function recordAudio() {
 async function downloadImage() {
   dcheck(mem.audio_name);
   let blob = await new Promise(resolve =>
-    $('canvas#disk').toBlob(resolve, 'image/jpeg', 1.00));
+    $('canvas#disk').toBlob(resolve, 'image/jpeg', 0.85));
   let a = document.createElement('a');
   a.download = mem.audio_name + '.jpg';
   a.href = URL.createObjectURL(blob);
