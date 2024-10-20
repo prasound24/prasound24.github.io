@@ -27,11 +27,6 @@ async function init() {
 
   if (src && !src.startsWith('db:')) {
     img_url = IMG_BASE + src + '.jpg';
-
-    for (let a of $$('#hires_buttons a.button'))
-      a.href += '?src=' + src;
-    for (let a of $$('#gif_buttons a.button'))
-      a.href += '?src=' + src;
   } else {
     img_file = await base.loadAudioImage(src);
 
@@ -43,6 +38,13 @@ async function init() {
           img.style.filter = 'hue-rotate(' + conf.hue + 'deg)';
       }
     }
+  }
+
+  if (src) {
+    for (let a of $$('#hires_buttons a.button'))
+      a.href += '?src=' + src;
+    for (let a of $$('#gif_buttons a.button'))
+      a.href += '?src=' + src;
   }
 
   let sample_rate = conf?.sampleRate || base.gconf.sampleRate;

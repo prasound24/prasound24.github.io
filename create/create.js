@@ -403,7 +403,8 @@ async function redrawImg() {
     await drawStringOscillations();
     let ts = Date.now();
     let url = await saveDiskImage();
-    $('html > head > link[rel=icon]').href = url;
+    let url_xs = await saveDiskImagePreview(url);
+    $('html > head > link[rel=icon]').href = url_xs;
     await saveImageConfig();
     console.debug('saveDiskImage:', Date.now() - ts, 'ms');
     //await drawGallery();
@@ -457,7 +458,7 @@ async function saveDiskImage(db_path = base.DB_PATH_IMAGE, canvas = $('canvas#di
   return URL.createObjectURL(blob);
 }
 
-async function saveDiskImagePreview(db_path, img_url) {
+async function saveDiskImagePreview(img_url, db_path = base.DB_PATH_IMAGE_XS) {
   dcheck(img_url);
   let img = new Image();
   img.width = 256;
@@ -487,8 +488,7 @@ async function saveToGallery() {
     await saveImageConfig(base.DB_SAVED_CONFIGS + '/' + sid);
     await saveAudioSignal(base.DB_SAVED_SOUNDS + '/' + sid);
     let url = await saveDiskImage(base.DB_SAVED_IMAGES + '/' + sid);
-    let xs = await saveDiskImagePreview(base.DB_SAVED_IMAGES_XS + '/' + sid, url);
-    console.log(xs);
+    await saveDiskImagePreview(url, base.DB_SAVED_IMAGES_XS + '/' + sid);
   });
   location.href = '/preview?src=db:' + sid;
 }

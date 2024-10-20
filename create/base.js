@@ -19,6 +19,7 @@ export const DB_SAVED_CONFIGS = DB_SAVED + '/configs';
 export const DB_PATH = 'user_samples';
 export const DB_PATH_AUDIO = DB_PATH + '/_last/audio';
 export const DB_PATH_IMAGE = DB_PATH + '/_last/image';
+export const DB_PATH_IMAGE_XS = DB_PATH + '/_last/image_xs';
 export const DB_PATH_CONFIG = DB_PATH + '/_last/config';
 
 export const gconf = {};
