@@ -8,7 +8,6 @@ canvas#wave {
 
 canvas#disk {
   position: relative;
-  z-index: -1;
 }
 
 p {
@@ -198,6 +197,19 @@ canvas#wave,
   border-left: 2px solid #668;
 }
 
+#top_info {
+  z-index: 1;
+  position: relative;
+  height: 0;
+  font-size: 0.75rem;
+}
+
+@media(orientation:landscape) {
+  #top_info {
+    margin: 0 calc(50% - 50vh);
+  }
+}
+
 #art_main {
   position: relative;
 }
@@ -221,6 +233,13 @@ body.empty #art_main {
 #img_info {
   position: relative;
   height: 0;
+  z-index: 1;
+}
+
+@media(orientation:landscape) {
+  #img_info {
+    margin: 0 calc(50% - 50vh);
+  }
 }
 
 #download_image {
@@ -282,6 +301,13 @@ button.small_btn:hover {
   gap: 0.75em;
   position: absolute;
   top: 3em;
+  z-index: 1;
+}
+
+@media(orientation:landscape) {
+  #settings {
+    margin-left: calc(50% - 50vh);
+  }
 }
 
 body:not(.settings) #settings {
