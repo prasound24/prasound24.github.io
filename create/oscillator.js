@@ -8,49 +8,38 @@ const clamp = (x, min, max) => Math.max(Math.min(x, max), min);
 export class StringOscillator {
   constructor({ width }) {
     this.damping = 0.0;
-    this.dt = 1.0;
-    this.dx = 1.0;
     this.width = width;
     this.wave = new Float32Array(width);
     this.next = new Float32Array(width);
     this.prev = new Float32Array(width);
-    this.wave_xx = new Float32Array(width);
   }
 
   update() {
-    let w = this.width;
-    let dt = this.dt, k2 = this.damping;
-    let dt2 = dt * dt, dx2 = this.dx * this.dx;
-    let wave = this.wave, next = this.next, prev = this.prev;
-    let wave_xx = this.wave_xx;
-    let r1 = 1.0 - k2 * dt * 0.5;
-    let r2 = 1.0 + k2 * dt * 0.5;
+    // dx = dt = 1.0
+    //
+    //        1+d/2
+    //  -1      0     -1
+    //        1-d/2
+    //
+    // u_tt - u_xx + d*u_t = 0
 
-    laplacian(wave, wave_xx);
+    let n = this.width;
+    let d = this.damping;
+    let w1 = this.wave, w2 = this.next, w0 = this.prev;
+    let d0 = 1 - d / 2;
+    let d2 = 1 + d / 2;
 
-    for (let x = 0; x < w; x++) {
-      let sum = wave[x];
+    for (let x = 0; x < n; x++) {
+      let l = x - 1, r = x + 1;
+      if (l == -1) l = n - 1;
+      if (r == n) r = 0;
 
-      sum += wave[x];
-      sum += wave_xx[x] * (dt2 / dx2);
-      sum -= prev[x] * r1;
-
-      next[x] = clamp(sum / r2, -1000, +1000);
+      let sum = w0[x] * d0 - w1[l] - w1[r];
+      w2[x] = clamp(-sum / d2, -1000, +1000);
     }
 
-    this.prev = wave;
-    this.wave = next;
-    this.next = prev;
-  }
-}
-
-function laplacian(src, res) {
-  let n = src.length;
-
-  for (let x = 0; x < n; x++) {
-    let c = src[x];
-    let e = src[(x + 1 + n) % n];
-    let w = src[(x - 1 + n) % n];
-    res[x] = e + w - 2 * c;
+    this.prev = w1;
+    this.wave = w2;
+    this.next = w0;
   }
 }
