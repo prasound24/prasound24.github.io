@@ -10,6 +10,7 @@ const DEFAULT_IMG_ID = 'bass-clarinet_As2_very-long_mezzo-piano_harmonic';
 const CW = 1024, CH = CW;
 const IMG_W = 2048, IMG_H = 2048;
 const SAMPLE_RATE = 48000;
+let args = new URLSearchParams(location.search);
 let sound = [0];
 let canvas = $('canvas#webgl');
 let shaders = {};
@@ -31,7 +32,7 @@ function initErrHandler() {
 }
 
 async function initSound() {
-  let blob = await base.loadAudioSignal(DEFAULT_IMG_ID);
+  let blob = await base.loadAudioSignal(args.get('src'));
   sound = await utils.decodeAudioFile(blob, SAMPLE_RATE);
   console.log('Sound:', (sound.length / SAMPLE_RATE).toFixed(1), 'sec,', sound.length, 'samples');
 }
@@ -45,7 +46,6 @@ function resizeCanvas() {
 }
 
 async function initImgRGBA(width, height) {
-  let args = new URLSearchParams(location.search);
   let img_id = args.get('src');
   let img_url;
 
@@ -93,12 +93,14 @@ async function initWebGL() {
   await initShader(ctx, 'drum');
   await initShader(ctx, 'minmax');
   await initShader(ctx, 'drum_img');
+  await initShader(ctx, 'string_wave');
+  await initShader(ctx, 'string_draw');
 
   let iChannel3 = ctx.createFrameBufferFromRGBA(img);
   let iChannel2 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
-  let bufferA = ctx.createFrameBuffer(CW, CH, 4);
+  let iChannel0 = ctx.createFrameBuffer(CW, 1, 4);
+  let bufferA = ctx.createFrameBuffer(CW, 1, 4);
   let bufferB = ctx.createFrameBuffer(CW, CH, 4);
   let bufferC = ctx.createFrameBuffer(CW, CH, 4);
   let animationId = 0, iFrame = 0;
@@ -133,13 +135,20 @@ async function initWebGL() {
       canvas.style.display = '';
     }
 
-    for (let k = 1; k > 0; k--) {
+    for (let k = 1025; k > 0; k--) {
       let iTime = (time_msec - base_time) / 1000;
       let args = { iTime, iFrame, iChannel0, iChannel1, iChannel2, iChannel3 };
 
-      runShader('fireball', args, bufferB);
-      runShader('fluid_ch0', args, bufferA);
-      if (k == 1) runShader('fluid_img', args);
+      let iSound = sound[iFrame % sound.length];
+      runShader('string_wave', { ...args, iSound }, bufferA);
+      if (k == 1) {
+        runShader('string_draw', args, bufferB);
+        bufferB.draw();
+      }
+
+      //runShader('fireball', args, bufferB);
+      //runShader('fluid_ch0', args, bufferA);
+      //if (k == 1) runShader('fluid_img', args);
 
       //runShader('fireball', args, bufferB);
       //runShader('sphere', args);
