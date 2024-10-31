@@ -30,9 +30,8 @@ export class StringOscillator {
     let d2 = 1 + d / 2;
 
     for (let x = 0; x < n; x++) {
-      let l = x - 1, r = x + 1;
-      if (l == -1) l = n - 1;
-      if (r == n) r = 0;
+      let l = x ? x - 1 : n - 1;
+      let r = x < n - 1 ? x + 1 : 0;
 
       let sum = w0[x] * d0 - w1[l] - w1[r];
       w2[x] = clamp(-sum / d2, -1000, +1000);

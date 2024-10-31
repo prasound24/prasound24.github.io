@@ -327,11 +327,9 @@ export function initWaveformDrawer(canvas) {
     ctx.putImageData(img, 0, 0);
   }
 
-  function draw(sig, [xmin, xmax] = [0, 1], aminmax = []) {
+  function draw(sig, [xmin, xmax] = [0, 1], [amin, amax] = [], opacity = 1.0) {
     if (xmax < 0.0 || xmin > 1.0 || !sig.length)
       return;
-
-    let [amin, amax] = aminmax;
 
     if (!amin && !amax) {
       amin = sig[0];
@@ -347,7 +345,7 @@ export function initWaveformDrawer(canvas) {
       let a = (sig[t] - amin) / (amax - amin);
       let y = Math.round(ch * (1 - a));
       if (x >= 0 || x < cw || y >= 0 || y < ch)
-        img.data[(y * cw + x) * 4 + 3] += 255 * cw / sig.length * 25;
+        img.data[(y * cw + x) * 4 + 3] += 255 * cw / sig.length * opacity * 25;
     }
 
     let dirty_xmin = Math.floor(xmin * cw);

@@ -127,7 +127,7 @@ function initSettings() {
 
   initSetting('damping', {
     debug: true,
-    addStep: (x, d) => clamp(x + d * 0.1, -5.0, 0.0),
+    addStep: (x, d) => clamp(x + d * 0.1, -6.0, 0.0),
     toText: (x) => x.toFixed(1),
     onChanged: () => redrawImg(),
   });
