@@ -1,3 +1,5 @@
+uniform float iSound;
+
 float lookup(float phi) {
   return texture(iChannel0, vec2(phi / PI * 0.5, 0.5)).r;
 }
@@ -8,7 +10,7 @@ void mainImage(out vec4 o, in vec2 p) {
   float r = length(q);
   float a = atan(q.x, q.y);
 
-  float c1 = lookup(a);
+  float c1 = lookup(a) - iSound;
   float d1 = abs(r - 0.5 - c1);
 
   if(d1 < 0.001)

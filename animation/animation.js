@@ -142,7 +142,7 @@ async function initWebGL() {
       let iSound = sound[iFrame % sound.length];
       runShader('string_wave', { ...args, iSound }, bufferA);
       if (k == 1) {
-        runShader('string_draw', args, bufferB);
+        runShader('string_draw', { ...args, iSound }, bufferB);
         bufferB.draw();
       }
 

@@ -1,6 +1,7 @@
 import { StringOscillator } from './oscillator.js';
 import * as utils from '../lib/utils.js';
 import * as cielab from '../lib/cielab.js';
+import { interpolate_1d_re } from '../lib/webfft.js';
 
 let { dcheck, clamp, fireballRGB, Float32Tensor } = utils;
 
@@ -53,8 +54,18 @@ function computeImgHues(sig, conf) {
 
 function computeImgAmps(signal, conf) {
   let strlen = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
+  let subsampling = conf.imageSize * 2 / conf.symmetry / strlen;
+  strlen = Math.round(strlen * subsampling) & ~1; // make it even for FFT resampling
   let oscillator = new StringOscillator({ width: strlen });
+
   let siglen = signal.length;
+  let siglen2 = Math.round(siglen * subsampling);
+  let sig2 = new Float32Array(siglen2);
+  interpolate_1d_re(signal, sig2);
+  siglen = sig2.length;
+  signal = sig2;
+  oscillator.dt = 1.0 / subsampling;
+
   let steps = conf.numSteps;
   let y_prev = 0, y_curr = 0, ts = Date.now();
 
@@ -69,11 +80,10 @@ function computeImgAmps(signal, conf) {
     wave_minmax[x] = new utils.MinMaxFilter(Math.ceil(siglen / steps)); // new utils.DWTFilter(dwt_levels);
 
   for (let t = 0; t < siglen; t++) {
-    oscillator.update();
-    oscillator.wave[0] = signal[t];
+    oscillator.update(signal[t]);
 
     for (let x = 0; x < strlen; x++)
-      wave_minmax[x].push(oscillator.wave[x] - oscillator.wave[0]);
+      wave_minmax[x].push(oscillator.wave[x] - signal[t]);
 
     let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
 
