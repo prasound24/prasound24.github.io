@@ -3,20 +3,27 @@ import * as utils from '../lib/utils.js';
 import * as cielab from '../lib/cielab.js';
 import { interpolate_1d_re } from '../lib/webfft.js';
 
-let { dcheck, clamp, fireballRGB, Float32Tensor } = utils;
+let { sleep, dcheck, clamp, fireballRGB, CurrentOp, Float32Tensor } = utils;
 
-let img_amps, img_freq;
+let img_amps, img_freq, current_op;
 
-onmessage = (e) => {
-  let { type, signal, config } = e.data;
+onmessage = async (e) => {
+  let { type, txid, signal, config } = e.data;
   // console.log('received command:', type);
   switch (type) {
+    case 'cancel':
+      await current_op?.cancel();
+      current_op = null;
+      break;
     case 'wave_1d':
-      utils.time('img_amps:', () => computeImgAmps(signal, config));
-      utils.time('img_hues:', () => computeImgHues(signal, config));
+      current_op = new CurrentOp('bg:computeImgAmps', async () => {
+        await utils.time('img_amps:', () => computeImgAmps(signal, config));
+        await utils.time('img_hues:', () => computeImgHues(signal, config));
+      });
       break;
     case 'draw_disk':
-      drawDiskImage(config);
+      current_op = new CurrentOp('bg:drawDiskImage',
+        () => drawDiskImage(config));
       break;
     default:
       dcheck();
@@ -44,7 +51,7 @@ function computeImgHues(sig, conf) {
   img_freq = [freq0];
 }
 
-function computeImgAmps(signal, conf) {
+async function computeImgAmps(signal, conf) {
   let strlen = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
   let subsampling = conf.imageSize * 2 / conf.symmetry / strlen;
   strlen = Math.round(strlen * subsampling) & ~1; // make it even for FFT resampling
@@ -91,9 +98,15 @@ function computeImgAmps(signal, conf) {
         mm.reset();
 
       if (Date.now() > ts + 250) {
+        await sleep(5);
         ts = Date.now();
         postMessage({ type: 'wave_1d', progress: Math.min(y_curr / steps, 0.99) });
         y_prev = y_curr;
+        if (current_op?.cancelled) {
+          postMessage({ type: 'wave_1d', error: 'cancelled' });
+          img_amps = null;
+          await current_op.throwIfCancelled();
+        }
       }
     }
   }
@@ -102,7 +115,7 @@ function computeImgAmps(signal, conf) {
 }
 
 async function drawDiskImage(conf) {
-  utils.time('rect2disk:', () => {
+  await utils.time('rect2disk:', async () => {
     let imgs = [img_amps]
       .filter(img => img && !img.disk);
 
@@ -118,6 +131,11 @@ async function drawDiskImage(conf) {
           });
         },
       });
+      await sleep(5);
+      if (current_op?.cancelled) {
+        postMessage({ type: 'draw_disk', error: 'cancelled' });
+        await current_op.throwIfCancelled();
+      }
     }
   });
 

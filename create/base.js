@@ -202,23 +202,32 @@ function postWorkerCommand({ command, handlers }) {
   initWorker();
   dcheck(!command.txid);
   let txid = Math.random().toString(16).slice(2);
-  bg_thread.onmessage = (e) => {
-    let type = e.data.type;
-    let handler = handlers[type];
-    //console.info('[bg->main]', 'type=' + type, 'progress=' + e.data.progress);
-    dcheck(handler, 'handlers.' + type + ' is null');
-    handler.call(null, e);
-  };
+  if (handlers) {
+    bg_thread.onmessage = (e) => {
+      let type = e.data.type;
+      let handler = handlers[type];
+      //console.info('[bg->main]', 'type=' + type, 'progress=' + e.data.progress);
+      dcheck(handler, 'handlers.' + type + ' is null');
+      handler(e);
+    };
+  }
   //console.info('[main->bg]', 'type=' + command.type);
   bg_thread.postMessage({ ...command, txid });
+  return txid;
 }
 
-export async function drawStringOscillations(signal, canvas, conf, { onprogress } = {}) {
-  await new Promise((resolve) => {
+export function cancelWorkerCommand() {
+  postWorkerCommand({ command: { type: 'cancel' } });
+}
+
+export async function drawStringOscillations(signal, canvas, conf, { cop, onprogress } = {}) {
+  await new Promise((resolve, reject) => {
     postWorkerCommand({
       command: { type: 'wave_1d', signal, config: clone(conf) },
       handlers: {
         'wave_1d': (e) => {
+          if (e.data.error)
+            return reject(new Error(e.data.error));
           let p = e.data.progress;
           onprogress?.call(null, p);
           if (p == 1.00) resolve();
@@ -228,15 +237,17 @@ export async function drawStringOscillations(signal, canvas, conf, { onprogress 
   });
 }
 
-export async function drawDiskImage(canvas, { conf, onprogress } = {}) {
+export async function drawDiskImage(canvas, { cop, conf, onprogress } = {}) {
   let ds = conf.imageSize;
   let config = clone(conf);
 
-  let { img_amps, img_freq, brightness } = await new Promise((resolve) => {
+  let { img_amps, img_freq, brightness } = await new Promise((resolve, reject) => {
     postWorkerCommand({
       command: { type: 'draw_disk', config },
       handlers: {
         'draw_disk': (e) => {
+          if (e.data.error)
+            return reject(new Error(e.data.error));
           if (onprogress && e.data.progress)
             onprogress(e.data.progress);
           if (e.data.result)
@@ -245,6 +256,8 @@ export async function drawDiskImage(canvas, { conf, onprogress } = {}) {
       },
     });
   });
+
+  await cop?.throwIfCancelled();
 
   await utils.time('drawFrameGPU:', async () => {
     canvas.width = ds;
@@ -272,7 +285,9 @@ export async function drawDiskImage(canvas, { conf, onprogress } = {}) {
       };
       shader.draw(args, bufferA);
       //bufferA.draw();
-      
+
+      await cop?.throwIfCancelled();
+
       let rgba = await utils.time('GPU->CPU download:', () => bufferA.download());
       for (let i = 0; i < rgba.length; i++)
         rgba[i] *= 255;

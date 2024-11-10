@@ -36,7 +36,7 @@ async function initImg() {
   let tmp = new Image;
   await new Promise((resolve, reject) => {
     tmp.onload = () => resolve();
-    tmp.onerror = () => reject();
+    tmp.onerror = () => reject(new Error('img.onerror'));
     tmp.src = url;
   });
 

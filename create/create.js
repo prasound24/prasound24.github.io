@@ -1,7 +1,7 @@
 import * as utils from '../lib/utils.js';
 import * as base from './base.js';
 
-const { $, $$, sleep, clamp, check, dcheck, clone, DB } = utils;
+const { $, $$, sleep, clamp, check, dcheck, clone, ErrorCancelled, CurrentOp, DB } = utils;
 const { gconf } = base;
 const TEMP_GRADIENT = '/img/blackbody.png';
 
@@ -9,6 +9,7 @@ let args = new URLSearchParams(location.search);
 let recorder = null;
 let rec_timer = null;
 let is_drawing = false;
+let current_op = null;
 let ui_settings = {};
 
 let mem = {
@@ -36,20 +37,36 @@ async function init() {
   initSettings();
 
   $('#preview').onclick = () => saveToGallery();
-  $('#upload').onclick = () => uploadAudio();
-  $('#record').onclick = () => recordAudio();
+  $('#upload').onclick = () => runUserAction('uploadAudio', uploadAudio);
+  $('#record').onclick = () => runUserAction('recordAudio', recordAudio);
   $('#stop_recording').onclick = () => stopRecording();
   $('#download_image').onclick = () => downloadImage();
   $('#show_settings').onclick = () => showSettings();
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
+  //$('#art_main').onclick = () => runUserAction('Stop', () => { });
 
   //setPitchClass();
 
-  if (await loadAudioSignal()) {
-    await drawWaveform();
-    await redrawImg();
+  runUserAction('showInitialSignal', async () => {
+    if (await loadAudioSignal()) {
+      await drawWaveform();
+      await redrawImg();
+    }
+  });
+}
+
+async function runUserAction(name, async_fn) {
+  try {
+    base.cancelWorkerCommand();
+    await current_op?.cancel();
+    current_op = new CurrentOp(name, async_fn);
+    await current_op.promise;
+  } catch(err) { 
+    if (!(err instanceof ErrorCancelled))
+      throw err;
   }
+  current_op = null;
 }
 
 function showSettings() {
@@ -65,10 +82,10 @@ function initSettings() {
     units: 'kHz',
     toText: (x) => (x / 1000).toFixed(0),
     addStep: (x, d) => clamp(x * 2 ** d, 3000, 384000),
-    onChanged: async () => {
+    onChanged: () => runUserAction('redrawImg', async () => {
       await drawWaveform();
       await redrawImg();
-    },
+    }),
   });
 
   initSetting('hue', {
@@ -86,50 +103,46 @@ function initSettings() {
     delay: 0.0,
     addStep: (x, d) => clamp(x + d * 0.1, -5.5, 5.5),
     toText: (x) => x.toFixed(1),
-    onChanged: () => {
-      drawDiskImage();
-      saveImageConfig();
-    },
+    onChanged: () => runUserAction('redrawImg', async () => {
+      await drawDiskImage();
+      await saveImageConfig();
+    }),
   });
 
   initSetting('exposure', {
     debug: true,
     addStep: (x, d) => clamp(x + d * 0.5, -9.5, -0.5),
     toText: (x) => x.toFixed(1),
-    onChanged: () => redrawImg(),
+    onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
   initSetting('imageSize', {
     addStep: (x, d) => clamp(x * 2 ** d, 1, 4096),
-    onChanged: () => {
-      // conf.stringLen = conf.imageSize;
-      // conf.numSteps = conf.imageSize / 2;
-      redrawImg();
-    },
+    onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
   initSetting('numSteps', {
     addStep: (x, d) => clamp(x * 2 ** d, 1, 8192),
-    onChanged: () => redrawImg(),
+    onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
   initSetting('stringLen', {
     units: 'ms',
     addStep: (x, d) => clamp(x + d * 0.01, 1, 100),
     toText: (x) => x.toFixed(2),
-    onChanged: () => redrawImg(),
+    onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
   initSetting('symmetry', {
     addStep: (x, d) => clamp(x + d, 1, 6),
-    onChanged: () => redrawImg(),
+    onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
   initSetting('damping', {
     debug: true,
     addStep: (x, d) => clamp(x + d * 0.1, -6.0, 0.0),
     toText: (x) => x.toFixed(1),
-    onChanged: () => redrawImg(),
+    onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 }
 
@@ -243,8 +256,8 @@ function initMouseEvents() {
         if (target) {
           e.preventDefault();
           if (moved)
-            redrawImg();
-          target = null;
+            runUserAction('redrawImg', redrawImg),
+              target = null;
           touch = null;
         }
         break;
@@ -345,6 +358,7 @@ async function drawWaveform() {
     mem.audio_name = mem.audio_file.name.replace(/\.\w+$/, '');
 
     await decodeAudio();
+    await current_op.throwIfCancelled();
 
     let drawer = base.initWaveformDrawer($('canvas#wave'));
     drawer.draw(mem.audio_signal, [0, 1]);
@@ -430,22 +444,28 @@ async function drawGallery() {
 }
 
 async function drawStringOscillations() {
-  base.setCircleProgress(0);
-
-  await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf, {
-    onprogress: (pct) => base.setCircleProgress(pct * 50),
-  });
-
-  await drawDiskImage([0.5, 1.0]);
-  base.setCircleProgress(null);
+  try {
+    base.setCircleProgress(0);
+    await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf, {
+      onprogress: (pct) => base.setCircleProgress(pct * 50),
+    });
+    await current_op.throwIfCancelled();
+    await drawDiskImage([0.5, 1.0]);
+  } finally {
+    base.setCircleProgress(null);
+  }
 }
 
 async function drawDiskImage([pct_min, pct_max] = [0, 1]) {
-  await base.drawDiskImage($('canvas#disk'), {
-    conf: gconf,
-    onprogress: (pct) => base.setCircleProgress(100 * utils.mix(pct_min, pct_max, pct)),
-  });
-  base.setCircleProgress(null);
+  try {
+    await base.drawDiskImage($('canvas#disk'), {
+      cop: current_op,
+      conf: gconf,
+      onprogress: (pct) => base.setCircleProgress(100 * utils.mix(pct_min, pct_max, pct)),
+    });
+  } finally {
+    base.setCircleProgress(null);
+  }
 }
 
 async function saveDiskImage(db_path = base.DB_PATH_IMAGE, canvas = $('canvas#disk'),
@@ -466,7 +486,7 @@ async function saveDiskImagePreview(img_url, db_path = base.DB_PATH_IMAGE_XS) {
   img.src = img_url;
   await new Promise((resolve, reject) => {
     img.onload = () => resolve();
-    img.onerror = () => reject();
+    img.onerror = () => reject(new Error('img.onerror'));
   });
 
   let canvas = document.createElement('canvas');
