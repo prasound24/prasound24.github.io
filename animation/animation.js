@@ -62,7 +62,7 @@ async function initImgRGBA(width, height) {
   if (!img_url)
     img_url = '/img/xl/' + img_id + '.jpg'
 
-  $('#preview').src = img_url;
+  //$('#preview').src = img_url;
   canvas.style.display = 'none';
 
   return await fetchRGBA(img_url, width, height);
@@ -135,7 +135,7 @@ async function initWebGL() {
       canvas.style.display = '';
     }
 
-    for (let k = 1025; k > 0; k--) {
+    for (let k = 8; k > 0; k--) {
       let iTime = (time_msec - base_time) / 1000;
       let args = { iTime, iFrame, iChannel0, iChannel1, iChannel2, iChannel3 };
 

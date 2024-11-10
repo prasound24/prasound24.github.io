@@ -184,9 +184,13 @@ button[disabled]:hover {
 }
 
 #footer {
-  padding: 2rem 0;
+  padding: 1rem 0;
   text-align: center;
   color: #888;
+}
+
+#footer .wave_spanner {
+  display: none;
 }
 
 #error_info:empty {

@@ -123,7 +123,7 @@ export class GpuContext {
     for (let s in config)
       params[s] = config[s];
 
-    this.log?.i('Initializing WebGL:', ...JSON.stringify(params).slice(1, -1).split(','));
+    //this.log?.i('Initializing WebGL:', ...JSON.stringify(params).slice(1, -1).split(','));
 
     let gl = canvas.getContext('webgl2', params);
     if (!gl) throw new Error('WebGL 2.0 not available');
@@ -132,10 +132,10 @@ export class GpuContext {
     this.log?.d('Texture access in vertex shaders:',
       gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS));
     this.log?.d('Max gl_PointSize:',
-      gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE));
+      gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE).join('..'));
 
-    let fsprec = (fp) => gl.getShaderPrecisionFormat(
-      gl.FRAGMENT_SHADER, fp).precision;
+    let fsprec = (fp) => (2 ** - gl.getShaderPrecisionFormat(
+      gl.FRAGMENT_SHADER, fp).precision).toExponential(1);
     this.log?.d('Shader precision:',
       'highp=' + fsprec(gl.HIGH_FLOAT),
       'mediump=' + fsprec(gl.MEDIUM_FLOAT),

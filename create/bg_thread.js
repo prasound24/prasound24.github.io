@@ -5,7 +5,7 @@ import { interpolate_1d_re } from '../lib/webfft.js';
 
 let { dcheck, clamp, fireballRGB, Float32Tensor } = utils;
 
-let img_amps, img_hues;
+let img_amps, img_freq;
 
 onmessage = (e) => {
   let { type, signal, config } = e.data;
@@ -35,21 +35,13 @@ function computeImgHues(sig, conf) {
     sig2[t] *= s;
   }
 
-  let freq1 = utils.meanFreq(sig1, conf.sampleRate);
-  let freq2 = utils.meanFreq(sig2, conf.sampleRate);
-  let hue1 = utils.meanPitch(freq1);
-  let hue2 = utils.meanPitch(freq2);
-  let note1 = utils.pitchToNote(hue1);
-  let note2 = utils.pitchToNote(hue2);
+  let freq0 = utils.meanFreq(sig, conf.sampleRate);
+  //let freq1 = utils.meanFreq(sig1, conf.sampleRate);
+  //let freq2 = utils.meanFreq(sig2, conf.sampleRate);
 
-  console.debug('Pitch:', freq1.toFixed(0) + '..' + freq2.toFixed(0) + ' Hz,',
-    hue1.toFixed(2) + '..' + hue2.toFixed(2), note1 + '..' + note2);
+  console.debug('Avg freq:', freq0.toFixed(0) + ' Hz');
 
-  img_hues = new Float32Tensor([steps, strlen]);
-
-  for (let t = 0; t < steps; t++)
-    for (let x = 0; x < strlen; x++)
-      img_hues.data[t * strlen + x] = utils.mix(freq1, freq2, t / steps);
+  img_freq = [freq0];
 }
 
 function computeImgAmps(signal, conf) {
@@ -111,7 +103,7 @@ function computeImgAmps(signal, conf) {
 
 async function drawDiskImage(conf) {
   utils.time('rect2disk:', () => {
-    let imgs = [img_amps, img_hues]
+    let imgs = [img_amps]
       .filter(img => img && !img.disk);
 
     for (let i = 0; i < imgs.length; i++) {
@@ -140,7 +132,7 @@ async function drawDiskImage(conf) {
     type: 'draw_disk',
     result: {
       img_amps: img_amps.disk.data,
-      img_hues: img_hues.disk.data,
+      img_freq: img_freq,
       brightness: 10 ** (autoBrightness + conf.brightness),
     },
   });

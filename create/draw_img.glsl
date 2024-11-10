@@ -70,7 +70,7 @@ vec3 rotateHue(vec3 rgb, float phi) {
 
 float freqHue(float freq_hz) {
   const float c8_hz = 4434.; // https://en.wikipedia.org/wiki/Piano_key_frequencies
-  return freq_hz > 0. ? fract(log2(freq_hz / c8_hz)) : -1.;
+  return freq_hz > 0. ? fract(log2(freq_hz / c8_hz)) : 0.;
 }
 
 vec3 fire_rgb(float t) {
@@ -83,10 +83,10 @@ void mainImage(out vec4 o, in vec2 p) {
   o.rgb = fire_rgb(temp * iBrightness);
   o.a = 1.; // smoothstep(0., 0.005, temp);
 
-  float freq = texture(iChannel1, p/iResolution).r;
-  if (freq > 0.) {
-    float hue = freqHue(freq);
-    if (hue > 0.)
-      o.rgb = rotateHue(o.rgb, (hue - 0.1) * 2. * PI);
+  if (iAvgFreq > 0.) {
+    float hue = freqHue(iAvgFreq);
+    float r = length(p/iResolution*2. - 1.);
+    hue += mix(-0.1, 0.1, smoothstep(0., 1., r));
+    o.rgb = rotateHue(o.rgb, (hue - 0.1) * 2. * PI);
   } 
 }

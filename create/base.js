@@ -25,7 +25,7 @@ export const DB_PATH_CONFIG = DB_PATH + '/_last/config';
 export const gconf = {};
 gconf.sampleRate = 48000;
 gconf.stringLen = 9.1; // msec
-gconf.numSteps = 512;
+gconf.numSteps = 32;
 gconf.imageSize = 1024;
 gconf.damping = -3.1;
 gconf.symmetry = 2;
@@ -232,7 +232,7 @@ export async function drawDiskImage(canvas, { conf, onprogress } = {}) {
   let ds = conf.imageSize;
   let config = clone(conf);
 
-  let { img_amps, img_hues, brightness } = await new Promise((resolve) => {
+  let { img_amps, img_freq, brightness } = await new Promise((resolve) => {
     postWorkerCommand({
       command: { type: 'draw_disk', config },
       handlers: {
@@ -263,11 +263,12 @@ export async function drawDiskImage(canvas, { conf, onprogress } = {}) {
       ctx.init();
       let shader = await initShader(ctx, 'draw_img');
       let iChannel0 = ctx.createFrameBuffer(ds, ds, 1, img_amps);
-      let iChannel1 = ctx.createFrameBuffer(ds, ds, 1, img_hues);
       let bufferA = ctx.createFrameBuffer(ds, ds, 4);
       let args = {
-        iChannel0, iChannel1, iResolution: [ds, ds],
-        iBrightness: brightness, iSampleRate: conf.sampleRate
+        iChannel0, iResolution: [ds, ds],
+        iBrightness: brightness,
+        iSampleRate: conf.sampleRate,
+        iAvgFreq: img_freq[0],
       };
       shader.draw(args, bufferA);
       //bufferA.draw();

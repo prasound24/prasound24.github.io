@@ -14,10 +14,12 @@ void mainImage(out vec4 o, in vec2 p) {
   float dx = dt;
   float damping = 50.;
 
-  float source = exp(-pow((p.x/iResolution.x - 0.5)/0.003, 2.));
+  //float source = exp(-pow((p.x/iResolution.x - 0.5)/0.003, 2.));
   float sum = c.g - c.r*2. - c.g*damping/2.*dt - (l.r + r.r - c.r*2.)*pow(dt/dx, 2.);
-  sum += (iSound - sum)*source*0.65;
+  //sum += (iSound - sum)*source*0.65;
   o.r = -sum/(1. + damping/2.*dt);
-  o.r = clamp(o.r, -1e3, 1e3);
-  o.gb = c.rg;
+  o.r = clamp(o.r, -10., 10.);
+  if (p.x == 0.5)
+    o.r = iSound;
+  o.g = c.r;
 }
