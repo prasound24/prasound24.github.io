@@ -7,6 +7,10 @@ uniform sampler2D iChannel0;
 uniform sampler2D iChannel1;
 uniform sampler2D iChannel2;
 uniform sampler2D iChannel3;
+uniform vec2 iChannelResolution0;
+uniform vec2 iChannelResolution1;
+uniform vec2 iChannelResolution2;
+uniform vec2 iChannelResolution3;
 
 const float PI = radians(180.);
 

@@ -5,27 +5,24 @@ vec3 fire_rgb(float t) {
   return clamp(vec3(q, q*q*.4, q*q*q*.15), 0., 1.);
 }
 
-vec2 lookup(float phi) {
-  float x = phi / PI * 0.5;
-  float y = texture(iChannel0, vec2(x, 0.5)).r;
-  float l = texture(iChannel0, vec2(x - 1./1024., 0.5)).r;
-  float r = texture(iChannel0, vec2(x + 1./1024., 0.5)).r;
-  return vec2(y, (r-l)/2.); // - iSound;
+vec3 sdf(vec2 q) {
+  if (length(q) > 1.)
+    return vec3(0.);
+  float dx = 1./iChannelResolution0.x;
+  float a = atan(q.y, q.x)/(2.*PI);
+  a = (round(a/dx + 0.5) - 0.5) * dx;
+  vec4 tex = texture(iChannel0, vec2(a, 0.5));
+  float r = tex.r;
+  r = (1. + r) * 0.5;
+  float d0 = dx*PI/2.;
+  if (abs(length(q) - r) > d0)
+    return vec3(0.);
+  vec2 c = r * vec2(cos(a*2.*PI), sin(a*2.*PI));
+  float d = length(q - c) - d0;
+  return vec3(d < 0. ? 1. : 0.);
 }
 
 void mainImage(out vec4 o, in vec2 p) {
   vec2 q = p / iResolution * 2. - 1.;
-
-  float r = length(q);
-  float a = atan(q.x, -q.y);
-
-  vec2 c1 = lookup(a);
-  float d1 = abs(r - 0.5 - c1.x/2.);
-  
-  c1.y /= r;
-  d1 /= sqrt(1. + c1.y*c1.y); // https://iquilezles.org/articles/distance
-
-  o.rgb += fire_rgb(1. - d1/0.01);
-
-  //o.rgb += 0.9 * texture(iChannel1, p / iResolution).rgb;
+  o.rgb += sdf(q.yx);
 }

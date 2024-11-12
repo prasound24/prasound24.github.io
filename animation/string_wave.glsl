@@ -1,25 +1,38 @@
+// u'' + damping*u' = T
+
 uniform float iSound;
 
 vec4 tex(float x) {
   return texture(iChannel0, vec2(x, 0.5)/iResolution);
 }
 
+float tension(float y1, float y2, float dx) {
+  vec2 p1 = vec2(0., 1. + y1);
+  vec2 p2 = vec2(sin(dx), cos(dx)) * (1. + y2);
+  vec2 p12 = p2 - p1;
+  float dx0 = 2.*(1. - cos(dx)); // Law of cosines, the segment length at rest
+  vec2 T = p12*(1. - abs(dx0)/length(p12)); // Hooke's Law
+  return T.y - y1*0.03;
+}
+
 void mainImage(out vec4 o, in vec2 p) {
-  vec4 c = tex(p.x);
-  vec4 l = tex(p.x - 1.);
-  vec4 r = tex(p.x + 1.);
+  vec4 cc = tex(p.x);
+  vec4 ll = tex(p.x - 1.);
+  vec4 rr = tex(p.x + 1.);
 
-  // u_tt + damp*u_t - u_xx = 0
-  float dt = 1./50e3;
-  float dx = dt;
-  float damping = 50.;
+  float dx = 1./iResolution.x;
+  float dt = dx;
+  float damping = 0.02;
+  float dd_dt = damping/2.*dt;
+  float T = 750.;
 
-  //float source = exp(-pow((p.x/iResolution.x - 0.5)/0.003, 2.));
-  float sum = c.g - c.r*2. - c.g*damping/2.*dt - (l.r + r.r - c.r*2.)*pow(dt/dx, 2.);
-  //sum += (iSound - sum)*source*0.65;
-  o.r = -sum/(1. + damping/2.*dt);
-  o.r = clamp(o.r, -10., 10.);
-  if (p.x == 0.5)
+  float sum = -2.*cc.r + cc.g - dd_dt*cc.r;
+  sum -= dt*dt*T*tension(cc.r, rr.r, +dx);
+  sum -= dt*dt*T*tension(cc.r, ll.r, -dx);
+  o.r = -sum/(1. + dd_dt);
+  
+  if (p.x < 1.)
     o.r = iSound;
-  o.g = c.r;
+  o.r = clamp(o.r, -0.99, 0.99);
+  o.g = cc.r;
 }

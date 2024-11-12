@@ -99,10 +99,10 @@ async function initWebGL() {
   let iChannel3 = ctx.createFrameBufferFromRGBA(img);
   let iChannel2 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel0 = ctx.createFrameBuffer(CW, 1, 4);
-  let bufferA = ctx.createFrameBuffer(CW, 1, 4);
-  let bufferB = ctx.createFrameBuffer(CW, CH, 4);
-  let bufferC = ctx.createFrameBuffer(CW, CH, 4);
+  let iChannel0 = ctx.createFrameBuffer(128, 1, 4);
+  let bufferA = ctx.createFrameBuffer(iChannel0.width, iChannel0.height, 4);
+  let bufferB = ctx.createFrameBuffer(iChannel1.width, iChannel1.height, 4);
+  let bufferC = ctx.createFrameBuffer(iChannel2.width, iChannel2.height, 4);
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
   let base_time = 0;
@@ -135,9 +135,13 @@ async function initWebGL() {
       canvas.style.display = '';
     }
 
-    for (let k = 8; k > 0; k--) {
+    for (let k = 4; k > 0; k--) {
       let iTime = (time_msec - base_time) / 1000;
       let args = { iTime, iFrame, iChannel0, iChannel1, iChannel2, iChannel3 };
+      args.iChannelResolution0 = [iChannel0.width, iChannel0.height];
+      args.iChannelResolution1 = [iChannel1.width, iChannel1.height];
+      args.iChannelResolution2 = [iChannel2.width, iChannel2.height];
+      args.iChannelResolution3 = [iChannel3.width, iChannel3.height];
 
       let iSound = sound[iFrame % sound.length];
       runShader('string_wave', { ...args, iSound }, bufferA);
