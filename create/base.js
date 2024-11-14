@@ -319,13 +319,29 @@ export function checkFileSize(file) {
 // value=0..100, or value=null to hide
 export function setCircleProgress(value = 100, svg = $('svg.progress')) {
   let c = svg.querySelector('circle');
+
   if (!c) {
-    let r = 100 / 2 / Math.PI, sw = 0.25;
-    svg.setAttribute('viewBox', [-r - sw / 2, -r - sw / 2, 2 * r + sw, 2 * r + sw].join(' '));
+    let r = 100 / 2 / Math.PI, sw = 3.5, size = r + sw * 2; // stroke width
+    svg.setAttribute('viewBox', [-size, -size, 2 * size, 2 * size].join(' '));
     c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     c.setAttribute('r', r);
     svg.append(c);
+
+    let cross = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    cross.setAttribute('class', 'cross');
+    svg.append(cross);
+
+    for (let [x1, y1] of [[-1, -1], [+1, -1]]) {
+      let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      let scale = r / 3;
+      line.setAttribute('x1', -x1 * scale);
+      line.setAttribute('y1', -y1 * scale);
+      line.setAttribute('x2', +x1 * scale);
+      line.setAttribute('y2', +y1 * scale);
+      cross.append(line);
+    }
   }
+
   c.setAttribute('stroke-dashoffset', 100 - utils.clamp(Math.round(value), 0, 100));
   svg.style.display = Number.isFinite(value) ? '' : 'none';
 }

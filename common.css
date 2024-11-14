@@ -1,5 +1,6 @@
 :root {
   font-size: 1.5vh;
+  --fg-main: #841;
   --bg-dark: #000;
   --bg-main: #000;
 }
@@ -230,17 +231,63 @@ button[disabled]:hover {
 
 svg.progress {
   transform: rotate(-90deg);
+  background: #0008;
+  border-radius: 50%;
+}
+
+svg.progress .cross {
+  cursor: pointer;
+}
+
+svg.progress .cross line {
+  transition: stroke 0.5s;
+}
+
+svg.progress .cross:hover line {
+  stroke: #fff;
 }
 
 svg.progress circle {
-  stroke-width: 0.25;
+  stroke-width: 3.5;
   fill: transparent;
-  stroke: #fff4;
+  stroke: #ccc;
   stroke-linecap: round;
   stroke-dasharray: 100;
   transition: stroke-dashoffset 0.5s;
 }
 
+svg.progress line {
+  stroke-width: 3.5;
+  fill: transparent;
+  stroke: #ccc;
+  stroke-linecap: round;
+}
+
+svg.slider {
+  height: 1em;
+  cursor: pointer;
+}
+
+svg.slider line {
+  stroke-width: 1;
+  fill: transparent;
+  stroke: #444;
+  stroke-linecap: round;
+}
+
+svg.slider line.fg {
+  stroke: var(--fg-main);
+  stroke-dasharray: 100;
+}
+
+svg.slider circle {
+  fill: var(--fg-main);
+  transition: filter 0.5s;
+}
+
+svg.slider circle:hover {
+  filter: brightness(1.2);
+}
 
 /* https://en.wikipedia.org/wiki/Piano_key_frequencies */
 

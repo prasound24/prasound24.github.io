@@ -41,10 +41,9 @@ async function init() {
   $('#record').onclick = () => runUserAction('recordAudio', recordAudio);
   $('#stop_recording').onclick = () => stopRecording();
   $('#download_image').onclick = () => downloadImage();
-  $('#show_settings').onclick = () => showSettings();
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
-  //$('#art_main').onclick = () => runUserAction('Stop', () => { });
+  $('svg.progress').onclick = () => runUserAction('Stop', () => { });
 
   //setPitchClass();
 
@@ -62,15 +61,11 @@ async function runUserAction(name, async_fn) {
     await current_op?.cancel();
     current_op = new CurrentOp(name, async_fn);
     await current_op.promise;
-  } catch(err) { 
+  } catch (err) {
     if (!(err instanceof ErrorCancelled))
       throw err;
   }
   current_op = null;
-}
-
-function showSettings() {
-  document.body.classList.toggle('settings');
 }
 
 function initSettings() {
@@ -81,7 +76,7 @@ function initSettings() {
     debug: true,
     units: 'kHz',
     toText: (x) => (x / 1000).toFixed(0),
-    addStep: (x, d) => clamp(x * 2 ** d, 3000, 384000),
+    addStep: (x, d) => clamp(x * 2 ** Math.sign(d), 3000, 384000),
     onChanged: () => runUserAction('redrawImg', async () => {
       await drawWaveform();
       await redrawImg();
@@ -117,24 +112,24 @@ function initSettings() {
   });
 
   initSetting('imageSize', {
-    addStep: (x, d) => clamp(x * 2 ** d, 1, 4096),
+    addStep: (x, d) => clamp(x * 2 ** Math.sign(d), 1, 4096),
     onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
   initSetting('numSteps', {
-    addStep: (x, d) => clamp(x * 2 ** d, 1, 8192),
+    addStep: (x, d) => clamp(x * 2 ** d | 0, 1, 8192),
     onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
   initSetting('stringLen', {
     units: 'ms',
-    addStep: (x, d) => clamp(x + d * 0.01, 1, 100),
+    addStep: (x, d) => clamp(x * 2 ** d, 1, 100),
     toText: (x) => x.toFixed(2),
     onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
   initSetting('symmetry', {
-    addStep: (x, d) => clamp(x + d, 1, 6),
+    addStep: (x, d) => clamp(x + Math.sign(d), 1, 6),
     onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
@@ -151,23 +146,28 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
   let settings = $('#settings');
   let setting = settings.firstElementChild.cloneNode(true);
   settings.append(setting);
-  let value = setting.querySelector('u');
+  let value = setting.querySelector('.value');
   toText = toText || (x => x + '');
 
   if (debug)
     setting.classList.toggle('debug', debug);
 
-  setting.querySelector('s').textContent = units || '';
-  setting.querySelector('div').textContent =
+  let [, , svg_w, svg_h] = setting.querySelector('svg')
+    .getAttribute('viewBox').split(' ').map(x => +x);
+  setting.querySelector('.units').textContent = units || '';
+  setting.querySelector('.name').textContent =
     name.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase());
   value.textContent = toText(gconf[name]);
-  setting.querySelector('i').onclick = changeValue;
-  setting.querySelector('b').onclick = changeValue;
+  let slider = setting.querySelector('.slider');
+  slider.onclick = changeValue;
+  let circle = setting.querySelector('circle');
 
   let timer = 0;
 
   async function changeValue(e) {
-    let dir = e.target.textContent == '+' ? +1 : -1;
+    let cx = e.clientX / slider.clientWidth;
+    console.debug('click=' + cx.toFixed(2));
+    let dir = clamp(cx * 2 - 1, -1, 1);
     let x = addStep(gconf[name], dir);
     if (x == gconf[name])
       return;

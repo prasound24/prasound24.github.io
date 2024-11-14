@@ -29,35 +29,6 @@
     <button id="stop_recording"><img src="/img/ico/stop.png"><span>00:00</span></button>
   </div>
 
-  <div id="art_main">
-    <div id="top_info">
-      <p id="audio_name" class="extras"></p>
-      <p id="audio_info" class="extras"></p>
-
-      <svg class="progress wide" style="display: none"></svg>
-    </div>
-
-    <div id="settings">
-      <span class="setting">
-        <div>example</div><i>-</i><span><u>0.0</u><s>Hz</s></span><b>+</b>
-      </span>
-    </div>
-
-    <canvas id="disk" class="wide" width="1024" height="1024"></canvas>
-
-    <div id="img_info">
-      <button id="show_settings" class="small_btn"><img src="/img/ico/settings.png">&nbsp;Settings</button>
-      <button id="download_image" class="small_btn"><img src="/img/ico/save.png">&nbsp;Save</button>
-    </div>
-
-    <div id="gallery">
-      <canvas width="256" height="256"></canvas>
-      <canvas width="256" height="256"></canvas>
-      <canvas width="256" height="256"></canvas>
-      <canvas width="256" height="256"></canvas>
-    </div>
-  </div>
-
   <div id="wave_wrapper">
     <div id="wave_bounds">
       <div id="wave_start">
@@ -74,6 +45,47 @@
     <div id="wave_play_info">
       <button id="play_sound" class="small_btn"><img src="/img/ico/play.png">&nbsp;Play</button>
       <button id="download_audio" class="small_btn"><img src="/img/ico/save.png">&nbsp;Save</button>
+    </div>
+  </div>
+
+  <div id="canvas_and_config">
+    <div id="settings">
+      <div class="setting2">
+        <div class="top">
+          <span class="name">debug</span>
+          <span class="spacer"></span>
+          <span class="value">0.0</span>
+          <span class="units">ms</span>
+        </div>
+        <svg class="slider" viewBox="-2.5 -2.5 105 5">
+          <line class="bg" x1="0" y1="0" x2="100" y2="0"/>
+          <line class="fg" x1="0" y1="0" x2="100" y2="0" stroke-dashoffset="50"/>
+          <circle r="2" cx="50", cy="0"/>
+        </svg>
+      </div>
+    </div>
+
+    <div id="art_main_wrapper">
+      <div id="art_main">
+        <div id="top_info">
+          <p id="audio_name" class="extras"></p>
+          <p id="audio_info" class="extras"></p>
+          <svg class="progress" style="display: none"></svg>
+        </div>
+
+        <canvas id="disk" width="1024" height="1024"></canvas>
+
+        <div id="img_info">
+          <button id="download_image" class="small_btn"><img src="/img/ico/save.png">&nbsp;Save</button>
+        </div>
+
+        <div id="gallery">
+          <canvas width="256" height="256"></canvas>
+          <canvas width="256" height="256"></canvas>
+          <canvas width="256" height="256"></canvas>
+          <canvas width="256" height="256"></canvas>
+        </div>
+      </div>
     </div>
   </div>
 

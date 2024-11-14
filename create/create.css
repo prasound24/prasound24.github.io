@@ -8,6 +8,7 @@ canvas#wave {
 
 canvas#disk {
   position: relative;
+  width: 100%;
 }
 
 p {
@@ -70,28 +71,9 @@ body.recording #record {
 #upload,
 #play_sound,
 #download_image,
-#show_settings,
 #download_audio {
   text-align: center;
   cursor: pointer;
-}
-
-#audio_name {
-  margin: 0;
-  position: absolute;
-  top: 1em;
-  left: 0;
-}
-
-body:not(.debug) #audio_info {
-  display: none;
-}
-
-#audio_info {
-  margin: 0;
-  position: absolute;
-  top: 1em;
-  right: 0;
 }
 
 #wave_wrapper {
@@ -204,17 +186,59 @@ canvas#wave,
   font-size: 0.75rem;
 }
 
-@media(orientation:landscape) {
-  #top_info {
-    margin: 0 calc(50% - 50vh);
-  }
+#audio_name {
+  margin: 0;
+  position: absolute;
+  top: 1em;
+  right: 0;
+  font-size: 0.75rem;
+}
+
+#audio_info {
+  margin: 0;
+  position: absolute;
+  top: 2em;
+  right: 0;
+}
+
+body:not(.debug) #audio_info {
+  display: none;
+}
+
+#art_main_wrapper {
+  display: flex;
+  justify-content: center;
 }
 
 #art_main {
   position: relative;
+  display: inline-block;
 }
 
-body.empty #art_main {
+@media(orientation:landscape) {
+  #art_main {
+    height: 100vh;
+  }
+
+  #art_main_wrapper {
+    flex-grow: 1;
+  }
+
+  canvas#disk {
+    max-width: 100vh;
+  }
+
+  #settings {
+    flex: 0 0 20em;
+  }
+}
+
+svg.progress {
+  width: 10%;
+  margin: 45%;
+}
+
+body.empty #canvas_and_config {
   display: none;
 }
 
@@ -236,12 +260,6 @@ body.empty #art_main {
   z-index: 1;
 }
 
-@media(orientation:landscape) {
-  #img_info {
-    margin: 0 calc(50% - 50vh);
-  }
-}
-
 #download_image {
   position: absolute;
   right: 0.5em;
@@ -250,12 +268,6 @@ body.empty #art_main {
 
 body:not(.debug) #download_image {
   display: none;
-}
-
-#show_settings {
-  position: absolute;
-  left: 0.5em;
-  bottom: 0.5em;
 }
 
 #wave_play_info {
@@ -295,103 +307,48 @@ button.small_btn:hover {
 }
 
 #settings {
+  padding: 1em;
+}
+
+.setting2:first-child {
+  display: none;
+}
+
+.setting2 {
+  padding: 0.5em 0;
+  margin: 0.75em 0;
+}
+
+.setting2 .top {
   display: flex;
-  flex-direction: column;
-  flex-wrap: wrap;
-  gap: 0.75em;
-  position: absolute;
-  top: 3em;
-  z-index: 1;
+  flex-direction: row;
+  color: #ccc;
+  padding: 0 0.5em;
 }
 
-@media(orientation:landscape) {
-  #settings {
-    margin-left: calc(50% - 50vh);
-  }
-}
-
-body:not(.settings) #settings {
-  display: none;
-}
-
-.setting:first-child {
-  display: none;
-}
-
-.setting {
-  --color1: #224;
+.setting2.debug .top {
   color: #888;
-  display: inline-block;
-  user-select: none;
 }
 
-.setting.debug {
-  --color1: #422;
-}
-
-.setting * {
-  text-decoration: none;
-  font-style: normal;
-}
-
-.setting div {
-  font-weight: bold;
-  text-align: right;
-  width: 6em;
-  padding-right: 0.5em;
-  display: inline-block;
-}
-
-.setting span {
-  width: 8em;
-  display: inline-block;
-  text-align: center;
-  background: #000;
-}
-
-.setting s:not(:empty) {
-  font-weight: normal;
-  padding-left: 0.5em;
-}
-
-.setting i,
-.setting b {
-  cursor: pointer;
-  user-select: none;
-  padding-left: 0.75em;
-  padding-right: 0.75em;
-  background: var(--color1);
-  border: 1px solid var(--color1);
-  color: #888;
-  border-radius: 0.5em;
-  transition: all 250ms;
-}
-
-body:not(.debug) .setting.debug {
-  display: none;
-}
-
-.setting i {
-  margin-left: 0.5em;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.setting b {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.setting u {
-  font-family: monospace;
-  text-align: right;
-}
-
-.setting i:hover,
-.setting b:hover {
-  color: #fff;
+.setting2 .spacer {
+  flex: 1;
 }
 
 body.empty #buy_buttons {
   display: none;
+}
+
+#canvas_and_config {
+  display: flex;
+  flex-direction: row;
+}
+
+@media(orientation:portrait) {
+  #canvas_and_config {
+    flex-direction: column-reverse;
+  }
+
+  canvas#disk {
+    width: 100%;
+  }
 }
