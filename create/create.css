@@ -129,8 +129,8 @@ canvas#wave,
   border-radius: 0.5em;
   font-size: 0.75rem;
   padding: 0.5em;
-  left: -0.5em;
-  top: 0.5em;
+  left: 3em;
+  top: 0em;
   transform: translateX(-100%);
   white-space: nowrap;
 }
@@ -138,10 +138,12 @@ canvas#wave,
 #wave_bounds .ptr {
   cursor: pointer;
   position: absolute;
-  font-size: 1vw;
-  width: 5em;
-  height: 100%;
-  border-radius: 2.5em;
+  top: calc(50% - 0.5em);
+  font-size: 1.5vh;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  background: #888;
   display: flex;
   align-items: center;
   user-select: none;
@@ -150,8 +152,7 @@ canvas#wave,
 
 @media(orientation:landscape) {
   #wave_bounds .ptr {
-    width: 3vw;
-    border-radius: 1.5vw;
+    font-size: 1.5vh;
   }
 }
 
@@ -167,16 +168,10 @@ canvas#wave,
 
 #wave_bounds .ptr.left {
   right: 0;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-right: 2px solid #668;
 }
 
 #wave_bounds .ptr.right {
   left: 0;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  border-left: 2px solid #668;
 }
 
 #top_info {
@@ -216,10 +211,6 @@ body:not(.debug) #audio_info {
 }
 
 @media(orientation:landscape) {
-  #art_main {
-    height: 100vh;
-  }
-
   #art_main_wrapper {
     flex-grow: 1;
   }
