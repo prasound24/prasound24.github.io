@@ -53,7 +53,8 @@ function computeImgHues(sig, conf) {
 
 async function computeImgAmps(signal, conf) {
   let strlen = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
-  let subsampling = conf.imageSize * 2 / conf.symmetry / strlen;
+  let ds = conf.imageSize;
+  let subsampling = ds * 2 / conf.symmetry / strlen;
   strlen = Math.round(strlen * subsampling) & ~1; // make it even for FFT resampling
   let oscillator = new StringOscillator({ width: strlen });
 
@@ -72,30 +73,23 @@ async function computeImgAmps(signal, conf) {
   console.debug('sn/height=' + (siglen / steps));
 
   img_amps = new Float32Tensor([steps, strlen]);
+  //img_amps.disk = new Float32Tensor([ds, ds]);
   oscillator.damping = 10 ** conf.damping;
-
-  let wave_minmax = [];
-  for (let x = 0; x < strlen; x++)
-    wave_minmax[x] = new utils.MinMaxFilter(Math.ceil(siglen / steps)); // new utils.DWTFilter(dwt_levels);
 
   for (let t = 0; t < siglen; t++) {
     oscillator.update(signal[t]);
 
-    for (let x = 0; x < strlen; x++)
-      wave_minmax[x].push(oscillator.wave[x] - signal[t]);
+    for (let x = 0; x < strlen; x++) {
+      let amp = oscillator.wave[x] - signal[t];
+      let i = y_curr * strlen + x;
+      if (img_amps.data[i] < Math.abs(amp))
+        img_amps.data[i] = Math.abs(amp);
+    }
 
     let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
 
     if (y > y_curr) {
-      for (let x = 0; x < strlen; x++) {
-        let mm = wave_minmax[x];
-        img_amps.data[y_curr * strlen + x] = (mm.max - mm.min) / 2;
-      }
-
       y_curr = y;
-
-      for (let mm of wave_minmax)
-        mm.reset();
 
       if (Date.now() > ts + 250) {
         await sleep(5);
@@ -139,7 +133,7 @@ async function drawDiskImage(conf) {
     }
   });
 
-  let autoBrightness = adjustBrightness(img_amps, conf);
+  let autoBrightness = adjustBrightness(img_amps.disk, conf);
   console.debug('brightness:', 10 ** -autoBrightness);
   //let img_data = new Uint8Array(conf.imageSize ** 2 * 4);
   //let canvas_img = { data: img_data, width: conf.imageSize, height: conf.imageSize };
