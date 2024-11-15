@@ -163,7 +163,7 @@ canvas#wave,
 }
 
 #wave_bounds .ptr:hover {
-  border-color: #fff !important;
+  background-color: #fff !important;
 }
 
 #wave_bounds .ptr.left {
@@ -299,6 +299,10 @@ button.small_btn:hover {
 
 #settings {
   padding: 1em;
+}
+
+body:not(.debug) .setting2.debug {
+  display: none;
 }
 
 .setting2:first-child {

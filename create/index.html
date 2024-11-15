@@ -57,11 +57,15 @@
           <span class="value">0.0</span>
           <span class="units">ms</span>
         </div>
-        <svg class="slider" viewBox="-2.5 -2.5 105 5">
-          <line class="bg" x1="0" y1="0" x2="100" y2="0"/>
-          <line class="fg" x1="0" y1="0" x2="100" y2="0" stroke-dashoffset="50"/>
-          <circle r="2" cx="50", cy="0"/>
-        </svg>
+        <div class="slider">
+          <svg class="bar" viewBox="0 -5 100 10" preserveAspectRatio="none">
+            <line class="bg" x2="100"/>
+            <line class="fg" x2="50"/>
+          </svg>
+          <svg class="dot" viewBox="-1 -1 2 2" style="left:50%">
+            <circle r="0.75"/>
+          </svg>
+        </div>
       </div>
     </div>
 

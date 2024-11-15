@@ -32,8 +32,7 @@ utils.setUncaughtErrorHandlers((err) => {
 
 async function init() {
   base.initConfFromURL();
-  initMouseEvents();
-  //initTempGradientImg();
+  initWaveMouseEvents();
   initSettings();
 
   $('#preview').onclick = () => saveToGallery();
@@ -112,6 +111,7 @@ function initSettings() {
   });
 
   initSetting('imageSize', {
+    debug: true,
     addStep: (x, d) => clamp(x * 2 ** Math.sign(d), 1, 4096),
     onChanged: () => runUserAction('redrawImg', redrawImg),
   });
@@ -152,27 +152,54 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
   if (debug)
     setting.classList.toggle('debug', debug);
 
-  let [, , svg_w, svg_h] = setting.querySelector('svg')
-    .getAttribute('viewBox').split(' ').map(x => +x);
   setting.querySelector('.units').textContent = units || '';
   setting.querySelector('.name').textContent =
     name.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase());
   value.textContent = toText(gconf[name]);
   let slider = setting.querySelector('.slider');
   slider.onclick = changeValue;
-  let circle = setting.querySelector('circle');
+
+  let svgdot = setting.querySelector('svg.dot');
+  let linefg = setting.querySelector('line.fg');
+  let dotpos = 0;
+
+  initMouseEvents(setting, {
+    capture: (e) => {
+      dotpos = +linefg.getAttribute('x2');
+      return e.target.tagName == 'circle';
+    },
+    drop: () => {
+      linefg.setAttribute('x2', '50');
+      svgdot.style.left = linefg.getAttribute('x2') + '%';
+    },
+    move: (e) => {
+      if (!updateValue(e))
+        return;
+      linefg.setAttribute('x2', (100 * sliderPos(e)).toFixed(2));
+      svgdot.style.left = linefg.getAttribute('x2') + '%';
+    },
+  });
 
   let timer = 0;
 
-  async function changeValue(e) {
-    let cx = e.clientX / slider.clientWidth;
-    console.debug('click=' + cx.toFixed(2));
+  function sliderPos(e) {
+    return (e.clientX - slider.offsetLeft) / slider.clientWidth;
+  }
+
+  function updateValue(e) {
+    let cx = sliderPos(e);
     let dir = clamp(cx * 2 - 1, -1, 1);
     let x = addStep(gconf[name], dir);
+    if (x != gconf[name])
+      value.textContent = toText(x);
+    return x;
+  }
+
+  async function changeValue(e) {
+    let x = updateValue(e);
     if (x == gconf[name])
       return;
     gconf[name] = x;
-    refresh();
     clearTimeout(timer);
     timer = setTimeout(() => onChanged(gconf[name]), delay * 1000);
   }
@@ -184,48 +211,23 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
   ui_settings[name] = { refresh };
 }
 
-async function initTempGradientImg() {
-  let img = new Image;
-  img.src = TEMP_GRADIENT;
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = reject;
-  });
-  dcheck(img.width > 0 && img.height > 0);
-  let canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
-  let ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0);
-  let rgba = ctx.getImageData(0, 0, img.width, img.height);
-  let r = [], g = [], b = [];
-
-  for (let x = 0; x < img.width; x++) {
-    r[x] = rgba.data[x * 4 + 0] / 255;
-    g[x] = rgba.data[x * 4 + 1] / 255;
-    b[x] = rgba.data[x * 4 + 2] / 255;
-    dcheck(r[x] + g[x] + b[x] >= 0.0);
-  }
-
-  gconf.color = { r, g, b };
-  console.log('temperature gradient:', r.length, img.src);
-}
-
-function initTempGradient421() {
-  let n = 4, r = [], g = [], b = [];
-
-  for (let i = 0; i <= n; i++) {
-    r[i] = clamp(i / n * 4);
-    g[i] = clamp(i / n * 2);
-    b[i] = clamp(i / n * 1);
-  }
-
-  gconf.color = { r, g, b };
-}
-
-function initMouseEvents() {
-  let target = null, touch = null, moved = false;
+function initWaveMouseEvents() {
   let wrapper = $('#wave_wrapper');
+  initMouseEvents(wrapper, {
+    capture: (e) => e.target.classList.contains('ptr'),
+    drop: () => runUserAction('redrawImg', redrawImg),
+    move: (e, dx, target) => {
+      let diff = dx / wrapper.clientWidth * mem.audio_signal.length / gconf.sampleRate;
+      if (target.id == 'ptr_start')
+        setSilenceMarks(mem.sig_start + diff, mem.sig_end);
+      if (target.id == 'ptr_end')
+        setSilenceMarks(mem.sig_start, mem.sig_end + diff);
+    },
+  });
+}
+
+function initMouseEvents(wrapper, { capture, drop, move }) {
+  let target = null, touch = null, moved = false;
 
   wrapper.addEventListener('mousedown', ontouch);
   wrapper.addEventListener('mousemove', ontouch);
@@ -242,7 +244,7 @@ function initMouseEvents() {
       case 'touchstart':
         if (e.touches && e.touches.length != 1)
           break;
-        if (e.target.classList.contains('ptr')) {
+        if (capture(e)) {
           e.preventDefault();
           target = e.target;
           touch = e.touches?.[0];
@@ -256,8 +258,8 @@ function initMouseEvents() {
         if (target) {
           e.preventDefault();
           if (moved)
-            runUserAction('redrawImg', redrawImg),
-              target = null;
+            drop(e, target);
+          target = null;
           touch = null;
         }
         break;
@@ -268,21 +270,13 @@ function initMouseEvents() {
           let t = e.touches?.[0];
           let dx = t ? t.clientX - touch.clientX : e.movementX;
           if (dx) {
-            move(dx);
+            move(e, dx, target);
             moved = true;
           }
           touch = t;
         }
         break;
     }
-  }
-
-  function move(dx) {
-    let diff = dx / wrapper.clientWidth * mem.audio_signal.length / gconf.sampleRate;
-    if (target.id == 'ptr_start')
-      setSilenceMarks(mem.sig_start + diff, mem.sig_end);
-    if (target.id == 'ptr_end')
-      setSilenceMarks(mem.sig_start, mem.sig_end + diff);
   }
 }
 
@@ -317,6 +311,7 @@ async function decodeAudio() {
     if (!mem.audio_file._buffer)
       mem.audio_file._buffer = await mem.audio_file.arrayBuffer();
     mem.audio_signal = await utils.decodeAudioFile(mem.audio_file._buffer, sample_rate);
+    prepareAudioSignal(mem.audio_signal);
     mem.decoded_audio = { data: mem.audio_signal, sample_rate, file };
     await saveAudioSignal();
     // normalizeAudioSignal(mem.audio_signal);
@@ -330,6 +325,12 @@ async function decodeAudio() {
     //console.debug('Avg freq:', freq + ' Hz', note + '=' + (pitch * 360).toFixed(0) + 'deg');
     //setPitchColor(pitch);
   }
+}
+
+function prepareAudioSignal(s) {
+  let sum = s.reduce((s, x) => s + x, 0);
+  let avg = sum / s.length;
+  s.forEach((x, i) => s[i] -= avg);
 }
 
 function setPitchColor(pitch) {

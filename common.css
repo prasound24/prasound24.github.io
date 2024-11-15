@@ -263,30 +263,49 @@ svg.progress line {
   stroke-linecap: round;
 }
 
-svg.slider {
+/* .slider */
+
+.slider {
+  position: relative;
+  width: 100%;
   height: 1em;
   cursor: pointer;
 }
 
-svg.slider line {
-  stroke-width: 1;
+.slider svg.bar {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.slider svg.dot {
+  position: absolute;
+  height: 1em;
+  width: 1em;
+}
+
+.slider line {
+  stroke-width: 2;
   fill: transparent;
   stroke: #444;
   stroke-linecap: round;
 }
 
-svg.slider line.fg {
+.slider line.fg {
   stroke: var(--fg-main);
-  stroke-dasharray: 100;
 }
 
-svg.slider circle {
+.slider .dot {
+  transition: left 0.05s;
+}
+
+.slider circle {
   fill: var(--fg-main);
-  transition: filter 0.5s;
+  transition: filter 0.25s;
 }
 
-svg.slider circle:hover {
-  filter: brightness(1.2);
+.slider circle:hover {
+  filter: brightness(1.5);
 }
 
 /* https://en.wikipedia.org/wiki/Piano_key_frequencies */
