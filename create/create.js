@@ -39,7 +39,6 @@ async function init() {
   $('#upload').onclick = () => runUserAction('uploadAudio', uploadAudio);
   $('#record').onclick = () => runUserAction('recordAudio', recordAudio);
   $('#stop_recording').onclick = () => stopRecording();
-  $('#download_image').onclick = () => downloadImage();
   $('#download_audio').onclick = () => downloadAudio();
   $('#play_sound').onclick = () => playAudioSignal();
   $('svg.progress').onclick = () => runUserAction('Stop', () => { });

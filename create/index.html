@@ -48,6 +48,11 @@
     </div>
   </div>
 
+  <div id="top_info">
+    <p id="audio_name" class="extras"></p>
+    <p id="audio_info" class="extras"></p>
+  </div>
+
   <div id="canvas_and_config">
     <div id="settings">
       <div class="setting2">
@@ -71,17 +76,8 @@
 
     <div id="art_main_wrapper">
       <div id="art_main">
-        <div id="top_info">
-          <p id="audio_name" class="extras"></p>
-          <p id="audio_info" class="extras"></p>
-          <svg class="progress" style="display: none"></svg>
-        </div>
-
+        <div style="height:0;z-index:1;position:relative;"><svg class="progress" style="display: none"></svg></div>
         <canvas id="disk" width="1024" height="1024"></canvas>
-
-        <div id="img_info">
-          <button id="download_image" class="small_btn"><img src="/img/ico/save.png">&nbsp;Save</button>
-        </div>
 
         <div id="gallery">
           <canvas width="256" height="256"></canvas>
