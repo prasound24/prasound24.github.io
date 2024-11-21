@@ -4,6 +4,7 @@ import * as webfft from '../lib/webfft.js';
 const { $, mix, clamp, sleep, dcheck, resampleSignal } = utils;
 
 const AUDIO_URL = '/mp3/flute_A4_1_forte_normal.mp3';
+const AMPS_URL = '/mp3/amps.wav';
 const SAMPLE_RATE_1 = 48000;
 const SAMPLE_RATE_2 = 96000;
 const CW = 1024, CH = CW;
@@ -17,6 +18,51 @@ async function start() {
   await testImage();
   await testAudio();
   await testImageDFT();
+  await testCurvature();
+}
+
+async function testCurvature() {
+  let res = await fetch(AMPS_URL);
+  let blob = await res.blob();
+  let sig = await utils.decodeAudioFile(blob, 48000);
+
+  // z''(t) = i sig(t) z'(t)
+  let n = sig.length;
+  let dt = 1 / n;
+  let sum = sig.reduce((s, x) => s + x, 0);
+  let scale = 2.5; // 2 * Math.PI * n / sum;
+  let sig2 = new Float32Array(n); // sig2'(t) = sig(t)
+  for (let i = 0; i < n; i++)
+    sig2[i] = sig[i] * scale + (i > 0 ? sig2[i - 1] : 0);
+  console.debug('sig2:', sig2[0], '..', sig2[n - 1]);
+  console.debug('scale*dt:', scale * dt);
+
+  let exp2 = new Float32Array(2 * n); // exp2(t) = exp(i sig2(t))
+  for (let i = 0; i < n; i++) {
+    exp2[2 * i + 0] = Math.cos(sig2[i]);
+    exp2[2 * i + 1] = Math.sin(sig2[i]);
+  }
+
+  let path = new Float32Array(2 * n); // path'(t) = exp2(t)
+  for (let i = 0; i < n; i++) {
+    path[2 * i + 0] = exp2[2 * i + 0] * dt + (i > 0 ? path[2 * i - 2] : 0);
+    path[2 * i + 1] = exp2[2 * i + 1] * dt + (i > 0 ? path[2 * i - 1] : 0);
+  }
+
+  let absmax = path.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
+  let svg = $('#curvature');
+
+  await utils.time('svg.append', () => {
+    let pts = [];
+    for (let i = 0; i < n; i++) {
+      let re = path[2 * i + 0] / absmax;
+      let im = path[2 * i + 1] / absmax;
+      pts.push(i ? 'L' : 'M', re.toFixed(4), im.toFixed(4));
+    }
+    let pp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pp.setAttribute('d', pts.join(' '));
+    svg.append(pp);
+  });
 }
 
 async function testImageDFT() {

@@ -135,7 +135,9 @@ async function initWebGL() {
       canvas.style.display = '';
     }
 
-    for (let k = 4; k > 0; k--) {
+    let num_steps = 4;
+
+    for (let k = num_steps; k > 0; k--) {
       let iTime = (time_msec - base_time) / 1000;
       let args = { iTime, iFrame, iChannel0, iChannel1, iChannel2, iChannel3 };
       args.iChannelResolution0 = [iChannel0.width, iChannel0.height];
@@ -175,8 +177,8 @@ async function initWebGL() {
 
     if (time_msec) {
       if (time_msec > stats.time + 5000) {
-        let fps = (iFrame - stats.frames) / (time_msec - stats.time) * 1000;
-        $('#fps').textContent = fps.toFixed(0) + ' fps';
+        let fps = (iFrame - stats.frames) / num_steps / (time_msec - stats.time) * 1000;
+        $('#fps').textContent = fps.toFixed(0) + ' fps x ' + num_steps;
         stats.time = time_msec;
         stats.frames = iFrame;
         console.debug('sound:', (iFrame / sound.length * 100).toFixed() + '%');

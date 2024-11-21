@@ -45,3 +45,14 @@ progress-gif::after {
     opacity: 0.5;
   }
 }
+
+#curvature {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+#curvature path {
+  stroke-width: 0.002;
+  stroke: #fff;
+  fill: transparent;
+}

@@ -155,9 +155,9 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
   setting.querySelector('.name').textContent =
     name.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase());
   value.textContent = toText(gconf[name]);
+  setting.querySelector('.dec').onclick = () => changeValue(-1);
+  setting.querySelector('.inc').onclick = () => changeValue(+1);
   let slider = setting.querySelector('.slider');
-  slider.onclick = changeValue;
-
   let svgdot = setting.querySelector('svg.dot');
   let linefg = setting.querySelector('line.fg');
   let dotpos = 0;
@@ -167,14 +167,18 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
       dotpos = +linefg.getAttribute('x2');
       return e.target.tagName == 'circle';
     },
-    drop: () => {
+    release: (e) => {
       linefg.setAttribute('x2', '50');
       svgdot.style.left = linefg.getAttribute('x2') + '%';
+      let pos = clamp(sliderPos(e));
+      changeValue(pos * 2 - 1);
     },
     move: (e) => {
-      if (!updateValue(e))
+      let pos = clamp(sliderPos(e));
+      let dir = pos * 2 - 1;
+      if (!updateValue(pos * 2 - 1))
         return;
-      linefg.setAttribute('x2', (100 * sliderPos(e)).toFixed(2));
+      linefg.setAttribute('x2', (100 * pos).toFixed(2));
       svgdot.style.left = linefg.getAttribute('x2') + '%';
     },
   });
@@ -185,19 +189,18 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
     return (e.clientX - slider.offsetLeft) / slider.clientWidth;
   }
 
-  function updateValue(e) {
-    let cx = sliderPos(e);
-    let dir = clamp(cx * 2 - 1, -1, 1);
+  function updateValue(dir = 0) {
     let x = addStep(gconf[name], dir);
     if (x != gconf[name])
       value.textContent = toText(x);
     return x;
   }
 
-  async function changeValue(e) {
-    let x = updateValue(e);
+  async function changeValue(dir = 0) {
+    let x = addStep(gconf[name], dir);
     if (x == gconf[name])
       return;
+    value.textContent = toText(x);
     gconf[name] = x;
     clearTimeout(timer);
     timer = setTimeout(() => onChanged(gconf[name]), delay * 1000);
@@ -214,7 +217,7 @@ function initWaveMouseEvents() {
   let wrapper = $('#wave_wrapper');
   initMouseEvents(wrapper, {
     capture: (e) => e.target.classList.contains('ptr'),
-    drop: () => runUserAction('redrawImg', redrawImg),
+    release: () => runUserAction('redrawImg', redrawImg),
     move: (e, dx, target) => {
       let diff = dx / wrapper.clientWidth * mem.audio_signal.length / gconf.sampleRate;
       if (target.id == 'ptr_start')
@@ -225,7 +228,7 @@ function initWaveMouseEvents() {
   });
 }
 
-function initMouseEvents(wrapper, { capture, drop, move }) {
+function initMouseEvents(wrapper, { capture, release, move }) {
   let target = null, touch = null, moved = false;
 
   wrapper.addEventListener('mousedown', ontouch);
@@ -257,7 +260,7 @@ function initMouseEvents(wrapper, { capture, drop, move }) {
         if (target) {
           e.preventDefault();
           if (moved)
-            drop(e, target);
+            release(e, target);
           target = null;
           touch = null;
         }

@@ -11,37 +11,55 @@ export class StringOscillator {
     this.stiffness = 0.0;
     this.dt = 1.0;
     this.width = width;
-    this.wave = new Float32Array(width);
-    this.next = new Float32Array(width);
-    this.prev = new Float32Array(width);
+    this.transverse = new WaveFront(4, width);
+  }
+
+  get wave() {
+    return this.transverse.get(0);
   }
 
   update(sig) {
     let n = this.width;
     let a = this.damping, c = this.stiffness;
     let h = this.dt;
-    let w1 = this.wave, w2 = this.next, w0 = this.prev;
+    let wave = this.transverse.get(0);
+    let next = this.transverse.get(1);
+    let prev = this.transverse.get(-1);
     let a0 = 1 - a * h / 2;
     let a2 = 1 + a * h / 2;
     let ch2 = c / (h * h);
 
-    w1[0] = sig;
-    if (c) w1[1] = sig;
+    wave[0] = sig;
+    if (c) wave[1] = sig;
 
     for (let x = 0; x < n; x++) {
-      let l1 = w1[x > 0 ? x - 1 : n - 1];
-      let r1 = w1[x < n - 1 ? x + 1 : 0];
-      let sum = w0[x] * a0 - l1 - r1;
+      let l1 = wave[x - 1 & n - 1];
+      let r1 = wave[x + 1 & n - 1];
+      let sum = prev[x] * a0 - l1 - r1;
       if (c) {
-        let l2 = w1[x > 1 ? x - 2 : x - 2 + n];
-        let r2 = w1[x < n - 2 ? x + 2 : x + 2 - n];
-        sum += ch2 * (l2 + r2 - 4 * (l1 + r1) + 6 * w1[x]);
+        let l2 = wave[x - 2 & n - 1];
+        let r2 = wave[x + 2 & n - 1];
+        sum += ch2 * (l2 + r2 - 4 * (l1 + r1) + 6 * wave[x]);
       }
-      w2[x] = clamp(-sum / a2, -10, +10);
+      next[x] = clamp(-sum / a2, -3, +3);
     }
 
-    this.prev = w1;
-    this.wave = w2;
-    this.next = w0;
+    this.transverse.iteration++;
   }
 }
+
+class WaveFront {
+  constructor(k, n) {
+    this.iteration = 0;
+    this.w = [];
+    for (let i = 0; i < k; i++)
+      this.w[i] = new Float32Array(n);
+  }
+
+  get(i) {
+    let n = this.w.length;
+    let i0 = this.iteration;
+    return this.w[i + i0 & n - 1];
+  }
+}
+

@@ -12,7 +12,7 @@ float tension(float y1, float y2, float dx) {
   vec2 p12 = p2 - p1;
   float dx0 = 2.*(1. - cos(dx)); // Law of cosines, the segment length at rest
   vec2 T = p12*(1. - abs(dx0)/length(p12)); // Hooke's Law
-  return T.y - y1*0.03;
+  return T.y - 1e-3*y1;
 }
 
 void mainImage(out vec4 o, in vec2 p) {
@@ -24,7 +24,7 @@ void mainImage(out vec4 o, in vec2 p) {
   float dt = dx;
   float damping = 0.02;
   float dd_dt = damping/2.*dt;
-  float T = 750.;
+  float T = 1e3;
 
   float sum = -2.*cc.r + cc.g - dd_dt*cc.r;
   sum -= dt*dt*T*tension(cc.r, rr.r, +dx);

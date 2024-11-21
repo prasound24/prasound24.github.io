@@ -203,6 +203,7 @@ body:not(.debug) #audio_info {
 #art_main_wrapper {
   display: flex;
   justify-content: center;
+  align-items: center;
 }
 
 #art_main {
@@ -310,6 +311,7 @@ body:not(.debug) .setting2.debug {
 }
 
 .setting2 {
+  user-select: none;
   padding: 0.5em 0;
   margin: 0.75em 0;
 }
@@ -327,6 +329,28 @@ body:not(.debug) .setting2.debug {
 
 .setting2 .spacer {
   flex: 1;
+}
+
+.setting2 .b {
+  color: #444;
+  background: #111;
+  border: 2px solid #181818;
+  border-radius: 20%;
+  width: 1em;
+  height: 1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.setting2 .b:hover {
+  color: #fff;
+}
+.setting2 .dec {
+  margin-right: 0.5em;
+}
+.setting2 .inc {
+  margin-left: 0.5em;
 }
 
 body.empty #buy_buttons {
