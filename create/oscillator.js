@@ -33,14 +33,9 @@ export class StringOscillator {
     if (c) wave[1] = sig;
 
     for (let x = 0; x < n; x++) {
-      let l1 = wave[x - 1 & n - 1];
-      let r1 = wave[x + 1 & n - 1];
+      let l1 = wave[(x - 1 + n) % n];
+      let r1 = wave[(x + 1 + n) % n];
       let sum = prev[x] * a0 - l1 - r1;
-      if (c) {
-        let l2 = wave[x - 2 & n - 1];
-        let r2 = wave[x + 2 & n - 1];
-        sum += ch2 * (l2 + r2 - 4 * (l1 + r1) + 6 * wave[x]);
-      }
       next[x] = clamp(-sum / a2, -3, +3);
     }
 

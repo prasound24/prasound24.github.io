@@ -80,10 +80,9 @@ async function computeImgAmps(signal, conf) {
     oscillator.update(signal[t]);
 
     for (let x = 0; x < strlen; x++) {
-      let amp = oscillator.wave[x] - signal[t];
+      let amp = Math.abs(oscillator.wave[x] - signal[t]);
       let i = y_curr * strlen + x;
-      if (img_amps.data[i] < Math.abs(amp))
-        img_amps.data[i] = Math.abs(amp);
+      img_amps.data[i] = Math.max(amp, img_amps.data[i]);
     }
 
     let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);

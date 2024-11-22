@@ -347,10 +347,10 @@ body:not(.debug) .setting2.debug {
   color: #fff;
 }
 .setting2 .dec {
-  margin-right: 0.5em;
+  margin-right: 0.75em;
 }
 .setting2 .inc {
-  margin-left: 0.5em;
+  margin-left: 0.75em;
 }
 
 body.empty #buy_buttons {
