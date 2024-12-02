@@ -117,7 +117,7 @@ async function initWebGL() {
   if (canvas.requestFullscreen)
     $('#fullscreen').onclick = () => canvas.requestFullscreen();
   else
-    $('fullscreen').style.display = 'none';
+    $('#fullscreen').style.display = 'none';
 
   canvas.onclick = () => {
     if (animationId) {
