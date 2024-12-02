@@ -369,7 +369,10 @@ export class GpuFrameBuffer {
   }
 
   upload(source) {
-    if (source.length != this.capacity) {
+    if (source.length > this.capacity) {
+      source = source.subarray(0, this.capacity);
+    }
+    if (source.length < this.capacity) {
       let temp = new Float32Array(this.capacity);
       temp.set(source.subarray(0, temp.length));
       source = temp;

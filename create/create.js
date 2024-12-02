@@ -160,26 +160,29 @@ function initSetting(name, { debug, delay = 1, units, addStep, onChanged, toText
   let slider = setting.querySelector('.slider');
   let svgdot = setting.querySelector('svg.dot');
   let linefg = setting.querySelector('line.fg');
-  let dotpos = 0;
+  let dotpos = 0, pos0 = 0;
+
+  slider.onclick = (e) => console.debug('sliderPos=' + sliderPos(e).toFixed(4));
 
   initMouseEvents(setting, {
     capture: (e) => {
+      pos0 = sliderPos(e);
       dotpos = +linefg.getAttribute('x2');
       return e.target.tagName == 'circle';
     },
     release: (e) => {
       linefg.setAttribute('x2', '50');
-      svgdot.style.left = linefg.getAttribute('x2') + '%';
-      let pos = clamp(sliderPos(e));
+      svgdot.style.left = '50%';
+      let pos = clamp(sliderPos(e) - pos0 + 0.5);
       changeValue(pos * 2 - 1);
     },
     move: (e) => {
-      let pos = clamp(sliderPos(e));
-      let dir = pos * 2 - 1;
+      let pos = clamp(sliderPos(e) - pos0 + 0.5);
       if (!updateValue(pos * 2 - 1))
         return;
-      linefg.setAttribute('x2', (100 * pos).toFixed(2));
-      svgdot.style.left = linefg.getAttribute('x2') + '%';
+      let pp = (100 * pos).toFixed(2);
+      linefg.setAttribute('x2', pp);
+      svgdot.style.left = pp + '%';
     },
   });
 

@@ -95,17 +95,24 @@ async function initWebGL() {
   await initShader(ctx, 'drum_img');
   await initShader(ctx, 'string_wave');
   await initShader(ctx, 'string_draw');
+  await initShader(ctx, 'waveform_draw');
 
   let iChannel3 = ctx.createFrameBufferFromRGBA(img);
-  let iChannel2 = ctx.createFrameBuffer(CW, CH, 4);
+  let iChannel2 = ctx.createFrameBuffer(CW, CH, 1);
   let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel0 = ctx.createFrameBuffer(128, 1, 4);
   let bufferA = ctx.createFrameBuffer(iChannel0.width, iChannel0.height, 4);
   let bufferB = ctx.createFrameBuffer(iChannel1.width, iChannel1.height, 4);
   let bufferC = ctx.createFrameBuffer(iChannel2.width, iChannel2.height, 4);
+  let iSoundMax = sound.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
+  let iSoundLen = sound.length;
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
   let base_time = 0;
+
+  //for (let i = 0; i < sound.length; i++)
+  //  sound[i] = (i/sound.length)**2;
+  iChannel2.upload(sound);
 
   if (canvas.requestFullscreen)
     $('#fullscreen').onclick = () => canvas.requestFullscreen();
@@ -123,6 +130,17 @@ async function initWebGL() {
     }
   };
 
+  document.onkeydown = (e) => {
+    if (!animationId) {
+      let key = e.key.toUpperCase();
+      if (key == 'W' || key == 'S') {
+        if (key == 'S')
+          iFrame -= 2;
+        drawFrame();
+      }
+    }
+  };
+
   function runShader(name, args, out = null) {
     let iResolution = out ? [out.width, out.height] : [canvas.width, canvas.height];
     shaders[name].draw({ ...args, iResolution }, out);
@@ -135,22 +153,24 @@ async function initWebGL() {
       canvas.style.display = '';
     }
 
-    let num_steps = 4;
+    let num_steps = 1;
 
     for (let k = num_steps; k > 0; k--) {
       let iTime = (time_msec - base_time) / 1000;
-      let args = { iTime, iFrame, iChannel0, iChannel1, iChannel2, iChannel3 };
+      let args = { iTime, iFrame, iSoundMax, iSoundLen, iChannel0, iChannel1, iChannel2, iChannel3 };
       args.iChannelResolution0 = [iChannel0.width, iChannel0.height];
       args.iChannelResolution1 = [iChannel1.width, iChannel1.height];
       args.iChannelResolution2 = [iChannel2.width, iChannel2.height];
       args.iChannelResolution3 = [iChannel3.width, iChannel3.height];
 
-      let iSound = sound[iFrame % sound.length];
-      runShader('string_wave', { ...args, iSound }, bufferA);
-      if (k == 1) {
-        runShader('string_draw', { ...args, iSound }, bufferB);
-        bufferB.draw();
-      }
+      runShader('waveform_draw', { ...args });
+
+      //let iSound = sound[iFrame % sound.length];
+      //runShader('string_wave', { ...args, iSound }, bufferA);
+      //if (k == 1) {
+      //  runShader('string_draw', { ...args, iSound }, bufferB);
+      //  bufferB.draw();
+      //}
 
       //runShader('fireball', args, bufferB);
       //runShader('fluid_ch0', args, bufferA);
@@ -170,7 +190,7 @@ async function initWebGL() {
 
       [iChannel0, bufferA] = [bufferA, iChannel0];
       [iChannel1, bufferB] = [bufferB, iChannel1];
-      [iChannel2, bufferC] = [bufferC, iChannel2];
+      //[iChannel2, bufferC] = [bufferC, iChannel2];
 
       iFrame++;
     }
