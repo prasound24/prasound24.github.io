@@ -297,6 +297,8 @@ svg.progress line {
 
 .slider .dot {
   transition: left 0.05s;
+  box-shadow: #f00 0 0 1rem;
+  border-radius: 50%;
 }
 
 .slider circle {

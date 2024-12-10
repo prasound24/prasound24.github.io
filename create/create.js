@@ -43,6 +43,8 @@ async function init() {
   $('#play_sound').onclick = () => playAudioSignal();
   $('svg.progress').onclick = () => runUserAction('Stop', () => { });
 
+  setupAudioNameEditor();
+
   //setPitchClass();
 
   runUserAction('showInitialSignal', async () => {
@@ -361,7 +363,7 @@ async function drawWaveform() {
 
   try {
     is_drawing = true;
-    mem.audio_name = mem.audio_file.name.replace(/\.\w+$/, '');
+    mem.audio_name = mem.audio_file.name.replace(/\.\w+$/, ''); // drop the .mp3 part
 
     await decodeAudio();
     await current_op.throwIfCancelled();
@@ -380,7 +382,7 @@ async function drawWaveform() {
 }
 
 function updateAudioInfo() {
-  $('#audio_name').textContent = mem.audio_name;
+  $('#audio_name').textContent = mem.audio_name.replace(/_/g, ' ');
   $('#audio_info').textContent = getSelectedDuration().toFixed(2) + ' s, '
     + (gconf.sampleRate / 1000) + ' kHz, ' + (mem.audio_file.size / 1024).toFixed(1) + ' KB';
 }
@@ -421,6 +423,8 @@ async function redrawImg() {
 
   try {
     await drawStringOscillations();
+    await drawLabel();
+    await drawRoundWaveform();
     let ts = Date.now();
     let url = await saveDiskImage();
     let url_xs = await saveDiskImagePreview(url);
@@ -433,6 +437,39 @@ async function redrawImg() {
   }
 
   console.debug('image ready:', Date.now() - time, 'ms');
+}
+
+async function drawRoundWaveform() {
+  let canvas = $('canvas#disk');
+  let ctx = canvas.getContext('2d');
+  let cw = canvas.width, sw = cw / 6 | 0;
+  let img = ctx.getImageData(cw - sw, cw - sw, sw, sw);
+
+  let s = mem.audio_signal, sn = s.length;
+  let smax = s.reduce((m, x) => Math.max(m, Math.abs(x)), 0);
+  let buf = new utils.Float32Tensor([img.width, img.height]);
+  let da = new utils.DrawingArea(buf, [-1, 1], [-1, 1]);
+
+  for (let t = 0; t < sn; t++) {
+    let r = s[t] / smax;
+    r = r * 0.5 + 0.5;
+    let a = t / sn * 2 * Math.PI;
+    a += Math.PI/2;
+    buf.data[da.offsetRA(r, a/2)] += 1;
+    buf.data[da.offsetRA(r, a/2 + Math.PI)] += 1;
+  }
+
+  let bmax = buf.max();
+  dcheck(bmax >= 0);
+
+  for (let i = 0; i < buf.data.length; i++) {
+    let v = Math.sqrt(buf.data[i] / bmax);
+    img.data[4 * i + 0] += v * 255;
+    img.data[4 * i + 1] += v * 255;
+    img.data[4 * i + 2] += v * 255;
+  }
+
+  ctx.putImageData(img, cw - sw, cw - sw);
 }
 
 async function drawGallery() {
@@ -472,6 +509,30 @@ async function drawDiskImage([pct_min, pct_max] = [0, 1]) {
   } finally {
     base.setCircleProgress(null);
   }
+}
+
+function setupAudioNameEditor() {
+  let p = $('#audio_name');
+  p.onblur = (e) => {
+    drawLabel();
+  };
+  p.onkeypress = (e) => {
+    if (e.keyCode == 13) {
+      e.preventDefault();
+      p.blur();
+    }
+  };
+}
+
+async function drawLabel() {
+  let label = $('#audio_name').textContent;
+  let canvas = $('canvas#disk');
+  let ctx = canvas.getContext('2d');
+  let ch = canvas.height;
+  let em = ch * 0.015;
+  ctx.font = em + 'px DancingScript';
+  ctx.fillStyle = '#888';
+  ctx.fillText(label, em, ch - em);
 }
 
 async function saveDiskImage(db_path = base.DB_PATH_IMAGE, canvas = $('canvas#disk'),

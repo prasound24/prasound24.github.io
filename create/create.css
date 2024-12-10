@@ -1,3 +1,8 @@
+@font-face {
+  font-family: DancingScript;
+  src: url(./DancingScript-Regular.ttf);
+}
+
 body:not(.debug) .dg.ac {
   display: none;
 }
@@ -174,7 +179,7 @@ canvas#wave,
   left: 0;
 }
 
-#top_info {
+#top_info, #bottom_info {
   z-index: 1;
   position: relative;
   height: 0;
@@ -182,11 +187,29 @@ canvas#wave,
 }
 
 #audio_name {
+  font-family: DancingScript;
+  font-size: 1rem;
   margin: 0;
+  padding: 1rem;
   position: absolute;
-  top: 1em;
-  right: 0;
-  font-size: 0.75rem;
+  bottom: 0;
+  left: 0;
+  color: #ccc;
+  opacity: 0;
+}
+
+#audio_name:focus {
+  outline: 1px solid var(--fg-main);
+  opacity: 1;
+  background: #000;
+}
+
+#audio_name * {
+  display: inline;
+}
+
+#audio_name br {
+  display: none;
 }
 
 #audio_info {
