@@ -130,7 +130,9 @@ void mainImage(out vec4 o, in vec2 p) {
   o.a = 1.;
 
   float hue = iHue/360. - 0.1;
-  freq = mix(iSigFreqs[0], iSigFreqs[1], length(p/iResolution-0.5)*2.);
+  float r = length(p/iResolution-0.5)*2.;
+  freq = mix(iSigFreqs[0], iSigFreqs[1], r);
   hue += freqHue(freq);
+  hue -= r*0.2;
   o.rgb = rotateHue(o.rgb, hue * 2. * PI);
 }
