@@ -422,8 +422,8 @@ async function redrawImg() {
 
   try {
     await drawStringOscillations();
-    await drawLabel();
     await drawRoundWaveform();
+    await drawLabel();
     let ts = Date.now();
     let url = await saveDiskImage();
     let url_xs = await saveDiskImagePreview(url);
@@ -442,7 +442,7 @@ async function drawRoundWaveform() {
   let canvas = $('canvas#disk');
   let ctx = canvas.getContext('2d');
   let cw = canvas.width, sw = cw / 6 | 0;
-  let img = ctx.getImageData(cw - sw, cw - sw, sw, sw);
+  let img = ctx.getImageData(0, cw - sw, sw, sw);
 
   let s = getSelectedAudio(), sn = s.length;
   let smax = s.reduce((m, x) => Math.max(m, Math.abs(x)), 0);
@@ -453,7 +453,7 @@ async function drawRoundWaveform() {
     let r = s[t] / smax;
     r = r * 0.5 + 0.5;
     let a = -t / sn * 2 * Math.PI;
-    a += Math.PI / 2;
+    a += Math.PI;
     buf.data[da.offsetRA(r, a / 2)] += 1;
     buf.data[da.offsetRA(r, a / 2 + Math.PI)] += 1;
   }
@@ -468,7 +468,7 @@ async function drawRoundWaveform() {
     img.data[4 * i + 2] += v * 255;
   }
 
-  ctx.putImageData(img, cw - sw, cw - sw);
+  ctx.putImageData(img, 0, cw - sw);
 }
 
 async function drawGallery() {
