@@ -5,7 +5,7 @@ import { interpolate_1d_re } from '../lib/webfft.js';
 
 let { sleep, dcheck, clamp, fireballRGB, CurrentOp, Float32Tensor } = utils;
 
-let img_amps, img_freq, current_op;
+let img_amps, img_freq, current_op, wforms, sig_freqs=[];
 
 onmessage = async (e) => {
   let { type, txid, signal, config } = e.data;
@@ -17,8 +17,9 @@ onmessage = async (e) => {
       break;
     case 'wave_1d':
       current_op = new CurrentOp('bg:computeImgAmps', async () => {
-        await utils.time('img_amps:', () => computeImgAmps(signal, config));
-        await utils.time('img_hues:', () => computeImgHues(signal, config));
+        await utils.time('img_amps:', () => computeImgAmps(signal, config, [0.00, 0.90]));
+        await utils.time('img_hues:', () => computeImgHues(signal, config, [0.90, 0.99]));
+        postMessage({ type: 'wave_1d', progress: 1.00 });
       });
       break;
     case 'draw_disk':
@@ -30,28 +31,74 @@ onmessage = async (e) => {
   }
 };
 
-function computeImgHues(sig, conf) {
-  let siglen = sig.length;
-  let [steps, strlen] = img_amps.dims;
-  let sig1 = new Float32Array(sig);
-  let sig2 = new Float32Array(sig);
+async function computeImgHues(sig, conf, [pmin, pmax]) {
+  let wf = wforms;
+  let steps = 4; // conf.numSteps;
+  let freqs = 8;
+  let [sn, strlen] = wf.dims;
+  let ts = Date.now();
+  let avg_freq = 0;
+  img_freq = new Float32Tensor([steps, freqs]);
 
-  for (let t = 0; t < siglen; t++) {
-    let s = utils.smoothstep(t / siglen);
-    sig1[t] *= 1 - s;
-    sig2[t] *= s;
+  let sig1 = sig.slice(), sig2 = sig.slice();
+  for (let i = 0; i < sn; i++) {
+    let w = utils.hann((i + 0.5) / sn * 0.5 + 0.5);
+    sig1[i] = sig[i] * w;
+    sig2[i] = sig[i] * (1 - w);
+  }
+  sig_freqs[0] = utils.meanFreq(sig1, conf.sampleRate);
+  postMessage({ type: 'wave_1d', progress: utils.mix(pmin, pmax, 0.5) });
+  sig_freqs[1] = utils.meanFreq(sig2, conf.sampleRate);
+  postMessage({ type: 'wave_1d', progress: utils.mix(pmin, pmax, 1.0) });
+  console.log('Avg freq:', sig_freqs[0].toFixed(0) + '..' + sig_freqs[1].toFixed(0), 'Hz');
+  return;
+
+  let range = sn / steps * 2 | 0;
+  let weights = new Float32Array(range);
+  let section = new Float32Tensor([freqs, range]);
+
+  for (let i = 0; i < weights.length; i++)
+    weights[i] = utils.hann((i + 0.5) / weights.length);
+
+  for (let y = 0; y < steps; y++) {
+    let t1 = Math.round((y - 1) * range / 2);
+    let t2 = Math.round((y + 1) * range / 2);
+
+    for (let t = t1; t <= t2; t++) {
+      if (t < 0 || t >= sn || t - t1 >= range)
+        continue;
+      let weight = weights[t - t1] || 0;
+      for (let f = 0; f < freqs; f++) {
+        let x = Math.round(f / freqs * strlen);
+        let amp = weight * wf.data[t * strlen + x];
+        section.data[f * range + t - t1] = amp;
+      }
+    }
+
+    for (let f = 0; f < freqs; f++) {
+      let section_f = section.data.subarray(f * range, (f + 1) * range);
+      let freq_hz = utils.meanFreq(section_f, conf.sampleRate);
+      dcheck(freq_hz >= 0);
+      avg_freq += freq_hz / freqs / steps;
+      img_freq.data[y * freqs + f] = freq_hz;
+    }
+
+    if (Date.now() > ts + 250) {
+      await sleep(0);
+      ts = Date.now();
+      postMessage({ type: 'wave_1d', progress: utils.mix(pmin, pmax, y / steps) });
+      if (current_op?.cancelled) {
+        postMessage({ type: 'wave_1d', error: 'cancelled' });
+        img_freqs = null;
+        await current_op.throwIfCancelled();
+      }
+    }
   }
 
-  let freq0 = utils.meanFreq(sig, conf.sampleRate);
-  //let freq1 = utils.meanFreq(sig1, conf.sampleRate);
-  //let freq2 = utils.meanFreq(sig2, conf.sampleRate);
-
-  console.debug('Avg freq:', freq0.toFixed(0) + ' Hz');
-
-  img_freq = [freq0];
+  console.debug('Avg freq:', avg_freq.toFixed(1), 'Hz');
 }
 
-async function computeImgAmps(signal, conf) {
+async function computeImgAmps(signal, conf, [pmin, pmax]) {
   let strlen = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
   let ds = conf.imageSize;
   let subsampling = ds * 2 / conf.symmetry / strlen;
@@ -65,80 +112,47 @@ async function computeImgAmps(signal, conf) {
   siglen = sig2.length;
   signal = sig2;
   oscillator.dt = 1.0 / subsampling;
+  oscillator.damping = 10 ** conf.damping;
 
   let steps = conf.numSteps;
-  let y_prev = 0, y_curr = 0, ts = Date.now();
+  let y_prev = 0, ts = Date.now();
 
   console.debug('siglen=' + siglen, 'strlen=' + strlen, 'steps=' + steps);
   console.debug('sn/height=' + (siglen / steps));
 
-  let wform = new Float32Tensor([siglen, strlen]);
-  img_amps = new Float32Tensor([steps, strlen]);
-  //img_amps.disk = new Float32Tensor([ds, ds]);
-  oscillator.damping = 10 ** conf.damping;
+  let wf = wforms = new Float32Tensor([siglen, strlen]);
+  let ia = img_amps = new Float32Tensor([steps, strlen]);
 
   for (let t = 0; t < siglen; t++) {
     oscillator.update(signal[t]);
+    let y = Math.round(t / siglen * steps);
 
     for (let x = 0; x < strlen; x++) {
       let amp = oscillator.wave[x] - signal[t];
-      let i = y_curr * strlen + x;
-      img_amps.data[i] = Math.max(img_amps.data[i],
-        Math.abs(amp));
-      wform.data[t * strlen + x] = amp;
+      wf.data[t * strlen + x] = amp;
+      let i = y * strlen + x;
+      ia.data[i] = Math.max(ia.data[i], Math.abs(amp));
     }
 
-    let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
-    if (y <= y_curr)
-      continue;
+    if (y <= y_prev) continue;
+    y_prev = y;
 
-    y_curr = y;
-
-    if (Date.now() < ts + 250)
-      continue;
-    await sleep(5);
-    ts = Date.now();
-    postMessage({ type: 'wave_1d', progress: Math.min(y_curr / steps, 0.99) });
-    y_prev = y_curr;
-    if (current_op?.cancelled) {
-      postMessage({ type: 'wave_1d', error: 'cancelled' });
-      img_amps = null;
-      await current_op.throwIfCancelled();
-    }
-  }
-
-  if (false) {
-    img_amps.data.fill(0);
-    let range = siglen / steps;
-    let weights = new Float32Array(range * 2);
-    let section = new Float32Array(range * 2);
-
-    for (let i = 0; i < weights.length; i++)
-      weights[i] = utils.hann((i + 0.5) / weights.length);
-
-    for (let y = 0; y < steps; y++) {
-      let t_min = Math.round((y - 1) * range);
-      let t_max = Math.round((y + 1) * range);
-
-      for (let t = t_min; t <= t_max; t++) {
-        if (t < 0 || t >= siglen) continue;
-        let hw = weights[t - t_min] || 0;
-        for (let x = 0; x < strlen; x++) {
-          let amp = hw * wform.data[t * strlen + x];
-          let i = y * strlen + x;
-          img_amps.data[i] = Math.max(img_amps.data[i],
-            Math.abs(amp));
-        }
+    if (Date.now() > ts + 250) {
+      await sleep(0);
+      ts = Date.now();
+      postMessage({ type: 'wave_1d', progress: utils.mix(pmin, pmax, y / steps) });
+      if (current_op?.cancelled) {
+        postMessage({ type: 'wave_1d', error: 'cancelled' });
+        img_amps = null;
+        await current_op.throwIfCancelled();
       }
     }
   }
-
-  postMessage({ type: 'wave_1d', progress: 1.00 });
 }
 
 async function drawDiskImage(conf) {
   await utils.time('rect2disk:', async () => {
-    let imgs = [img_amps]
+    let imgs = [img_amps, img_freq]
       .filter(img => img && !img.disk);
 
     for (let i = 0; i < imgs.length; i++) {
@@ -172,7 +186,8 @@ async function drawDiskImage(conf) {
     type: 'draw_disk',
     result: {
       img_amps: img_amps.disk.data,
-      img_freq: img_freq,
+      img_freq: img_freq.disk.data,
+      sig_freqs,
       brightness: 10 ** (autoBrightness + conf.brightness),
     },
   });

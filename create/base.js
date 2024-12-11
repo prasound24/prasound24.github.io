@@ -241,7 +241,7 @@ export async function drawDiskImage(canvas, { cop, conf, onprogress } = {}) {
   let ds = conf.imageSize;
   let config = clone(conf);
 
-  let { img_amps, img_freq, brightness } = await new Promise((resolve, reject) => {
+  let res = await new Promise((resolve, reject) => {
     postWorkerCommand({
       command: { type: 'draw_disk', config },
       handlers: {
@@ -256,6 +256,8 @@ export async function drawDiskImage(canvas, { cop, conf, onprogress } = {}) {
       },
     });
   });
+
+  let { img_amps, img_freq, sig_freqs, brightness } = res;
 
   await cop?.throwIfCancelled();
 
@@ -275,13 +277,19 @@ export async function drawDiskImage(canvas, { cop, conf, onprogress } = {}) {
     try {
       ctx.init();
       let shader = await initShader(ctx, 'draw_img');
-      let iChannel0 = ctx.createFrameBuffer(ds, ds, 1, img_amps);
+      let ch0 = new Float32Array(ds * ds * 2);
+      for (let i = 0; i < ds * ds; i++) {
+        ch0[2 * i + 0] = img_amps[i];
+        ch0[2 * i + 1] = img_freq[i];
+      }
+      let iChannel0 = ctx.createFrameBuffer(ds, ds, 2, ch0);
       let bufferA = ctx.createFrameBuffer(ds, ds, 4);
       let args = {
         iChannel0, iResolution: [ds, ds],
         iBrightness: brightness,
+        iSigFreqs: sig_freqs,
+        iHue: conf.hue,
         iSampleRate: conf.sampleRate,
-        iAvgFreq: img_freq[0],
       };
       shader.draw(args, bufferA);
       //bufferA.draw();

@@ -597,14 +597,16 @@ export class GpuTransformProgram {
     let nSamplers = 0;
 
     for (let u of gp.uniforms) {
-      let arg = args[u.name];
-      let uptr = gp.uniforms[u.name];
+      // u.name = 'iSigFreqs[0]'
+      let name = u.name.endsWith('[0]') ?
+        u.name.slice(0, -3) : u.name;
+      let arg = args[name];
+      let uptr = gp.uniforms[name];
 
       if (arg === undefined)
         throw new Error('Missing uniform arg: ' + u.name);
 
-      if (u.size != 1)
-        throw new Error(`Uniform ${u.name} has size ${u.size} > 1`);
+      dcheck(u.size == 1 || u.size == arg.length);
 
       switch (u.type) {
         case gl.SAMPLER_2D:
@@ -613,21 +615,33 @@ export class GpuTransformProgram {
           break;
         case gl.BOOL:
         case gl.INT:
-          gl.uniform1i(uptr, arg);
+          if (u.size == 1)
+            gl.uniform1i(uptr, arg);
+          else
+            gl.uniform1iv(uptr, arg);
           break;
         case gl.UNSIGNED_INT:
-          gl.uniform1ui(uptr, arg);
+          if (u.size == 1)
+            gl.uniform1ui(uptr, arg);
+          else
+            gl.uniform1uiv(uptr, arg);
           break;
         case gl.FLOAT:
-          gl.uniform1f(uptr, arg);
+          if (u.size == 1)
+            gl.uniform1f(uptr, arg);
+          else
+            gl.uniform1fv(uptr, arg);
           break;
         case gl.FLOAT_VEC2:
+          dcheck(u.size == 1);
           gl.uniform2f(uptr, ...arg);
           break;
         case gl.FLOAT_VEC3:
+          dcheck(u.size == 1);
           gl.uniform3f(uptr, ...arg);
           break;
         case gl.FLOAT_VEC4:
+          dcheck(u.size == 1);
           gl.uniform4f(uptr, ...arg);
           break;
         default:

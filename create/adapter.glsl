@@ -4,7 +4,8 @@ uniform vec2 iResolution; // the output frame buffer size in pixels
 uniform sampler2D iChannel0;
 uniform float iSampleRate;
 uniform float iBrightness;
-uniform float iAvgFreq;
+uniform float iSigFreqs[2];
+uniform float iHue;
 
 const float PI = radians(180.);
 

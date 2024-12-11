@@ -2,6 +2,12 @@
 const float eps = 216. / 24389.; // 0.008856
 const float kap = 24389. / 27.; // 7.787 * 116.
 const vec3 d65_2deg = vec3(0.95047, 1.00000, 1.08883);
+const vec3 d50 = vec3(0.9642, 1.0000, 0.8251);
+const vec3 d55 = vec3(0.9568, 1.0000, 0.9214);
+const vec3 d65 = vec3(0.9504, 1.0000, 1.0888);
+const vec3 cie_a = vec3(1.0985, 1.0000, 0.3558);
+const vec3 cie_c = vec3(0.9807, 1.0000, 1.1822);
+const vec3 xyz_white = d65_2deg;
 
 float compand(float f) {
   return f > 0.04045 ? pow(((f + 0.055) / 1.055), 2.4) : f / 12.92;
@@ -34,7 +40,7 @@ vec3 xyz2rgb(vec3 xyz) {
 }
 
 vec3 xyz2lab(vec3 xyz) {
-  xyz /= d65_2deg;
+  xyz /= xyz_white;
   vec3 f = vec3(fn3(xyz.x), fn3(xyz.y), fn3(xyz.z));
   return vec3(116. * f.y - 16., 500. * (f.x - f.y), 200. * (f.y - f.z));
 }
@@ -44,7 +50,7 @@ vec3 lab2xyz(vec3 lab) {
   float fx = lab.y / 500. + fy;
   float fz = fy - lab.z / 200.;
   vec3 xyz = vec3(invfn3(fx), invfn3(fy), invfn3(fz));
-  return xyz * d65_2deg;
+  return xyz * xyz_white;
 }
 
 vec3 rgb2lab(vec3 rgb) {
@@ -117,14 +123,14 @@ vec3 temp_rgb4(float t) {
 }
 
 void mainImage(out vec4 o, in vec2 p) {
-  float temp = texture(iChannel0, p / iResolution).r;
+  vec4 tex = texture(iChannel0, p / iResolution);
+  float temp = tex.r;
+  float freq = tex.g;
   o.rgb = fire_rgb(temp * iBrightness);
-  o.a = 1.; // smoothstep(0., 0.005, temp);
+  o.a = 1.;
 
-  if(iAvgFreq > 0.) {
-    float hue = freqHue(iAvgFreq);
-    float r = length(p / iResolution * 2. - 1.);
-    hue += mix(-0.1, 0.1, smoothstep(0., 1., r));
-    o.rgb = rotateHue(o.rgb, (hue - 0.1) * 2. * PI);
-  }
+  float hue = iHue/360. - 0.1;
+  freq = mix(iSigFreqs[0], iSigFreqs[1], length(p/iResolution-0.5)*2.);
+  hue += freqHue(freq);
+  o.rgb = rotateHue(o.rgb, hue * 2. * PI);
 }

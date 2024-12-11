@@ -84,14 +84,13 @@ function initSettings() {
   });
 
   initSetting('hue', {
-    delay: 0.0,
     units: '\u00b0',
     addStep: (x, d) => (x + 10 * d + 360) % 360,
     toText: (x) => x.toFixed(0),
-    onChanged: () => {
-      $('#disk').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
-      saveImageConfig();
-    },
+    onChanged: () => runUserAction('redrawImg', async () => {
+      //$('#disk').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
+      await redrawImg();
+    }),
   });
 
   initSetting('brightness', {
@@ -445,7 +444,7 @@ async function drawRoundWaveform() {
   let cw = canvas.width, sw = cw / 6 | 0;
   let img = ctx.getImageData(cw - sw, cw - sw, sw, sw);
 
-  let s = mem.audio_signal, sn = s.length;
+  let s = getSelectedAudio(), sn = s.length;
   let smax = s.reduce((m, x) => Math.max(m, Math.abs(x)), 0);
   let buf = new utils.Float32Tensor([img.width, img.height]);
   let da = new utils.DrawingArea(buf, [-1, 1], [-1, 1]);
@@ -453,10 +452,10 @@ async function drawRoundWaveform() {
   for (let t = 0; t < sn; t++) {
     let r = s[t] / smax;
     r = r * 0.5 + 0.5;
-    let a = t / sn * 2 * Math.PI;
-    a += Math.PI/2;
-    buf.data[da.offsetRA(r, a/2)] += 1;
-    buf.data[da.offsetRA(r, a/2 + Math.PI)] += 1;
+    let a = -t / sn * 2 * Math.PI;
+    a += Math.PI / 2;
+    buf.data[da.offsetRA(r, a / 2)] += 1;
+    buf.data[da.offsetRA(r, a / 2 + Math.PI)] += 1;
   }
 
   let bmax = buf.max();
