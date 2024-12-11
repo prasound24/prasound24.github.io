@@ -640,7 +640,7 @@ async function recordAudio() {
   recorder.onaudiochunk = (chunk) => {
     let xmin = num_samples / gconf.sampleRate / gconf.maxDuration;
     let xlen = chunk.length / gconf.sampleRate / gconf.maxDuration;
-    wave_drawer.draw(chunk, [xmin, xmin + xlen], [-1, 1]);
+    wave_drawer.draw(chunk, [xmin, xmin + xlen], 1.0);
     num_samples += chunk.length;
     updateButton();
     if (xmin + xlen > 1.0)

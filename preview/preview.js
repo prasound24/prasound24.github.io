@@ -129,7 +129,7 @@ function startWaveformAnimation(sig1, wd, canvas, animation) {
         tmp[i] = sig1[i] * cos + sig2[i] * sin;
 
       wd.clear();
-      wd.draw(tmp, [0, 1], [-max2, +max2]);
+      wd.draw(tmp, [0, 1], max2);
 
       let img = ctx.getImageData(0, 0, canvas.width, canvas.height);
       frames[id] = ctx.createImageData(canvas.width, canvas.height);

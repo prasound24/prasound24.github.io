@@ -359,25 +359,27 @@ export function initWaveformDrawer(canvas) {
     ctx.putImageData(img, 0, 0);
   }
 
-  function draw(sig, [xmin, xmax] = [0, 1], [amin, amax] = [], opacity = 1.0) {
-    if (xmax < 0.0 || xmin > 1.0 || !sig.length)
+  function draw(sig, [xmin, xmax] = [0, 1], amax = 0.0) {
+    let sn = sig.length;
+    if (xmax < 0.0 || xmin > 1.0 || !sn)
       return;
 
-    if (!amin && !amax) {
-      amin = sig[0];
-      amax = sig[0];
-      for (let i = 0; i < sig.length; i++) {
-        amin = Math.min(amin, sig[i]);
-        amax = Math.max(amax, sig[i]);
-      }
+    amax = amax || sig.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
+
+    let area = new utils.Float32Tensor([ch, cw]);
+    let mapper = new utils.DrawingArea(area, [0, 1], [-1, 1]);
+
+    for (let t = 0; t < sn; t++) {
+      let x = utils.mix(xmin, xmax, (t + 0.5) / sn);
+      let i = mapper.offsetXY(x, sig[t] / amax);
+      if (i >= 0) area.data[i] += 1.0;
     }
 
-    for (let t = 0; t < sig.length; t++) {
-      let x = Math.round(cw * utils.mix(xmin, xmax, t / (sig.length - 1)));
-      let a = (sig[t] - amin) / (amax - amin);
-      let y = Math.round(ch * (1 - a));
-      if (x >= 0 || x < cw || y >= 0 || y < ch)
-        img.data[(y * cw + x) * 4 + 3] += 255 * cw / sig.length * opacity * 25;
+    let bmax = area.max();
+
+    for (let i = 0; i < area.data.length; i++) {
+      let v = Math.pow(area.data[i] / bmax, 0.2);
+      img.data[4 * i + 3] = 255 * v;
     }
 
     let dirty_xmin = Math.floor(xmin * cw);

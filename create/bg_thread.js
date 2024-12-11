@@ -72,6 +72,7 @@ async function computeImgAmps(signal, conf) {
   console.debug('siglen=' + siglen, 'strlen=' + strlen, 'steps=' + steps);
   console.debug('sn/height=' + (siglen / steps));
 
+  let wform = new Float32Tensor([siglen, strlen]);
   img_amps = new Float32Tensor([steps, strlen]);
   //img_amps.disk = new Float32Tensor([ds, ds]);
   oscillator.damping = 10 ** conf.damping;
@@ -80,25 +81,53 @@ async function computeImgAmps(signal, conf) {
     oscillator.update(signal[t]);
 
     for (let x = 0; x < strlen; x++) {
-      let amp = Math.abs(oscillator.wave[x] - signal[t]);
+      let amp = oscillator.wave[x] - signal[t];
       let i = y_curr * strlen + x;
-      img_amps.data[i] = Math.max(amp, img_amps.data[i]);
+      img_amps.data[i] = Math.max(img_amps.data[i],
+        Math.abs(amp));
+      wform.data[t * strlen + x] = amp;
     }
 
     let y = clamp(Math.round(t / siglen * steps), 0, steps - 1);
+    if (y <= y_curr)
+      continue;
 
-    if (y > y_curr) {
-      y_curr = y;
+    y_curr = y;
 
-      if (Date.now() > ts + 250) {
-        await sleep(5);
-        ts = Date.now();
-        postMessage({ type: 'wave_1d', progress: Math.min(y_curr / steps, 0.99) });
-        y_prev = y_curr;
-        if (current_op?.cancelled) {
-          postMessage({ type: 'wave_1d', error: 'cancelled' });
-          img_amps = null;
-          await current_op.throwIfCancelled();
+    if (Date.now() < ts + 250)
+      continue;
+    await sleep(5);
+    ts = Date.now();
+    postMessage({ type: 'wave_1d', progress: Math.min(y_curr / steps, 0.99) });
+    y_prev = y_curr;
+    if (current_op?.cancelled) {
+      postMessage({ type: 'wave_1d', error: 'cancelled' });
+      img_amps = null;
+      await current_op.throwIfCancelled();
+    }
+  }
+
+  if (false) {
+    img_amps.data.fill(0);
+    let range = siglen / steps;
+    let weights = new Float32Array(range * 2);
+    let section = new Float32Array(range * 2);
+
+    for (let i = 0; i < weights.length; i++)
+      weights[i] = utils.hann((i + 0.5) / weights.length);
+
+    for (let y = 0; y < steps; y++) {
+      let t_min = Math.round((y - 1) * range);
+      let t_max = Math.round((y + 1) * range);
+
+      for (let t = t_min; t <= t_max; t++) {
+        if (t < 0 || t >= siglen) continue;
+        let hw = weights[t - t_min] || 0;
+        for (let x = 0; x < strlen; x++) {
+          let amp = hw * wform.data[t * strlen + x];
+          let i = y * strlen + x;
+          img_amps.data[i] = Math.max(img_amps.data[i],
+            Math.abs(amp));
         }
       }
     }
