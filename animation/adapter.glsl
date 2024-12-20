@@ -1,10 +1,12 @@
 in vec2 vTex; // supplied by webgl2.js/VSHADER_DEFAULT
 
+uniform int iChannelId; // the channel being updated, -1 = the canvas
 uniform vec2 iResolution; // the output frame buffer size in pixels
 uniform int iFrame;
 uniform float iTime; // seconds
 uniform float iSoundMax;
 uniform int iSoundLen;
+uniform vec3 iMouse;
 uniform sampler2D iChannel0;
 uniform sampler2D iChannel1;
 uniform sampler2D iChannel2; // sound r
