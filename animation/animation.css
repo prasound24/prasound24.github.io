@@ -21,6 +21,10 @@ p {
   margin: 0 auto;
 }
 
+canvas#webgl {
+  width: 100%;
+}
+
 img {
   border: none;
   outline: none;

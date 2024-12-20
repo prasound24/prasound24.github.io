@@ -7,7 +7,7 @@ const { $, DB, fetchText, fetchRGBA } = utils;
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
 const DEFAULT_IMG_ID = 'bass-clarinet_As2_very-long_mezzo-piano_harmonic';
-const CW = 1024, CH = CW;
+const CW = 2048, CH = 1024;
 const IMG_W = 2048, IMG_H = 2048;
 const SAMPLE_RATE = 48000;
 let args = new URLSearchParams(location.search);
@@ -101,7 +101,7 @@ async function initWebGL() {
   let iChannel3 = ctx.createFrameBufferFromRGBA(img);
   let iChannel2 = ctx.createFrameBuffer(CW, CH, 1);
   let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel0 = ctx.createFrameBuffer(256, 2, 4);
+  let iChannel0 = ctx.createFrameBuffer(CW, 2, 4);
   let bufferA = ctx.createFrameBuffer(iChannel0.width, iChannel0.height, 4);
   let bufferB = ctx.createFrameBuffer(iChannel1.width, iChannel1.height, 4);
   let bufferC = ctx.createFrameBuffer(iChannel2.width, iChannel2.height, 4);

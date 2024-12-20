@@ -20,13 +20,13 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  height: 12.5vh;
+  height: 75vh;
   overflow: hidden;
 }
 
 @media(orientation:portrait) {
   .stage {
-    height: 8vw;
+    height: 50vw;
   }
 }
 

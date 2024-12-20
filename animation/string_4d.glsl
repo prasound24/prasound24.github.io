@@ -1,13 +1,19 @@
 const float INF = 1e10;
 
 // Simulation consts
-const int N = 256;
-const float MASS = 25.0;
+const int N = 128;
+const float MASS = 150.0;
 
 // Rendering consts
-const vec3 RGB_INFLOW = 0.5*vec3(1.5, 0.5, 0.2);
-const vec3 RGB_OUTFLOW = 0.5*vec3(0.5, 0.2, 1.5);
-const vec3 RGB_GLOW = 0.1*vec3(0.5, 0.2, 1.5);
+const mat3 RGB_OUTFLOW = mat3(
+  0.0, 0.0, 1.5,
+  0.0, 0.4, 0.0, 
+  0.1, 0.0, 0.0);
+const mat3 RGB_INFLOW = mat3(
+  1.5, 0.0, 0.0, 
+  0.0, 0.3, 0.0,
+  0.0, 0.0, 0.1);
+const vec3 RGB_GLOW = 0.3*vec3(0.5, 0.2, 1.5);
 const float GLOW = 1.5;
 const float R0 = 0.02;
 const float R1 = 1.0;
@@ -28,12 +34,12 @@ mat2 rot2(float phi) {
 
 vec4 initWave(ivec2 pp, int N) {
     float phi = 2.*PI*float(pp.x)/float(N);
-    vec2 xy = c2exp(phi+PI/2.);
+    vec2 xy = c2exp(phi);
+
+    if (pp.y > 0) xy = c2exp(phi + 0.001); // spin
 
     float z = 1.0 * cos(phi * 5.0) - 0.4;
-    float w = 0.1 * sin(phi * 5.0);
-    
-    //if (pp.y > 0) xy = c2exp(phi + 0.015); // spin
+    float w = 0.2 * cos(phi * 5.0 + 0.3);
 
     vec3 xyz = vec3(xy*cos(z), sin(z));
     vec4 xyzw = vec4(xyz*cos(w), sin(w));
@@ -97,7 +103,7 @@ vec2 pos(int i) {
         r.xz *= rot2(PI*m.x);
     }
     // basic perspective projection
-    return r.xy / length(r.zw - vec2(0.0, 2.0));
+    return r.xy / length(r.zw - vec2(0.0, 1.5));
 }
 
 float sdf(vec2 q) {
@@ -128,13 +134,13 @@ void updateFlow(out vec4 o, vec2 p) {
     vec2 q = p2q(p);
     float d = sdf(q/R1);
     float e = exp(-pow(7.5*d/R0, 2.0));
-    float g  = pow(R0/d, GLOW);
+    float g  = pow(R0/(d+1e-6), GLOW);
 
     o.rgb = vec3(e, e, g);
 
     float dt = 0.02;
-    o.r += scaledImg(q, exp(-dt*1.0), exp(-dt*0.3)).r; // outflow
-    o.g += scaledImg(q, exp(-dt*1.0), exp(+dt*0.3)).g; // inflow
+    o.r += scaledImg(q, 1.0-dt*1.5, 1.0-dt*0.3).r; // outflow
+    o.g += scaledImg(q, 1.0-dt*0.5, 1.0+dt*0.3).g; // inflow
 }
 
 vec3 flameRGB(float t) {
