@@ -24,6 +24,10 @@
   overflow: hidden;
 }
 
+.stage a img {
+  height: inherit;
+}
+
 @media(orientation:portrait) {
   .stage {
     height: 50vw;
