@@ -194,6 +194,10 @@ button[disabled]:hover {
   display: none;
 }
 
+#footer img {
+  opacity: 0.5;
+}
+
 #error_info:empty {
   display: none;
 }
