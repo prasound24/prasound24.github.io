@@ -1,22 +1,17 @@
 const float INF = 1e10;
 
 // Simulation consts
-const int N = 128;
-const float MASS = 150.0;
+const int N = 256;
+const float MASS = 25.0;
 
 // Rendering consts
-const mat3 RGB_OUTFLOW = mat3(
-  0.0, 0.0, 1.5,
-  0.0, 0.4, 0.0, 
-  0.1, 0.0, 0.0);
-const mat3 RGB_INFLOW = mat3(
-  1.5, 0.0, 0.0, 
-  0.0, 0.3, 0.0,
-  0.0, 0.0, 0.1);
-const vec3 RGB_GLOW = 0.3*vec3(0.5, 0.2, 1.5);
+const vec3 RGB_INFLOW = vec3(0.1, 0.2, 1.5);
+const vec3 RGB_OUTFLOW = vec3(1.5, 0.5, 0.2);
+const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
 const float GLOW = 1.5;
-const float R0 = 0.02;
+const float R0 = 0.01;
 const float R1 = 1.0;
+const float R2 = 0.02/7.5;
 
 vec4 texFetch(sampler2D ch0, ivec2 p) {
     p = ivec2(mod(vec2(p), vec2(ivec2(N,2))));
@@ -32,17 +27,25 @@ mat2 rot2(float phi) {
     return mat2(c, s, -s, c);
 }
 
-vec4 initWave(ivec2 pp, int N) {
+float sound(int i) {
+    if (i < 0 || i >= iSoundLen) return 0.;
+    ivec2 s = textureSize(iChannel2, 0);
+    int y = i / s.x, x = i % s.x;
+    return texelFetch(iChannel2, ivec2(x,y), 0).x;
+}
+
+vec4 initPos(ivec2 pp) {
     float phi = 2.*PI*float(pp.x)/float(N);
-    vec2 xy = c2exp(phi);
 
-    if (pp.y > 0) xy = c2exp(phi + 0.001); // spin
+    float x = sin(phi*1.0);
+    float y = cos(phi*1.0);
 
-    float z = 1.0 * cos(phi * 5.0) - 0.4;
-    float w = 0.2 * cos(phi * 5.0 + 0.3);
+    float z = 1.0 * sin(phi*5.0) - 0.4;
+    float w = 0.03 * cos(phi*5.0);
 
-    vec3 xyz = vec3(xy*cos(z), sin(z));
+    vec3 xyz = vec3(vec2(x,y)*cos(z), sin(z));
     vec4 xyzw = vec4(xyz*cos(w), sin(w));
+
     return normalize(xyzw);
 }
 
@@ -53,7 +56,8 @@ void updateString(out vec4 o, in vec2 p) {
         return;
      
     if (iFrame == 0) {
-        o = initWave(pp,N);
+        o = initPos(pp);
+        o = normalize(o);
         return;
     }
     
@@ -63,20 +67,18 @@ void updateString(out vec4 o, in vec2 p) {
         return;
     }
     
-    vec4 cc = texFetch(iChannel0, pp); // length(cc) = 1
+    vec4 cc = texFetch(iChannel0, pp); // length(cc.xyz) = 1
     vec4 cc_prev = texFetch(iChannel0, pp + ivec2(0,1));
     vec4 rr = texFetch(iChannel0, pp + ivec2(1,0));
     vec4 ll = texFetch(iChannel0, pp - ivec2(1,0));
     
-    vec4 T = rr + ll - 2.*cc; // Hooke's law
-    
-    //if (iTime < 30.) {
-    //    vec4 dT = vec4(0,1,cos(float(iFrame)/60.),sin(float(iFrame)/60.)) - cc;
-    //    if (pp.x == 0) T += 0.1 * dT * length(dT); // external force
-    //}
-    
-    float damping = 0.0;
-    o = normalize(cc + (cc - cc_prev) + damping*cc_prev + T/MASS); // F=ma
+    vec4 T = (rr - cc) + (ll - cc); // Hooke's law
+    o = cc + (cc - cc_prev) + T/MASS; // F=ma
+
+    vec4 damping = vec4(0);
+    o += damping*cc_prev;
+    o /= vec4(1) + damping;
+    o = normalize(o);
 }
 
 float lineSDF(vec2 p, vec2 a, vec2 b) {
@@ -103,51 +105,48 @@ vec2 pos(int i) {
         r.xz *= rot2(PI*m.x);
     }
     // basic perspective projection
-    return r.xy / length(r.zw - vec2(0.0, 1.5));
+    r.xyz /= 1.2 - r.w;
+    r.xy /= 1.2 - r.z;
+    return r.xy;
 }
 
 float sdf(vec2 q) {
-    float d = INF, e = 0.;
+    float d = INF;
     vec2 p1 = pos(-1), p2 = pos(-2), p3 = pos(-3);
     
     for (int i = 0; i < N; i++) {
         vec2 p0 = pos(i);
-
-        // basic interpolation
         vec2 m1 = (p1+p2)*0.5 + (p1+p2)*0.125 - (p0+p3)*0.125;
+        
         d = min(d, lineSDF(q, p1, m1));
         d = min(d, lineSDF(q, m1, p2));
-        
-        p3 = p2;
-        p2 = p1;
-        p1 = p0;
+
+        p3 = p2; p2 = p1; p1 = p0;
     }
     
     return d;
 }
 
-vec4 scaledImg(vec2 q, float fade, float scale) {
-    return fade*texture(iChannel1, q2p(q*scale)/iResolution.xy);
+vec4 advectTemp(vec2 q, float scale) {
+    return 0.98 * texture(iChannel1, q2p(q*scale)/iResolution.xy);
 }
 
 void updateFlow(out vec4 o, vec2 p) {
     vec2 q = p2q(p);
     float d = sdf(q/R1);
-    float e = exp(-pow(7.5*d/R0, 2.0));
-    float g  = pow(R0/(d+1e-6), GLOW);
 
-    o.rgb = vec3(e, e, g);
+    o.rg = exp(-pow(d/R2, 2.0)) * vec2(1);
+    o.b = pow(R0/d, GLOW);
 
-    float dt = 0.02;
-    o.r += scaledImg(q, 1.0-dt*1.5, 1.0-dt*0.3).r; // outflow
-    o.g += scaledImg(q, 1.0-dt*0.5, 1.0+dt*0.3).g; // inflow
+    o.r += advectTemp(q, 0.995).r; // outflow
+    o.g += advectTemp(q, 1.005).g; // inflow
 }
 
 vec3 flameRGB(float t) {
     return vec3(t, t*t, t*t*t);
 }
 
-void mainImage(out vec4 o, in vec2 p) {
+void mainImage(out vec4 o, vec2 p) {
     if (iChannelId == 0) {
       updateString(o, p);
       return;
@@ -160,12 +159,15 @@ void mainImage(out vec4 o, in vec2 p) {
 
     o = vec4(0,0,0,1);
     
-    vec3 e = texture(iChannel1, p/iResolution.xy).rgb;
+    vec2 uv = p/iResolution.xy;
+    vec3 e = texture(iChannel1, uv).rgb;
     
-    o.rgb += RGB_OUTFLOW * flameRGB(e.r);
-    o.rgb += RGB_INFLOW * flameRGB(e.g);
+    o.rgb += RGB_OUTFLOW * e.r;
+    o.rgb += RGB_INFLOW * e.g;
     o.rgb += RGB_GLOW * e.b;
     
-    o.rgb = pow(o.rgb, vec3(0.4545));
-    
+    //o.rgb = pow(o.rgb, vec3(0.4545));
+
+    vec2 uv2 = uv * (1. - uv.yx);
+    o.rgb *= min(1., pow(15.0*uv2.x*uv2.y, 0.25));
 }

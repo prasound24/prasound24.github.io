@@ -7,7 +7,7 @@ const { $, DB, fetchText, fetchRGBA } = utils;
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
 const DEFAULT_IMG_ID = 'bass-clarinet_As2_very-long_mezzo-piano_harmonic';
-const CW = 2048, CH = 1024;
+const CH = 1024, CW = CH*2;
 const IMG_W = 2048, IMG_H = 2048;
 const SAMPLE_RATE = 48000;
 let args = new URLSearchParams(location.search);
@@ -81,23 +81,23 @@ async function initWebGL() {
   canvas.width = CW;
   canvas.height = CH;
 
-  let img = await initImgRGBA(IMG_W, IMG_H);
   let ctx = new GpuContext(canvas);
   ctx.init();
 
-  await initShader(ctx, 'disk');
-  await initShader(ctx, 'sphere');
-  await initShader(ctx, 'fireball');
-  await initShader(ctx, 'fluid_img');
-  await initShader(ctx, 'fluid_ch0');
-  await initShader(ctx, 'drum');
-  await initShader(ctx, 'minmax');
-  await initShader(ctx, 'drum_img');
-  await initShader(ctx, 'string_wave');
-  await initShader(ctx, 'string_draw');
-  await initShader(ctx, 'waveform_draw');
+  //await initShader(ctx, 'disk');
+  //await initShader(ctx, 'sphere');
+  //await initShader(ctx, 'fireball');
+  //await initShader(ctx, 'fluid_img');
+  //await initShader(ctx, 'fluid_ch0');
+  //await initShader(ctx, 'drum');
+  //await initShader(ctx, 'minmax');
+  //await initShader(ctx, 'drum_img');
+  //await initShader(ctx, 'string_wave');
+  //await initShader(ctx, 'string_draw');
+  //await initShader(ctx, 'waveform_draw');
   await initShader(ctx, 'string_4d');
 
+  let img = await initImgRGBA(IMG_W, IMG_H);
   let iChannel3 = ctx.createFrameBufferFromRGBA(img);
   let iChannel2 = ctx.createFrameBuffer(CW, CH, 1);
   let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
@@ -111,8 +111,6 @@ async function initWebGL() {
   let stats = { frames: 0, time: 0 };
   let base_time = 0;
 
-  //for (let i = 0; i < sound.length; i++)
-  //  sound[i] = (i/sound.length)**2;
   iChannel2.upload(sound);
 
   if (canvas.requestFullscreen)

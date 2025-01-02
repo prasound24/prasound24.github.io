@@ -117,7 +117,7 @@ export class GpuContext {
       depth: false,
       stencil: false,
       antialias: false,
-      preserveDrawingBuffer: false,
+      preserveDrawingBuffer: true,
     };
 
     for (let s in config)
