@@ -424,6 +424,7 @@ async function redrawImg() {
     await drawStringOscillations();
     await drawRoundWaveform();
     await drawLabel();
+    await drawStamp();
     let ts = Date.now();
     let url = await saveDiskImage();
     let url_xs = await saveDiskImagePreview(url);
@@ -532,6 +533,16 @@ async function drawLabel() {
   ctx.font = em + 'px DancingScript';
   ctx.fillStyle = '#888';
   ctx.fillText(label, em, ch - em);
+}
+
+async function drawStamp() {
+  let canvas = $('canvas#disk');
+  let ctx = canvas.getContext('2d');
+  let ch = canvas.height, cw = canvas.width;
+  let em = ch * 0.015;
+  let logo = $('img#logo');
+  let lh = em, lw = logo.width*lh/logo.height;
+  ctx.drawImage(logo, cw - em - lw, ch - em - lh, lw, lh);
 }
 
 async function saveDiskImage(db_path = base.DB_PATH_IMAGE, canvas = $('canvas#disk'),
