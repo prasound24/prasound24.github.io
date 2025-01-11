@@ -489,9 +489,10 @@ async function drawGallery() {
 async function drawStringOscillations() {
   try {
     base.setCircleProgress(0);
-    await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf, {
+    let img_amps = await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf, {
       onprogress: (pct) => base.setCircleProgress(pct * 50),
     });
+    await saveWaveData(img_amps);
     await current_op.throwIfCancelled();
     await drawDiskImage([0.5, 1.0]);
   } finally {
@@ -541,8 +542,16 @@ async function drawStamp() {
   let ch = canvas.height, cw = canvas.width;
   let em = ch * 0.015;
   let logo = $('img#logo');
-  let lh = em, lw = logo.width*lh/logo.height;
+  let lh = em, lw = logo.width * lh / logo.height;
   ctx.drawImage(logo, cw - em - lw, ch - em - lh, lw, lh);
+}
+
+async function saveWaveData(img_amps) {
+  console.debug('Saving wave data to DB');
+  let blob = new Blob([img_amps.data.buffer], { type: 'image/fp32' });
+  dcheck(blob.size == img_amps.data.length * 4);
+  let file = new File([blob], mem.audio_name + '.wave', { type: blob.type });
+  await DB.set(base.DB_PATH_WAVE_DATA, file);
 }
 
 async function saveDiskImage(db_path = base.DB_PATH_IMAGE, canvas = $('canvas#disk'),

@@ -20,6 +20,7 @@ export const DB_PATH = 'user_samples';
 export const DB_PATH_AUDIO = DB_PATH + '/_last/audio';
 export const DB_PATH_IMAGE = DB_PATH + '/_last/image';
 export const DB_PATH_IMAGE_XS = DB_PATH + '/_last/image_xs';
+export const DB_PATH_WAVE_DATA = DB_SAVED + '/_last/wave_data';
 export const DB_PATH_CONFIG = DB_PATH + '/_last/config';
 
 export const gconf = {};
@@ -221,7 +222,7 @@ export function cancelWorkerCommand() {
 }
 
 export async function drawStringOscillations(signal, canvas, conf, { cop, onprogress } = {}) {
-  await new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     postWorkerCommand({
       command: { type: 'wave_1d', signal, config: clone(conf) },
       handlers: {
@@ -230,7 +231,13 @@ export async function drawStringOscillations(signal, canvas, conf, { cop, onprog
             return reject(new Error(e.data.error));
           let p = e.data.progress;
           onprogress?.call(null, p);
-          if (p == 1.00) resolve();
+          if (p == 1.00) {
+            let img = e.data.img_amps_rect;
+            let n = conf.numSteps, m = img.length / n;
+            dcheck(m % 1 == 0);
+            let img2 = new utils.Float32Tensor([n, m], img);
+            resolve(img2);
+          }
         }
       },
     });
@@ -257,7 +264,7 @@ export async function drawDiskImage(canvas, { cop, conf, onprogress } = {}) {
     });
   });
 
-  let { img_amps, img_freq, sig_freqs, brightness } = res;
+  let { img_amps_disk, img_freq_disk, sig_freqs, brightness } = res;
 
   await cop?.throwIfCancelled();
 
@@ -279,8 +286,8 @@ export async function drawDiskImage(canvas, { cop, conf, onprogress } = {}) {
       let shader = await initShader(ctx, 'draw_img');
       let ch0 = new Float32Array(ds * ds * 2);
       for (let i = 0; i < ds * ds; i++) {
-        ch0[2 * i + 0] = img_amps[i];
-        ch0[2 * i + 1] = img_freq[i];
+        ch0[2 * i + 0] = img_amps_disk[i];
+        ch0[2 * i + 1] = img_freq_disk[i];
       }
       let iChannel0 = ctx.createFrameBuffer(ds, ds, 2, ch0);
       let bufferA = ctx.createFrameBuffer(ds, ds, 4);

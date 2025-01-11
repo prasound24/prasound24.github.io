@@ -9,8 +9,10 @@ uniform int iSoundLen;
 uniform vec3 iMouse;
 uniform sampler2D iChannel0;
 uniform sampler2D iChannel1;
-uniform sampler2D iChannel2; // sound r
-uniform sampler2D iChannel3; // image rgba
+uniform sampler2D iChannel2;
+uniform sampler2D iChannel3;
+uniform sampler2D iChannelImage; // image rgba
+uniform sampler2D iChannelSound; // sound r
 uniform vec2 iChannelResolution0;
 uniform vec2 iChannelResolution1;
 uniform vec2 iChannelResolution2;

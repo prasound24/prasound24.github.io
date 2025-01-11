@@ -19,7 +19,7 @@ onmessage = async (e) => {
       current_op = new CurrentOp('bg:computeImgAmps', async () => {
         await utils.time('img_amps:', () => computeImgAmps(signal, config, [0.00, 0.90]));
         await utils.time('img_hues:', () => computeImgHues(signal, config, [0.90, 0.99]));
-        postMessage({ type: 'wave_1d', progress: 1.00 });
+        postMessage({ type: 'wave_1d', img_amps_rect: img_amps.data, progress: 1.00 });
       });
       break;
     case 'draw_disk':
@@ -185,8 +185,8 @@ async function drawDiskImage(conf) {
   postMessage({
     type: 'draw_disk',
     result: {
-      img_amps: img_amps.disk.data,
-      img_freq: img_freq.disk.data,
+      img_amps_disk: img_amps.disk.data,
+      img_freq_disk: img_freq.disk.data,
       sig_freqs,
       brightness: 10 ** (autoBrightness + conf.brightness),
     },

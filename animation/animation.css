@@ -3,18 +3,13 @@ p {
 }
 
 #info {
-  height: 0;
-  position: absolute;
-  font-size: 0.75rem;
-  padding: 0.5em;
+  display: flex;
+  font-size: 0.5rem;
 }
 
-#fps {
-  position: relative;
-  left: 0;
-  top: 0;
-  z-index: 1;
+#info span {
   background: #000;
+  padding: 0.5em;
 }
 
 #fullscreen {

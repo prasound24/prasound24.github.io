@@ -2,17 +2,18 @@ import * as utils from '../lib/utils.js';
 import * as base from '../create/base.js';
 import { GpuContext } from '../webgl2.js';
 
-const { $, DB, fetchText, fetchRGBA } = utils;
+const { $, dcheck, DB, fetchText, fetchRGBA } = utils;
 
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
 const DEFAULT_IMG_ID = 'bass-clarinet_As2_very-long_mezzo-piano_harmonic';
-const CH = 1024, CW = CH*2;
+const CW = 2048, CH = 1024;
 const IMG_W = 2048, IMG_H = 2048;
 const SAMPLE_RATE = 48000;
 let args = new URLSearchParams(location.search);
 let sound = [0];
 let canvas = $('canvas#webgl');
+let spanFPS = $('#fps');
 let shaders = {};
 
 init();
@@ -20,8 +21,12 @@ init();
 async function init() {
   await initErrHandler();
   await initSound();
-  await initImgRGBA();
   await initWebGL();
+  showStatus(null);
+}
+
+function showStatus(text) {
+  $('#status').textContent = text || '';
 }
 
 function initErrHandler() {
@@ -45,30 +50,20 @@ function resizeCanvas() {
   canvas.height = Math.min(h, w);
 }
 
-async function initImgRGBA(width, height) {
-  let img_id = args.get('src');
-  let img_url;
-
-  if (!img_id) {
-    let file = await DB.get(DB_PATH_IMAGE);
-    if (file) {
-      img_url = URL.createObjectURL(file);
-      // conf = await DB.get(DB_PATH_CONFIG);
-    } else {
-      img_id = DEFAULT_IMG_ID;
-    }
-  }
-
-  if (!img_url)
-    img_url = '/img/xl/' + img_id + '.jpg'
-
-  //$('#preview').src = img_url;
-  canvas.style.display = 'none';
-
-  return await fetchRGBA(img_url, width, height);
+async function fetchWaveData(ctx) {
+  showStatus('Loading wave data...');
+  let conf = await DB.get(DB_PATH_CONFIG);
+  let blob = await DB.get(base.DB_PATH_WAVE_DATA);
+  let buffer = await blob.arrayBuffer();
+  let fp32array = new Float32Array(buffer);
+  let n = conf.numSteps, m = fp32array.length / n;
+  dcheck(m % 1 == 0);
+  console.debug('Wave data:', m, 'x', n);
+  return ctx.createFrameBuffer(m, n, 1, fp32array);
 }
 
 async function initShader(ctx, filename) {
+  showStatus('Loading ' + filename + '...');
   let adapter = await fetchText('./adapter.glsl');
   let user_shader = await fetchText('./' + filename + '.glsl');
   let fshader = adapter.replace('//#include ${USER_SHADER}', user_shader);
@@ -81,6 +76,7 @@ async function initWebGL() {
   canvas.width = CW;
   canvas.height = CH;
 
+  showStatus('Initializing WebGL...');
   let ctx = new GpuContext(canvas);
   ctx.init();
 
@@ -97,21 +93,23 @@ async function initWebGL() {
   //await initShader(ctx, 'waveform_draw');
   await initShader(ctx, 'string_4d');
 
-  let img = await initImgRGBA(IMG_W, IMG_H);
-  let iChannel3 = ctx.createFrameBufferFromRGBA(img);
-  let iChannel2 = ctx.createFrameBuffer(CW, CH, 1);
+  let iChannelImage = await fetchWaveData(ctx);
+  let iChannelSound = ctx.createFrameBuffer(CW, CH, 1);
+  let iChannel3 = ctx.createFrameBuffer(CW, CH, 4);
+  let iChannel2 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel0 = ctx.createFrameBuffer(CW, 2, 4);
-  let bufferA = ctx.createFrameBuffer(iChannel0.width, iChannel0.height, 4);
-  let bufferB = ctx.createFrameBuffer(iChannel1.width, iChannel1.height, 4);
-  let bufferC = ctx.createFrameBuffer(iChannel2.width, iChannel2.height, 4);
+  let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
+  let bufferA = ctx.createFrameBuffer(iChannel0.width, iChannel0.height, iChannel0.channels);
+  let bufferB = ctx.createFrameBuffer(iChannel1.width, iChannel1.height, iChannel1.channels);
+  let bufferC = ctx.createFrameBuffer(iChannel2.width, iChannel2.height, iChannel2.channels);
+  let bufferD = ctx.createFrameBuffer(iChannel3.width, iChannel3.height, iChannel3.channels);
   let iSoundMax = sound.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
   let iSoundLen = sound.length;
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
   let base_time = 0;
 
-  iChannel2.upload(sound);
+  iChannelSound.upload(sound);
 
   if (canvas.requestFullscreen)
     $('#fullscreen').onclick = () => canvas.requestFullscreen();
@@ -132,11 +130,9 @@ async function initWebGL() {
   document.onkeydown = (e) => {
     if (!animationId) {
       let key = e.key.toUpperCase();
-      if (key == 'W' || key == 'S') {
-        if (key == 'S')
-          iFrame -= 2;
+      console.debug('onkeydown:', key);
+      if (key == 'ARROWRIGHT')
         drawFrame();
-      }
     }
   };
 
@@ -156,8 +152,12 @@ async function initWebGL() {
 
     for (let k = num_steps; k > 0; k--) {
       let iTime = (time_msec - base_time) / 1000;
-      let iMouse = [0,0,0];
-      let args = { iTime, iMouse, iFrame, iSoundMax, iSoundLen, iChannel0, iChannel1, iChannel2, iChannel3 };
+      let iMouse = [0, 0, 0];
+      let args = {
+        iTime, iMouse, iFrame, iSoundMax, iSoundLen,
+        iChannel0, iChannel1, iChannel2, iChannel3,
+        iChannelSound, iChannelImage
+      };
       args.iChannelResolution0 = [iChannel0.width, iChannel0.height];
       args.iChannelResolution1 = [iChannel1.width, iChannel1.height];
       args.iChannelResolution2 = [iChannel2.width, iChannel2.height];
@@ -165,6 +165,9 @@ async function initWebGL() {
 
       runShader('string_4d', { ...args, iChannelId: 0 }, bufferA);
       runShader('string_4d', { ...args, iChannelId: 1 }, bufferB);
+      runShader('string_4d', { ...args, iChannelId: 2 }, bufferC);
+      runShader('string_4d', { ...args, iChannelId: 3 }, bufferD);
+
       if (k == 1) runShader('string_4d', { ...args, iChannelId: -1 });
 
       //let iSound = sound[iFrame % sound.length];
@@ -192,15 +195,17 @@ async function initWebGL() {
 
       [iChannel0, bufferA] = [bufferA, iChannel0];
       [iChannel1, bufferB] = [bufferB, iChannel1];
-      //[iChannel2, bufferC] = [bufferC, iChannel2];
+      [iChannel2, bufferC] = [bufferC, iChannel2];
+      [iChannel3, bufferD] = [bufferD, iChannel3];
 
       iFrame++;
+
+      let fps = (iFrame - stats.frames) / num_steps / (time_msec - stats.time) * 1000;
+      spanFPS.textContent = fps.toFixed(0) + ' fps ' + ' ' + iFrame;
     }
 
     if (time_msec) {
       if (time_msec > stats.time + 5000) {
-        let fps = (iFrame - stats.frames) / num_steps / (time_msec - stats.time) * 1000;
-        $('#fps').textContent = fps.toFixed(0) + ' fps x ' + num_steps;
         stats.time = time_msec;
         stats.frames = iFrame;
         console.debug('sound:', (iFrame / sound.length * 100).toFixed() + '%');
@@ -209,6 +214,7 @@ async function initWebGL() {
     }
   }
 
+  showStatus('Rendering the 1st frame...');
   animationId = requestAnimationFrame(drawFrame);
   // drawFrame(0);
   // ctx.destroy();
