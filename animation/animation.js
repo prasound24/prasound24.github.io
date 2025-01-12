@@ -4,14 +4,17 @@ import { GpuContext } from '../webgl2.js';
 
 const { $, dcheck, DB, fetchText, fetchRGBA } = utils;
 
+let args = new URLSearchParams(location.search);
+
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
 const DEFAULT_IMG_ID = 'bass-clarinet_As2_very-long_mezzo-piano_harmonic';
 const LANDSCAPE = window.innerWidth > window.innerHeight;
-const WH = [2048, 1024];
-const [CW, CH] = LANDSCAPE ? WH : WH.reverse();
+const W0 = 1920, H0 = 1080;
+const CW = +args.get('w') || (LANDSCAPE ? W0 : H0);
+const CH = +args.get('h') || (LANDSCAPE ? H0 : W0); 
 const SAMPLE_RATE = 48000;
-let args = new URLSearchParams(location.search);
+
 let sound = [0];
 let canvas = $('canvas#webgl');
 let spanFPS = $('#fps');
@@ -55,6 +58,7 @@ async function fetchWaveData(ctx) {
   showStatus('Loading wave data...');
   let conf = await DB.get(DB_PATH_CONFIG);
   let blob = await DB.get(base.DB_PATH_WAVE_DATA);
+  if (!blob) return ctx.createFrameBuffer(1, 1, 1);
   let buffer = await blob.arrayBuffer();
   let fp32array = new Float32Array(buffer);
   let n = conf.numSteps, m = fp32array.length / n;
