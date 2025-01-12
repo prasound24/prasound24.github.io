@@ -41,8 +41,8 @@ vec4 initPos(ivec2 pp) {
     float x = sin(phi * 1.0);
     float y = cos(phi * 1.0);
 
-    float z = 1.0 * sin(phi * 5.0) - 0.4;
-    float w = 0.3 * cos(phi * 5.0);
+    float z = 1.0 * sin(phi * 3.0) - 0.4;
+    float w = 0.3 * cos(phi * 3.0);
 
     vec3 xyz = vec3(vec2(x, y) * cos(z), sin(z));
     vec4 xyzw = vec4(xyz * cos(w), sin(w));
@@ -115,8 +115,8 @@ vec2 pos(int i) {
         r.xz *= rot2(PI * m.x);
     }
     // basic perspective projection
-    r.xyz /= 1.25 - r.w;
-    r.xy /= 1.25 - r.z;
+    r.xyz /= 1.0 - r.w;
+    r.xy /= 1.0 - r.z;
     return r.xy;
 }
 
