@@ -5,13 +5,13 @@
 const float INF = 1e10;
 
 // Simulation consts
-const int N = 250;
+const int N = 256;
 const int GS = int(sqrt(float(N))); // group size
-const int NG = (N + GS - 1)/GS; // number of groups
+const int NG = (N + GS - 1) / GS; // number of groups
 const float MASS = 25.0;
 
 // Rendering consts
-const vec3 RGB_OUTFLOW = 0.3*vec3(0.1, 0.4, 1.5);
+const vec3 RGB_OUTFLOW = 0.3 * vec3(0.1, 0.4, 1.5);
 const vec3 RGB_INFLOW = vec3(1.5, 0.4, 0.1);
 const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
 const float R0 = 0.005;
@@ -46,8 +46,8 @@ vec4 initPos(ivec2 pp) {
   float x = sin(phi * 1.0);
   float y = cos(phi * 1.0);
 
-  float z = 1.0 * sin(phi * 5.0) - 0.4;
-  float w = 0.3 * cos(phi * 5.0);
+  float z = 1.0 * sin(phi * 3.0) - 0.4;
+  float w = 0.3 * cos(phi * 3.0);
 
   vec3 xyz = vec3(vec2(x, y) * cos(z), sin(z));
   vec4 xyzw = vec4(xyz * cos(w), sin(w));
@@ -69,29 +69,31 @@ void updateString(out vec4 o, in vec2 p) {
 
     // prev <- curr
   if(pp.y > 0) {
-    o = texelFetch(CH_STRING, pp - ivec2(0,1), 0);
+    o = texelFetch(CH_STRING, pp - ivec2(0, 1), 0);
     return;
   }
 
   vec4 cc = texFetch(CH_STRING, pp); // length(cc.xyz) = 1
-  vec4 cc_prev = texFetch(CH_STRING, pp + ivec2(0,1));
-  vec4 rr = texFetch(CH_STRING, pp + ivec2(1,0));
-  vec4 ll = texFetch(CH_STRING, pp - ivec2(1,0));
+  vec4 cc_prev = texFetch(CH_STRING, pp + ivec2(0, 1));
+  vec4 rr = texFetch(CH_STRING, pp + ivec2(1, 0));
+  vec4 ll = texFetch(CH_STRING, pp - ivec2(1, 0));
 
   vec4 T = (rr - cc) + (ll - cc); // Hooke's law
-  vec4 ds = cc - cc_prev + T/MASS;
-  ds -= cc*dot(cc, ds);
+  vec4 ds = cc - cc_prev + T / MASS;
+  ds -= cc * dot(cc, ds);
   o = normalize(cc + ds); // F=ma
 }
 
 vec2 p2q(vec2 p) {
-  vec2 ar = iResolution.xy / iResolution.yy;
-  return (p / iResolution.xy * 2. - 1.) * ar;
+  vec2 r = iResolution.xy;
+  vec2 a = r.x > r.y ? r.yy : r.xx;
+  return (p*2. - r)/a;
 }
 
 vec2 q2p(vec2 q) {
-  vec2 ar = iResolution.xy / iResolution.yy;
-  return (q / ar * 0.5 + 0.5) * iResolution.xy;
+  vec2 r = iResolution.xy;
+  vec2 a = r.x > r.y ? r.yy : r.xx;
+  return 0.5*(q*a + r);
 }
 
 vec2 pos(int i) {
@@ -110,28 +112,28 @@ vec2 pos(int i) {
 void updateGroups(out vec4 o, vec2 p) {
   ivec2 pp = ivec2(p - 0.5);
   int g = pp.x; // group id
-  
-  if (g >= NG || pp.y > 0)
+
+  if(g >= NG || pp.y > 0)
     discard;
-  
+
   o.xy = +vec2(INF); // box min
   o.zw = -vec2(INF); // box max
 
-  for (int i = 0; i < GS; i++) {
-    vec2 q = pos(g*GS + i);
+  for(int i = 0; i < GS; i++) {
+    vec2 q = pos(g * GS + i);
     o.xy = min(o.xy, q);
     o.zw = max(o.zw, q);
   }
 }
 
-float sdLine(vec2 p, vec2 a, vec2 b ) {
-    vec2 pa = p-a, ba = b-a;
-    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
-    return length( pa - ba*h );
+float sdLine(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a, ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
 }
 
 vec2 midpoint(vec2 ll, vec2 l, vec2 r, vec2 rr) {
-  return (l + r)*0.5 + (l - ll)*0.125 + (r - rr)*0.125;
+  return (l + r) * 0.5 + (l - ll) * 0.125 + (r - rr) * 0.125;
 }
 
 float sdLine2(vec2 p, vec2 ll, vec2 l, vec2 r, vec2 rr) {
@@ -140,41 +142,45 @@ float sdLine2(vec2 p, vec2 ll, vec2 l, vec2 r, vec2 rr) {
 }
 
 float sdBox0(vec2 p, vec2 b) {
-    vec2 d = abs(p)-b;
-    return length(max(d,0.0)) + min(max(d.x,d.y),0.0);
+  vec2 d = abs(p) - b;
+  return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
 }
 
 float sdBox(vec2 p, vec2 a, vec2 b) {
-    return sdBox0(p - (a + b)*0.5, abs(a - b)*0.5);
+  return sdBox0(p - (a + b) * 0.5, abs(a - b) * 0.5);
 }
 
 float sdGroup(vec2 q, int i) {
-  vec4 ab = texelFetch(CH_GROUPS, ivec2(i,0), 0);
+  vec4 ab = texelFetch(CH_GROUPS, ivec2(i, 0), 0);
   return sdBox(q, ab.xy, ab.zw);
 }
 
 vec3 dist2flow(float d) {
   float flow = exp(-pow(d / R2, 2.));
-  float glow = pow(R0/d, 1.5)*exp(-pow(0.2*d/R0, 2.));
+  float glow = pow(R0 / d, 1.5) * exp(-pow(0.2 * d / R0, 2.));
   return vec3(flow, flow, glow);
 }
 
 float sdf(vec2 q) {
   float d = INF;
 
-  for (int j = 0; j < NG; j++) {
+  for(int j = 0; j < NG; j++) {
     float dmin = max(sdGroup(q, j), 0.);
-    if (dmin > d) continue;
+    if(dmin > d)
+      continue;
     vec3 cc = abs(dist2flow(dmin));
-    if (max(cc.x, cc.z) < 1e-3) continue;
+    if(max(cc.x, cc.z) < 1e-3)
+      continue;
 
-    vec2 ll = pos(j*GS - 2), l = pos(j*GS - 1), r = pos(j*GS);
-    int imax = min(N, j*GS + GS);
+    vec2 ll = pos(j * GS - 2), l = pos(j * GS - 1), r = pos(j * GS);
+    int imax = min(N, j * GS + GS);
 
-    for(int i = j*GS + 1; i <= imax + 1; i++) {
+    for(int i = j * GS + 1; i <= imax + 1; i++) {
       vec2 rr = pos(i);
       d = min(d, sdLine2(q, ll, l, r, rr));
-      ll = l; l = r; r = rr;
+      ll = l;
+      l = r;
+      r = rr;
     }
   }
 
@@ -182,39 +188,39 @@ float sdf(vec2 q) {
 }
 
 vec2 hash22(vec2 p) {
-	vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
+  vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
   p3 += dot(p3, p3.yzx + 33.33);
-  return fract((p3.xx + p3.yz)*p3.zy);
+  return fract((p3.xx + p3.yz) * p3.zy);
 
 }
 
 vec2 fbm22(vec2 p, int n) {
   vec2 sum = vec2(0);
-  for (int i = 0; i < n; i++) {
+  for(int i = 0; i < n; i++) {
     float s = float(2 << i);
-    sum += hash22(p*s)/s;
+    sum += hash22(p * s) / s;
   }
   return sum;
 }
 
 vec2 xy2ra(vec2 p) {
-  return vec2(length(p), atan(p.y,p.x));
+  return vec2(length(p), atan(p.y, p.x));
 }
 
 vec4 texFlow(vec2 p) {
-  return p.y > 0.0 && p.y < 1.0 - 1.0/iResolution.y ? texture(CH_FLOW, p) : vec4(0);
+  return p.y > 0.0 && p.y < 1.0 - 1.0 / iResolution.y ? texture(CH_FLOW, p) : vec4(0);
 }
 
 void updateFlow(out vec4 o, vec2 p) {
-  vec2 uv = p/iResolution;
-  vec2 ra = uv.yx * vec2(2.5, 2.*PI);
-  vec2 q = ra.x*iexp(ra.y);
-  float d = sdf(q/R1);
+  vec2 uv = p / iResolution;
+  vec2 ra = uv.yx * vec2(2.5, 2. * PI);
+  vec2 q = ra.x * iexp(ra.y);
+  float d = sdf(q / R1);
   o.rgb = dist2flow(d);
 
   vec2 zoom = vec2(1, 0.995);
-  o.r += 0.98 * texFlow(uv/zoom).r; // inflow
-  o.g += 0.97 * texFlow(uv*zoom).g; // + 0.005*texFlow(uv*zoom).r; // outflow
+  o.r += 0.98 * texFlow(uv / zoom).r; // inflow
+  o.g += 0.97 * texFlow(uv * zoom).g; // + 0.005*texFlow(uv*zoom).r; // outflow
 }
 
 vec3 flameRGB(float t) {
@@ -225,14 +231,14 @@ void updateImg(out vec4 o, vec2 p) {
   o = vec4(0, 0, 0, 1);
 
   vec2 q = p2q(p);
-  vec2 ra = xy2ra(q)/vec2(2.5, 2.*PI);
+  vec2 ra = xy2ra(q) / vec2(2.5, 2. * PI);
   vec3 e = texFlow(ra.yx).rgb;
 
   o.rgb += RGB_OUTFLOW * flameRGB(e.g);
   o.rgb += RGB_INFLOW * flameRGB(e.r);
   o.rgb += RGB_GLOW * flameRGB(e.b);
 
-  o.rgb = pow(o.rgb, vec3(1.0/2.2));
+  o.rgb = pow(o.rgb, vec3(1.0 / 2.2));
 
   vec2 uv = p / iResolution.xy;
   vec2 uv2 = uv * (1. - uv.yx);
@@ -245,7 +251,7 @@ void mainImage(out vec4 o, vec2 p) {
     return;
   }
 
-  if (iChannelId == 1) {
+  if(iChannelId == 1) {
     updateGroups(o, p);
     return;
   }
