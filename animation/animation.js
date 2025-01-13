@@ -70,8 +70,8 @@ async function fetchWaveData(ctx) {
 
 async function initShader(ctx, filename) {
   showStatus('Loading ' + filename + '...');
-  let adapter = await fetchText('./adapter.glsl');
-  let user_shader = await fetchText('./' + filename + '.glsl');
+  let adapter = await fetchText('./glsl/adapter.glsl');
+  let user_shader = await fetchText('./glsl/' + filename + '.glsl');
   let fshader = adapter.replace('//#include ${USER_SHADER}', user_shader);
   shaders[filename] = ctx.createTransformProgram({ fshader });
 }
