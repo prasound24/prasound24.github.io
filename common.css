@@ -198,6 +198,10 @@ button[disabled]:hover {
   opacity: 0.5;
 }
 
+#footer img {
+  opacity: 0.2;
+}
+
 #error_info:empty {
   display: none;
 }
