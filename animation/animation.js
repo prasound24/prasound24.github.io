@@ -17,7 +17,7 @@ const SAMPLE_RATE = 48000;
 
 let sound = null;
 let canvas = $('canvas#webgl');
-let spanFPS = $('#fps');
+let spanFPS = $('#fps'), spanFrameId = $('#frame_id');
 let shaders = {};
 
 init();
@@ -210,7 +210,8 @@ async function initWebGL() {
       iFrame++;
 
       let fps = (iFrame - stats.frames) / num_steps / (time_msec - stats.time) * 1000;
-      spanFPS.textContent = fps.toFixed(0) + ' fps ' + ' ' + iFrame;
+      spanFPS.textContent = 'fps ' + fps.toFixed(0);
+      spanFrameId.textContent = 'frame ' + iFrame;
     }
 
     if (time_msec) {
