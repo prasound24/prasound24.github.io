@@ -77,7 +77,8 @@ void updateString(out vec4 o, in vec2 p) {
     }
 
     // https://web.media.mit.edu/~crtaylor/calculator.html
-    //const float fd[3] = float[](1., -2., 1.);
+    //const float fdx[3] = float[](1., -2., 1.);
+    //const float fdt[3] = float[](1., -2., 1.);
     const float fdx[5] = float[](-1./12., 16./12., -30./12., 16./12., -1./12.);
     const float fdt[5] = float[](11./12., -20./12., 6./12., 4./12., -1./12.);
 
