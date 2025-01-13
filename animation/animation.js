@@ -12,10 +12,10 @@ const DEFAULT_IMG_ID = 'bass-clarinet_As2_very-long_mezzo-piano_harmonic';
 const LANDSCAPE = window.innerWidth > window.innerHeight;
 const W0 = 1920, H0 = 1080;
 const CW = +args.get('w') || (LANDSCAPE ? W0 : H0);
-const CH = +args.get('h') || (LANDSCAPE ? H0 : W0); 
+const CH = +args.get('h') || (LANDSCAPE ? H0 : W0);
 const SAMPLE_RATE = 48000;
 
-let sound = [0];
+let sound = null;
 let canvas = $('canvas#webgl');
 let spanFPS = $('#fps');
 let shaders = {};
@@ -42,6 +42,7 @@ function initErrHandler() {
 
 async function initSound() {
   let blob = await base.loadAudioSignal(args.get('src'));
+  if (!blob) return;
   sound = await utils.decodeAudioFile(blob, SAMPLE_RATE);
   console.log('Sound:', (sound.length / SAMPLE_RATE).toFixed(1), 'sec,', sound.length, 'samples');
 }
@@ -100,21 +101,24 @@ async function initWebGL() {
 
   let iChannelImage = await fetchWaveData(ctx);
   let iChannelSound = ctx.createFrameBuffer(CW, CH, 1);
-  let iChannel3 = ctx.createFrameBuffer(CW, CH, 4);
+  let iChannel0 = ctx.createFrameBuffer(CW, 4, 4);
+  let iChannel1 = ctx.createFrameBuffer(CW, 1, 4);
   let iChannel2 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
+  let iChannel3 = ctx.createFrameBuffer(CW, CH, 4);
   let bufferA = ctx.createFrameBuffer(iChannel0.width, iChannel0.height, iChannel0.channels);
   let bufferB = ctx.createFrameBuffer(iChannel1.width, iChannel1.height, iChannel1.channels);
   let bufferC = ctx.createFrameBuffer(iChannel2.width, iChannel2.height, iChannel2.channels);
   let bufferD = ctx.createFrameBuffer(iChannel3.width, iChannel3.height, iChannel3.channels);
-  let iSoundMax = sound.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
-  let iSoundLen = sound.length;
+  let iSoundMax = 0, iSoundLen = 0;
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
   let base_time = 0;
 
-  iChannelSound.upload(sound);
+  if (sound) {
+    iSoundMax = sound.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
+    iSoundLen = sound.length;
+    iChannelSound.upload(sound);
+  }
 
   if (canvas.requestFullscreen)
     $('#fullscreen').onclick = () => canvas.requestFullscreen();
@@ -213,7 +217,7 @@ async function initWebGL() {
       if (time_msec > stats.time + 5000) {
         stats.time = time_msec;
         stats.frames = iFrame;
-        console.debug('sound:', (iFrame / sound.length * 100).toFixed() + '%');
+        sound && console.debug('sound:', (iFrame / sound.length * 100).toFixed() + '%');
       }
       animationId = requestAnimationFrame(drawFrame);
     }

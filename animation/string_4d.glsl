@@ -2,7 +2,7 @@
 #define CH_GROUPS iChannel1
 #define CH_FLOW iChannel2
 
-const float INF = 1e10;
+const float INF = 1e6, EPS = 1e-6;
 
 // Simulation consts
 const int N = 256;
@@ -115,12 +115,34 @@ vec2 pos(int i) {
         r.xz *= rot2(PI * m.x);
     }
     // basic perspective projection
-    r.xyz /= 1.0 - r.w;
-    r.xy /= 1.0 - r.z;
+    r.xyz /= 1.25 - r.w;
+    r.xy /= 1.25 - r.z;
     return r.xy;
 }
 
+vec3 dist2flow(float d) {
+    float flow = exp(-pow(d / R2, 2.));
+    float glow = pow(R0 / d, 1.5) * exp(-pow(0.2 * d / R0, 2.));
+    return vec3(flow, flow, glow);
+}
+
+float estMaxDist() {
+  float d1 = 0.0001, d2 = 0.1;
+
+  for (int i = 0; i < 10; i++) {
+    float d = mix(d1, d2, 0.5);
+    vec3 e = dist2flow(d);
+    if (max(e.y, e.z) > 1e-6)
+      d1 = d;
+    else 
+      d2 = d;
+  }
+
+  return d2;
+}
+
 void updateGroups(out vec4 o, vec2 p) {
+    float d = estMaxDist();
     ivec2 pp = ivec2(p);
     int g = pp.x; // group id
 
@@ -132,8 +154,8 @@ void updateGroups(out vec4 o, vec2 p) {
 
     for(int i = 0; i < GS; i++) {
         vec2 q = pos(g * GS + i);
-        o.xy = min(o.xy, q);
-        o.zw = max(o.zw, q);
+        o.xy = min(o.xy, q - d);
+        o.zw = max(o.zw, q + d);
     }
 }
 
@@ -147,11 +169,6 @@ vec2 midpoint(vec2 ll, vec2 l, vec2 r, vec2 rr) {
     return (l + r) * 0.5 + (l - ll) * 0.125 + (r - rr) * 0.125;
 }
 
-float sdLine2(vec2 p, vec2 ll, vec2 l, vec2 r, vec2 rr) {
-    vec2 m = midpoint(ll, l, r, rr);
-    return min(sdLine(p, l, m), sdLine(p, r, m));
-}
-
 float sdBox0(vec2 p, vec2 b) {
     vec2 d = abs(p) - b;
     return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
@@ -163,39 +180,34 @@ float sdBox(vec2 p, vec2 a, vec2 b) {
 
 float sdGroup(vec2 q, int i) {
     vec4 ab = texelFetch(CH_GROUPS, ivec2(i, 0), 0);
-    return sdBox(q, ab.xy, ab.zw);
-}
-
-vec3 dist2flow(float d) {
-    float flow = exp(-pow(d / R2, 2.));
-    float glow = pow(R0 / d, 1.5) * exp(-pow(0.2 * d / R0, 2.));
-    return vec3(flow, flow, glow);
+    return max(sdBox(q, ab.xy, ab.zw), 0.);
 }
 
 float sdf(vec2 q) {
-    float d = INF;
+    float d = estMaxDist(); // as good as INF
+    float d2 = d;
+    float r0 = 0.0015;
 
     for(int j = 0; j < NG; j++) {
-        float dmin = max(sdGroup(q, j), 0.);
-        if(dmin > d)
-            continue;
-        vec3 cc = abs(dist2flow(dmin));
-        if(max(cc.x, cc.z) < 1e-3)
+        if(sdGroup(q, j) > d)
             continue;
 
-        vec2 ll = pos(j * GS - 2), l = pos(j * GS - 1), r = pos(j * GS);
-        int imax = min(N, j * GS + GS);
+        int imin = j * GS;
+        int imax = j * GS + GS + 1;
+        vec2 ll = pos(imin - 2), l = pos(imin - 1), r = pos(imin);
 
-        for(int i = j * GS + 1; i <= imax + 1; i++) {
+        for(int i = imin + 1; i <= imax; i++) {
             vec2 rr = pos(i);
-            d = min(d, sdLine2(q, ll, l, r, rr));
-            ll = l;
-            l = r;
-            r = rr;
+            vec2 m = midpoint(ll, l, r, rr);
+            d = min(d, sdLine(q, l, m));
+            d = min(d, sdLine(q, r, m));
+            //d2 = min(d2, abs(length(q - r) - r0));
+            //d2 = min(d2, abs(length(q - m) - r0));
+            ll = l, l = r, r = rr;
         }
     }
 
-    return d;
+    return min(d, d2);
 }
 
 vec2 hash22(vec2 p) {
