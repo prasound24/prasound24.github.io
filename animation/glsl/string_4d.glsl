@@ -9,6 +9,7 @@ const int N = 256;
 const int GS = int(sqrt(float(N))); // group size
 const int NG = (N + GS - 1) / GS; // number of groups
 const float MASS = 25.0;
+const float ZOOM = 1.0;
 
 // Rendering consts
 const vec3 RGB_OUTFLOW = 0.3 * vec3(0.1, 0.4, 1.5);
@@ -118,7 +119,7 @@ vec2 pos(int i) {
     // basic perspective projection
     r.xyz /= 1.25 - r.w;
     r.xy /= 1.25 - r.z;
-    return r.xy;
+    return r.xy * ZOOM;
 }
 
 vec3 dist2flow(float d) {
@@ -184,10 +185,9 @@ float sdGroup(vec2 q, int i) {
     return max(sdBox(q, ab.xy, ab.zw), 0.);
 }
 
-float sdf(vec2 q) {
+vec3 sdf(vec2 q) {
     float d = estMaxDist(); // as good as INF
-    float d2 = d;
-    float r0 = 0.0015;
+    vec3 sum;
 
     for(int j = 0; j < NG; j++) {
         if(sdGroup(q, j) > d)
@@ -200,15 +200,13 @@ float sdf(vec2 q) {
         for(int i = imin + 1; i <= imax; i++) {
             vec2 rr = pos(i);
             vec2 m = midpoint(ll, l, r, rr);
-            d = min(d, sdLine(q, l, m));
-            d = min(d, sdLine(q, r, m));
-            //d2 = min(d2, abs(length(q - r) - r0));
-            //d2 = min(d2, abs(length(q - m) - r0));
+            sum += dist2flow(sdLine(q, l, m));
+            sum += dist2flow(sdLine(q, r, m));
             ll = l, l = r, r = rr;
         }
     }
 
-    return min(d, d2);
+    return sum;
 }
 
 vec2 hash22(vec2 p) {
@@ -239,11 +237,10 @@ void updateFlow(out vec4 o, vec2 p) {
     vec2 uv = p / iResolution;
     vec2 ra = uv.yx * vec2(2.5, 2. * PI);
     vec2 q = ra.x * iexp(ra.y);
-    float d = sdf(q / R1);
-    o.rgb = dist2flow(d);
+    o.rgb = sdf(q / R1);
 
     vec2 zoom = vec2(1, 0.995);
-    o.r += 0.98 * texFlow(uv / zoom).r; // inflow
+    o.r += 0.97 * texFlow(uv / zoom).r; // inflow
     o.g += 0.97 * texFlow(uv * zoom).g; // + 0.005*texFlow(uv*zoom).r; // outflow
 }
 
