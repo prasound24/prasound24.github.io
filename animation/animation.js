@@ -147,6 +147,11 @@ async function initWebGL() {
 
   function runShader(name, args, out = null) {
     let iResolution = out ? [out.width, out.height] : [canvas.width, canvas.height];
+    args = { ...args, iChannel0, iChannel1, iChannel2, iChannel3 };
+    args.iChannelResolution0 = [iChannel0.width, iChannel0.height];
+    args.iChannelResolution1 = [iChannel1.width, iChannel1.height];
+    args.iChannelResolution2 = [iChannel2.width, iChannel2.height];
+    args.iChannelResolution3 = [iChannel3.width, iChannel3.height];
     shaders[name].draw({ ...args, iResolution }, out);
   }
 
@@ -164,18 +169,22 @@ async function initWebGL() {
       let iMouse = [0, 0, 0];
       let args = {
         iTime, iMouse, iFrame, iSoundMax, iSoundLen,
-        iChannel0, iChannel1, iChannel2, iChannel3,
         iChannelSound, iChannelImage
       };
-      args.iChannelResolution0 = [iChannel0.width, iChannel0.height];
-      args.iChannelResolution1 = [iChannel1.width, iChannel1.height];
-      args.iChannelResolution2 = [iChannel2.width, iChannel2.height];
-      args.iChannelResolution3 = [iChannel3.width, iChannel3.height];
 
       runShader('string_4d', { ...args, iChannelId: 0 }, bufferA);
-      runShader('string_4d', { ...args, iChannelId: 1 }, bufferB);
+      [iChannel0, bufferA] = [bufferA, iChannel0];
+
+      for (let i = 0; i < 2; i++) {
+        runShader('string_4d', { ...args, iChannelId: 1 }, bufferB);
+        [iChannel1, bufferB] = [bufferB, iChannel1];
+      }
+
       runShader('string_4d', { ...args, iChannelId: 2 }, bufferC);
+      [iChannel2, bufferC] = [bufferC, iChannel2];
+
       runShader('string_4d', { ...args, iChannelId: 3 }, bufferD);
+      [iChannel3, bufferD] = [bufferD, iChannel3];
 
       if (k == 1) runShader('string_4d', { ...args, iChannelId: -1 });
 
@@ -202,10 +211,10 @@ async function initWebGL() {
       //runShader('minmax', { ...args, iSound }, bufferB);
       //if (k == 1) runShader('drum_img', args);
 
-      [iChannel0, bufferA] = [bufferA, iChannel0];
-      [iChannel1, bufferB] = [bufferB, iChannel1];
-      [iChannel2, bufferC] = [bufferC, iChannel2];
-      [iChannel3, bufferD] = [bufferD, iChannel3];
+      //[iChannel0, bufferA] = [bufferA, iChannel0];
+      //[iChannel1, bufferB] = [bufferB, iChannel1];
+      //[iChannel2, bufferC] = [bufferC, iChannel2];
+      //[iChannel3, bufferD] = [bufferD, iChannel3];
 
       iFrame++;
 

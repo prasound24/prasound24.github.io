@@ -53,7 +53,7 @@ vec4 initPos(ivec2 pp) {
 
 vec4 texString(ivec2 p) {
     //p = ivec2(mod(vec2(p), vec2(ivec2(N, 2))));
-    p.x = int(mod(float(p.x), float(N))); 
+    p.x = int(mod(float(p.x), float(N)));
     return texelFetch(CH_STRING, p, 0);
 }
 
@@ -80,19 +80,17 @@ void updateString(out vec4 o, in vec2 p) {
     // https://web.media.mit.edu/~crtaylor/calculator.html
     //const float fdx[3] = float[](1., -2., 1.);
     //const float fdt[3] = float[](1., -2., 1.);
-    const float fdx[5] = float[](-1./12., 16./12., -30./12., 16./12., -1./12.);
-    const float fdt[5] = float[](11./12., -20./12., 6./12., 4./12., -1./12.);
+    const float fdx[5] = float[](-1. / 12., 16. / 12., -30. / 12., 16. / 12., -1. / 12.);
+    const float fdt[5] = float[](11. / 12., -20. / 12., 6. / 12., 4. / 12., -1. / 12.);
 
     vec4 sum = vec4(0);
-    for (int i = 1; i < fdt.length(); i++)
-        sum += fdt[i]*texString(pp + dt*(i - 1));
+    for(int i = 1; i < fdt.length(); i++) sum += fdt[i] * texString(pp + dt * (i - 1));
 
     vec4 T = vec4(0);
-    for (int i = 0; i < fdx.length(); i++)
-        T += fdx[i]*texString(pp + dx*(i - fdx.length()/2)); // Hooke's law
-    
+    for(int i = 0; i < fdx.length(); i++) T += fdx[i] * texString(pp + dx * (i - fdx.length() / 2)); // Hooke's law
+
     vec4 cc = texString(pp); // length(cc) = 1
-    vec4 ds = (-sum + T/MASS)/fdt[0] - cc;
+    vec4 ds = (-sum + T / MASS) / fdt[0] - cc;
     ds -= cc * dot(cc, ds); // make it tangent to the unit sphere
     o = normalize(cc + ds); // F=ma
 }
@@ -129,35 +127,42 @@ vec3 dist2flow(float d) {
 }
 
 float estMaxDist() {
-  float d1 = 0.0001, d2 = 0.1;
+    float d1 = 0.0001, d2 = 0.1;
 
-  for (int i = 0; i < 10; i++) {
-    float d = mix(d1, d2, 0.5);
-    vec3 e = dist2flow(d);
-    if (max(e.y, e.z) > 1e-6)
-      d1 = d;
-    else 
-      d2 = d;
-  }
+    for(int i = 0; i < 10; i++) {
+        float d = mix(d1, d2, 0.5);
+        vec3 e = dist2flow(d);
+        if(max(e.y, e.z) > 1e-6)
+            d1 = d;
+        else
+            d2 = d;
+    }
 
-  return d2;
+    return d2;
 }
 
 void updateGroups(out vec4 o, vec2 p) {
-    float d = estMaxDist();
     ivec2 pp = ivec2(p);
     int g = pp.x; // group id
 
-    if(g >= NG || pp.y > 0)
+    if(g > NG || pp.y > 0)
         discard;
 
     o.xy = +vec2(INF); // box min
     o.zw = -vec2(INF); // box max
 
-    for(int i = 0; i < GS; i++) {
-        vec2 q = pos(g * GS + i);
-        o.xy = min(o.xy, q - d);
-        o.zw = max(o.zw, q + d);
+    if(g == 0) {
+        for(int i = 1; i <= GS; i++) {
+            vec4 b = texelFetch(CH_GROUPS, ivec2(i, 0), 0);
+            o.xy = min(o.xy, b.xy);
+            o.zw = max(o.zw, b.zw);
+        }
+    } else {
+        for(int i = 1; i <= GS + 1; i++) {
+            vec2 a = pos(g * GS + i);
+            o.xy = min(o.xy, a);
+            o.zw = max(o.zw, a);
+        }
     }
 }
 
@@ -187,17 +192,20 @@ float sdGroup(vec2 q, int i) {
 
 vec3 sdf(vec2 q) {
     float d = estMaxDist(); // as good as INF
+    if(sdGroup(q, 0) > d)
+        return vec3(0);
+
     vec3 sum;
 
-    for(int j = 0; j < NG; j++) {
+    for(int j = 1; j <= NG; j++) {
         if(sdGroup(q, j) > d)
             continue;
 
-        int imin = j * GS;
-        int imax = j * GS + GS + 1;
+        int imin = j * GS + 1;
+        int imax = j * GS + GS;
         vec2 ll = pos(imin - 2), l = pos(imin - 1), r = pos(imin);
 
-        for(int i = imin + 1; i <= imax; i++) {
+        for(int i = imin + 1; i <= imax + 1; i++) {
             vec2 rr = pos(i);
             vec2 m = midpoint(ll, l, r, rr);
             sum += dist2flow(sdLine(q, l, m));
