@@ -101,7 +101,7 @@ async function initWebGL() {
 
   let iChannelImage = await fetchWaveData(ctx);
   let iChannelSound = ctx.createFrameBuffer(CW, CH, 1);
-  let iChannel0 = ctx.createFrameBuffer(CW, 4, 4);
+  let iChannel0 = ctx.createFrameBuffer(CW, 2, 4);
   let iChannel1 = ctx.createFrameBuffer(CW, 1, 4);
   let iChannel2 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel3 = ctx.createFrameBuffer(CW, CH, 4);
@@ -129,17 +129,17 @@ async function initWebGL() {
     if (animationId) {
       cancelAnimationFrame(animationId);
       animationId = 0;
-      console.log('animation stopped');
+      //console.log('animation stopped');
     } else {
       animationId = requestAnimationFrame(drawFrame);
-      console.log('animation started');
+      //console.log('animation started');
     }
   };
 
   document.onkeydown = (e) => {
     if (!animationId) {
       let key = e.key.toUpperCase();
-      console.debug('onkeydown:', key);
+      //console.debug('onkeydown:', key);
       if (key == 'ARROWRIGHT')
         drawFrame();
     }
@@ -227,7 +227,7 @@ async function initWebGL() {
       if (time_msec > stats.time + 5000) {
         stats.time = time_msec;
         stats.frames = iFrame;
-        sound && console.debug('sound:', (iFrame / sound.length * 100).toFixed() + '%');
+        //sound && console.debug('sound:', (iFrame / sound.length * 100).toFixed() + '%');
       }
       animationId = requestAnimationFrame(drawFrame);
     }

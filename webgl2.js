@@ -3,7 +3,7 @@
 const dcheck = (x) => { if (x) return; debugger; throw new Error('webgl2 dcheck'); };
 
 const DEBUG = false;
-const FBO_MAX_SIZE = 2 ** 27;
+const FBO_MAX_SIZE = 2 ** 28;
 
 const SHADER_PREFACE = `
   #version 300 es
@@ -117,7 +117,7 @@ export class GpuContext {
       depth: false,
       stencil: false,
       antialias: false,
-      preserveDrawingBuffer: true,
+      preserveDrawingBuffer: true, // enables 'Save Image As'
     };
 
     for (let s in config)

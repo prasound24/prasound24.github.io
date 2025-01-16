@@ -42,7 +42,7 @@ vec4 initPos(ivec2 pp) {
     float x = sin(phi * 1.0);
     float y = cos(phi * 1.0);
 
-    float z = 1.0 * sin(phi * 3.0) - 0.4;
+    float z = 1.0 * sin(phi * 3.0) - 0.3;
     float w = 0.3 * cos(phi * 3.0);
 
     vec3 xyz = vec3(vec2(x, y) * cos(z), sin(z));
@@ -80,19 +80,23 @@ void updateString(out vec4 o, in vec2 p) {
     // https://web.media.mit.edu/~crtaylor/calculator.html
     //const float fdx[3] = float[](1., -2., 1.);
     //const float fdt[3] = float[](1., -2., 1.);
-    const float fdx[5] = float[](-1. / 12., 16. / 12., -30. / 12., 16. / 12., -1. / 12.);
-    const float fdt[5] = float[](11. / 12., -20. / 12., 6. / 12., 4. / 12., -1. / 12.);
+    //const float fdx[5] = float[](-1. / 12., 16. / 12., -30. / 12., 16. / 12., -1. / 12.);
+    //const float fdt[5] = float[](11. / 12., -20. / 12., 6. / 12., 4. / 12., -1. / 12.);
+    //vec4 sum = vec4(0);
+    //for(int i = 1; i < fdt.length(); i++) sum += fdt[i] * texString(pp + dt * (i - 1));
+    //vec4 T = vec4(0);
+    //for(int i = 0; i < fdx.length(); i++) T += fdx[i] * texString(pp + dx * (i - fdx.length() / 2)); // Hooke's law
 
-    vec4 sum = vec4(0);
-    for(int i = 1; i < fdt.length(); i++) sum += fdt[i] * texString(pp + dt * (i - 1));
-
-    vec4 T = vec4(0);
-    for(int i = 0; i < fdx.length(); i++) T += fdx[i] * texString(pp + dx * (i - fdx.length() / 2)); // Hooke's law
-
-    vec4 cc = texString(pp); // length(cc) = 1
-    vec4 ds = (-sum + T / MASS) / fdt[0] - cc;
-    ds -= cc * dot(cc, ds); // make it tangent to the unit sphere
-    o = normalize(cc + ds); // F=ma
+    // All four are in one plane tangent to the unit sphere at c.
+    vec4 c = texString(pp); // length(cc) = 1
+    vec4 l = texString(pp - dx), ll = l / dot(l, c);
+    vec4 r = texString(pp + dx), rr = r / dot(r, c);
+    vec4 d = texString(pp + dt), dd = d / dot(d, c);
+    
+    vec4 ds = ((ll - c) + (rr - c))/MASS - (dd - c);
+    //vec4 ds = (-sum + T / MASS) / fdt[0] - cc;
+    // ds -= c * dot(c, ds); // make it tangent to the unit sphere
+    o = normalize(c + ds); // F=ma
 }
 
 vec2 p2q(vec2 p) {
@@ -195,8 +199,6 @@ vec3 sdf(vec2 q) {
     if(sdGroup(q, 0) > d)
         return vec3(0);
 
-    vec3 sum;
-
     for(int j = 1; j <= NG; j++) {
         if(sdGroup(q, j) > d)
             continue;
@@ -205,16 +207,16 @@ vec3 sdf(vec2 q) {
         int imax = j * GS + GS;
         vec2 ll = pos(imin - 2), l = pos(imin - 1), r = pos(imin);
 
-        for(int i = imin + 1; i <= imax + 1; i++) {
+        for(int i = imin + 1; i <= imax + 2; i++) {
             vec2 rr = pos(i);
             vec2 m = midpoint(ll, l, r, rr);
-            sum += dist2flow(sdLine(q, l, m));
-            sum += dist2flow(sdLine(q, r, m));
+            d = min(d, sdLine(q, l, m));
+            d = min(d, sdLine(q, r, m));
             ll = l, l = r, r = rr;
         }
     }
 
-    return sum;
+    return dist2flow(d);
 }
 
 vec2 hash22(vec2 p) {
@@ -248,8 +250,8 @@ void updateFlow(out vec4 o, vec2 p) {
     o.rgb = sdf(q / R1);
 
     vec2 zoom = vec2(1, 0.995);
-    o.r += 0.97 * texFlow(uv / zoom).r; // inflow
-    o.g += 0.97 * texFlow(uv * zoom).g; // + 0.005*texFlow(uv*zoom).r; // outflow
+    o.r += 0.98 * texFlow(uv / zoom).r; // inflow
+    o.g += 0.98 * texFlow(uv * zoom).g; // + 0.005*texFlow(uv*zoom).r; // outflow
 }
 
 vec3 flameRGB(float t) {
