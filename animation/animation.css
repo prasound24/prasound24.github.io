@@ -11,12 +11,12 @@ p {
   padding: 1em;
 }
 
-#fullscreen {
+#fullscreen, #download {
   cursor: pointer;
   opacity: 0.5;
 }
 
-#fullscreen:hover {
+#fullscreen:hover, #download:hover {
   opacity: 1;
 }
 

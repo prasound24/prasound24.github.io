@@ -145,6 +145,33 @@ async function initWebGL() {
     }
   };
 
+  $('#download').onclick = () => downloadPNG();
+
+  function downloadPNG() {
+    console.debug('Saving the float32 RGBA framebuffer');
+    let args = initShaderArgs();
+    runShader('string_4d', { ...args, iChannelId: -1 }, bufferD);
+    let f32 = bufferD.download();
+    dcheck(f32.length == CW * CH * 4);
+
+    console.debug('Creating a int16 RGBA PNG image');
+    let u16 = new Uint16Array(CW * CH * 4);
+    for (let i = 0; i < CW * CH * 4; i++) {
+      let CW4 = CW * 4, y = i / CW4 | 0, x = i % CW4;
+      let j = (CH - 1 - y) * CW4 + x; // flip Y
+      let b = utils.clamp(f32[j], 0, 1) * 0xFFFF;
+      u16[i] = (b >> 8) | ((b & 255) << 8); // big-endian for PNG
+    }
+    let png = UPNG.encodeLL([u16.buffer], CW, CH, 3, 1, 16);
+
+    console.log('Downloading the PNG image:', (png.byteLength / 2 ** 20).toFixed(1), 'MB');
+    let blob = new Blob([png], { type: 'image/png' });
+    let a = document.createElement('a');
+    a.download = 'image.png';
+    a.href = URL.createObjectURL(blob);
+    a.click();
+  }
+
   function runShader(name, args, out = null) {
     let iResolution = out ? [out.width, out.height] : [canvas.width, canvas.height];
     args = { ...args, iChannel0, iChannel1, iChannel2, iChannel3 };
@@ -153,6 +180,15 @@ async function initWebGL() {
     args.iChannelResolution2 = [iChannel2.width, iChannel2.height];
     args.iChannelResolution3 = [iChannel3.width, iChannel3.height];
     shaders[name].draw({ ...args, iResolution }, out);
+  }
+
+  function initShaderArgs(time_msec = performance.now()) {
+    let iTime = (time_msec - base_time) / 1000;
+    let iMouse = [0, 0, 0];
+    return {
+      iTime, iMouse, iFrame, iSoundMax, iSoundLen,
+      iChannelSound, iChannelImage
+    };
   }
 
   function drawFrame(time_msec = 0) {
@@ -165,12 +201,7 @@ async function initWebGL() {
     let num_steps = 1;
 
     for (let k = num_steps; k > 0; k--) {
-      let iTime = (time_msec - base_time) / 1000;
-      let iMouse = [0, 0, 0];
-      let args = {
-        iTime, iMouse, iFrame, iSoundMax, iSoundLen,
-        iChannelSound, iChannelImage
-      };
+      let args = initShaderArgs(time_msec);
 
       runShader('string_4d', { ...args, iChannelId: 0 }, bufferA);
       [iChannel0, bufferA] = [bufferA, iChannel0];
