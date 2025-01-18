@@ -199,7 +199,7 @@ void updateGroups(out vec4 o, vec2 p) {
         o.zw = -vec2(INF); // box max
 
         if(int(p.x) == 0) {
-            for(int i = 1; i <= GS; i++) {
+            for(int i = 1; i <= NG; i++) {
                 vec4 b = texelFetch(CH_GROUPS, ivec2(i, 0), 0);
                 o.xy = min(o.xy, b.xy);
                 o.zw = max(o.zw, b.zw);

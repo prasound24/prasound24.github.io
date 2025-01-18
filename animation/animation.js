@@ -251,7 +251,7 @@ async function initWebGL() {
 
       let fps = (iFrame - stats.frames) / num_steps / (time_msec - stats.time) * 1000;
       spanFPS.textContent = 'fps ' + fps.toFixed(0);
-      spanFrameId.textContent = 'frame ' + iFrame;
+      spanFrameId.textContent = iFrame;
     }
 
     if (time_msec) {
