@@ -18,6 +18,7 @@ p {
 
 #fullscreen:hover, #download:hover {
   opacity: 1;
+  background: #444;
 }
 
 canvas#webgl {

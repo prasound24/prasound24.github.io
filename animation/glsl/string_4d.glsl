@@ -2,7 +2,7 @@
 #define CH_GROUPS iChannel1
 #define CH_FLOW iChannel2
 
-const float INF = 1e6, EPS = 1e-6;
+const float INF = 1e6;
 
 // Simulation consts
 const int N = 256;
@@ -10,13 +10,13 @@ const int GS = int(sqrt(float(N))); // group size
 const int NG = (N + GS - 1) / GS; // number of groups
 const float MASS = 25.0;
 const float ZOOM = 1.0;
+const int NBOX = 32;
 
 // Rendering consts
 const vec3 RGB_OUTFLOW = 0.3 * vec3(0.1, 0.4, 1.5);
 const vec3 RGB_INFLOW = vec3(1.5, 0.4, 0.1);
 const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
 const float R0 = 0.005;
-const float R1 = 1.0;
 const float R2 = 0.02 / 7.5;
 
 vec2 iexp(float phi) {
@@ -92,8 +92,8 @@ void updateString(out vec4 o, in vec2 p) {
     vec4 l = texString(pp - dx), ll = l / dot(l, c);
     vec4 r = texString(pp + dx), rr = r / dot(r, c);
     vec4 d = texString(pp + dt), dd = d / dot(d, c);
-    
-    vec4 ds = ((ll - c) + (rr - c))/MASS - (dd - c);
+
+    vec4 ds = ((ll - c) + (rr - c)) / MASS - (dd - c);
     //vec4 ds = (-sum + T / MASS) / fdt[0] - cc;
     // ds -= c * dot(c, ds); // make it tangent to the unit sphere
     o = normalize(c + ds); // F=ma
@@ -145,28 +145,83 @@ float estMaxDist() {
     return d2;
 }
 
+bool boxIntersect0(vec4 a, vec4 b) {
+    vec4 ab = vec4(min(a.xy, b.xy), max(a.zw, b.zw));
+    vec2 d = (ab.zw - ab.xy) - (a.zw - a.xy) - (b.zw - b.xy);
+    return max(d.x, d.y) < 0.;
+}
+
+bool boxIntersect(vec4 a, int i) {
+    vec4 b = texelFetch(CH_GROUPS, ivec2(i, 0), 0);
+    return boxIntersect0(a, b);
+}
+
+ivec4 findImpactRange(vec4 box) {
+    float dmax = estMaxDist(); // as good as INF
+    box.xy -= dmax;
+    box.zw += dmax;
+
+    if(!boxIntersect(box, 0))
+        return ivec4(0);
+
+    ivec4 rr = ivec4(N, 0, N, 0);
+
+    for(int j = 1; j <= NG; j++) {
+        if(!boxIntersect(box, j))
+            continue;
+
+        int imin = j * GS + 1;
+        int imax = j * GS + GS;
+        vec2 l = pos(imin - 1), r;
+
+        for(int i = imin; i <= imax + 2; i++) {
+            vec2 r = pos(i);
+            vec4 lr = vec4(min(l.xy, r.xy), max(l.xy, r.xy));
+            if (boxIntersect0(box, lr)) {
+                if (i < N/2)
+                    rr.x = min(rr.x, i), rr.y = max(rr.y, i+1);
+                else 
+                    rr.z = min(rr.z, i), rr.w = max(rr.w, i+1);
+            }
+            l = r;
+        }
+    }
+
+    return rr;
+}
+
 void updateGroups(out vec4 o, vec2 p) {
-    ivec2 pp = ivec2(p);
-    int g = pp.x; // group id
+    if(p.y < 1.0) {
+        if (int(p.x) > NG)
+            discard;
 
-    if(g > NG || pp.y > 0)
-        discard;
+        o.xy = +vec2(INF); // box min
+        o.zw = -vec2(INF); // box max
 
-    o.xy = +vec2(INF); // box min
-    o.zw = -vec2(INF); // box max
-
-    if(g == 0) {
-        for(int i = 1; i <= GS; i++) {
-            vec4 b = texelFetch(CH_GROUPS, ivec2(i, 0), 0);
-            o.xy = min(o.xy, b.xy);
-            o.zw = max(o.zw, b.zw);
+        if(int(p.x) == 0) {
+            for(int i = 1; i <= GS; i++) {
+                vec4 b = texelFetch(CH_GROUPS, ivec2(i, 0), 0);
+                o.xy = min(o.xy, b.xy);
+                o.zw = max(o.zw, b.zw);
+            }
+        } else {
+            for(int i = 1; i <= GS + 1; i++) {
+                vec2 a = pos(int(p.x) * GS + i);
+                o.xy = min(o.xy, a);
+                o.zw = max(o.zw, a);
+            }
         }
-    } else {
-        for(int i = 1; i <= GS + 1; i++) {
-            vec2 a = pos(g * GS + i);
-            o.xy = min(o.xy, a);
-            o.zw = max(o.zw, a);
-        }
+        return;
+    }
+
+    if(p.y > 1.0 && iPass == 2) {
+        vec2 b1 = (p - vec2(0, 1)) * float(NBOX);
+        vec2 b2 = (p + vec2(1, 0)) * float(NBOX);
+        if(b1.x > iResolution.x || b1.y > iResolution.y)
+            discard;
+        vec4 box = vec4(p2q(b1), p2q(b2));
+        o = vec4(findImpactRange(box));
+        return;
     }
 }
 
@@ -194,29 +249,52 @@ float sdGroup(vec2 q, int i) {
     return max(sdBox(q, ab.xy, ab.zw), 0.);
 }
 
-vec3 sdf(vec2 q) {
+void sdf0(vec2 q, int imin, int imax, inout float d, inout int lookups) {
+    if (imax <= imin)
+        return;
+
+    lookups += 3;
+    vec2 ll = pos(imin - 1), l = pos(imin), r = pos(imin + 1);
+
+    for(int i = imin; i <= imax; i++) {
+        lookups++;
+        vec2 rr = pos(i + 2);
+        vec2 m = midpoint(ll, l, r, rr);
+        d = min(d, sdLine(q, l, m));
+        d = min(d, sdLine(q, r, m));
+        ll = l, l = r, r = rr;
+    }
+} 
+
+vec4 sdf(vec2 q) {
+    int lookups = 0;
     float d = estMaxDist(); // as good as INF
+
+    lookups++;
+    ivec4 ir = ivec4(texelFetch(CH_GROUPS, ivec2(q2p(q))/NBOX + ivec2(0,1), 0));
+    if (max(ir.y - ir.x, 0) + max(ir.w - ir.z, 0) < 1)
+        return vec4(0,0,0,lookups);
+
+    sdf0(q, ir.x, ir.y - 1, d, lookups);
+    sdf0(q, ir.z, ir.w - 1, d, lookups);
+
+    /*
+    lookups++;
     if(sdGroup(q, 0) > d)
-        return vec3(0);
+        return vec4(0, 0, 0, lookups);
 
     for(int j = 1; j <= NG; j++) {
+        lookups++;
         if(sdGroup(q, j) > d)
             continue;
 
         int imin = j * GS + 1;
         int imax = j * GS + GS;
-        vec2 ll = pos(imin - 2), l = pos(imin - 1), r = pos(imin);
-
-        for(int i = imin + 1; i <= imax + 2; i++) {
-            vec2 rr = pos(i);
-            vec2 m = midpoint(ll, l, r, rr);
-            d = min(d, sdLine(q, l, m));
-            d = min(d, sdLine(q, r, m));
-            ll = l, l = r, r = rr;
-        }
+        sdf0(q, imin, imax, d, lookups);
     }
+    */
 
-    return dist2flow(d);
+    return vec4(dist2flow(d), float(lookups));
 }
 
 vec2 hash22(vec2 p) {
@@ -247,7 +325,7 @@ void updateFlow(out vec4 o, vec2 p) {
     vec2 uv = p / iResolution;
     vec2 ra = uv.yx * vec2(2.5, 2. * PI);
     vec2 q = ra.x * iexp(ra.y);
-    o.rgb = sdf(q / R1);
+    o = sdf(q);
 
     vec2 zoom = vec2(1, 0.995);
     o.r += 0.98 * texFlow(uv / zoom).r; // inflow
@@ -263,11 +341,12 @@ void updateImg(out vec4 o, vec2 p) {
 
     vec2 q = p2q(p);
     vec2 ra = xy2ra(q) / vec2(2.5, 2. * PI);
-    vec3 e = texFlow(ra.yx).rgb;
+    vec4 e = texFlow(ra.yx);
 
     o.rgb += RGB_OUTFLOW * flameRGB(e.g);
     o.rgb += RGB_INFLOW * flameRGB(e.r);
     o.rgb += RGB_GLOW * flameRGB(e.b);
+    //o.rgb += RGB_GLOW * flameRGB(e.a/32.);
 
     o.rgb = pow(o.rgb, vec3(1.0 / 2.2));
 
