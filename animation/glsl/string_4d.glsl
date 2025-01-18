@@ -17,7 +17,7 @@ const vec3 RGB_OUTFLOW = 0.3 * vec3(0.1, 0.4, 1.5);
 const vec3 RGB_INFLOW = vec3(1.5, 0.4, 0.1);
 const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
 const float R0 = 0.005;
-const float R2 = 0.02 / 7.5;
+const float R2 = 0.0025;
 
 vec2 iexp(float phi) {
     return vec2(cos(phi), sin(phi));
@@ -270,15 +270,14 @@ vec4 sdf(vec2 q) {
     int lookups = 0;
     float d = estMaxDist(); // as good as INF
 
-    lookups++;
+    /* lookups++;
     ivec4 ir = ivec4(texelFetch(CH_GROUPS, ivec2(q2p(q))/NBOX + ivec2(0,1), 0));
     if (max(ir.y - ir.x, 0) + max(ir.w - ir.z, 0) < 1)
         return vec4(0,0,0,lookups);
 
     sdf0(q, ir.x, ir.y - 1, d, lookups);
-    sdf0(q, ir.z, ir.w - 1, d, lookups);
+    sdf0(q, ir.z, ir.w - 1, d, lookups); */
 
-    /*
     lookups++;
     if(sdGroup(q, 0) > d)
         return vec4(0, 0, 0, lookups);
@@ -292,7 +291,6 @@ vec4 sdf(vec2 q) {
         int imax = j * GS + GS;
         sdf0(q, imin, imax, d, lookups);
     }
-    */
 
     return vec4(dist2flow(d), float(lookups));
 }

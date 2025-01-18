@@ -101,8 +101,8 @@ async function initWebGL() {
 
   let iChannelImage = await fetchWaveData(ctx);
   let iChannelSound = ctx.createFrameBuffer(CW, CH, 1);
-  let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
+  let iChannel0 = ctx.createFrameBuffer(CW, 2, 4);
+  let iChannel1 = ctx.createFrameBuffer(CW, 1, 4);
   let iChannel2 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel3 = ctx.createFrameBuffer(CW, CH, 4);
   let bufferA = ctx.createFrameBuffer(iChannel0.width, iChannel0.height, iChannel0.channels);
@@ -206,7 +206,7 @@ async function initWebGL() {
       runShader('string_4d', { ...args, iChannelId: 0 }, bufferA);
       [iChannel0, bufferA] = [bufferA, iChannel0];
 
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 2; i++) {
         runShader('string_4d', { ...args, iChannelId: 1, iPass: i }, bufferB);
         [iChannel1, bufferB] = [bufferB, iChannel1];
       }
