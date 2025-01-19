@@ -15,27 +15,17 @@
   margin-bottom: 0.5rem;
 }
 
-.stage {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  height: 75vh;
-  overflow: hidden;
+.stage img {
+  width: 100%
 }
 
 .stage a img {
   height: inherit;
 }
 
-@media(orientation:portrait) {
-  .stage {
-    height: 50vw;
-  }
-}
-
-.stage img {
-  width: 100vw;
+.stage div {
+  display: flex;
+  flex-direction: row;
 }
 
 #make_your_own {
