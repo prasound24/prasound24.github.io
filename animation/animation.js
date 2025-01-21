@@ -11,9 +11,7 @@ const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
 const DEFAULT_IMG_ID = 'bass-clarinet_As2_very-long_mezzo-piano_harmonic';
 const LANDSCAPE = window.innerWidth > window.innerHeight;
-const W0 = 1920, H0 = 1080;
-const CW = +args.get('w') || (LANDSCAPE ? W0 : H0);
-const CH = +args.get('h') || (LANDSCAPE ? H0 : W0);
+const [CW, CH] = parseImgSize(args.get('i'));
 const SAMPLE_RATE = 48000;
 
 let sound = null;
@@ -24,6 +22,7 @@ let shaders = {};
 init();
 
 async function init() {
+  $('#img_size').textContent = CW + '×' + CH;
   await initErrHandler();
   await initSound();
   await initWebGL();
@@ -32,6 +31,18 @@ async function init() {
 
 function showStatus(text) {
   $('#status').textContent = text || '';
+}
+
+function parseImgSize(s) {
+  if (/^\d+x\d+$/.test(s))
+    return s.split('x').map(a => +a);
+
+  if (/^\d+p$/.test(s)) {
+    let h = +s.slice(0, -1);
+    return [h * 16 / 9 | 0, h];
+  }
+
+  return LANDSCAPE ? [1920, 1080] : [1080, 1920];
 }
 
 function initErrHandler() {
