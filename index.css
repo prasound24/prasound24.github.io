@@ -29,6 +29,10 @@
   align-items: center;
 }
 
+.stage div > * {
+  flex: 1;
+}
+
 #make_your_own {
   margin: 2em 0;
 }
