@@ -13,7 +13,7 @@ const float ZOOM = 1.0;
 const int NBOX = 32;
 
 // Rendering consts
-const vec3 RGB_OUTFLOW = 0.3 * vec3(0.1, 0.4, 1.5);
+const vec3 RGB_OUTFLOW = vec3(0.1, 0.4, 1.5);
 const vec3 RGB_INFLOW = vec3(1.5, 0.4, 0.1);
 const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
 const float R0 = 0.005;
@@ -347,6 +347,15 @@ void updateImg(out vec4 o, vec2 p) {
     //o.rgb += RGB_GLOW * flameRGB(e.a/32.);
 
     o.rgb = pow(o.rgb, vec3(1.0 / 2.2));
+
+    vec2 ls = vec2(textureSize(iLogo, 0));
+    vec2 bl = vec2(iResolution.x,0) + vec2(-ls.x-ls.y, ls.y);
+    vec2 p2 = p - bl;
+    p2.y = ls.y - 1. - p2.y;
+    if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.) {
+      vec4 tex = texelFetch(iLogo, ivec2(p2), 0);
+      o.rgb = mix(o.rgb, tex.rgb, tex.a*2.0);
+    }
 
     vec2 uv = p / iResolution.xy;
     vec2 uv2 = uv * (1. - uv.yx);

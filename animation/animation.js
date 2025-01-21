@@ -6,6 +6,7 @@ const { $, dcheck, DB, fetchText, fetchRGBA } = utils;
 
 let args = new URLSearchParams(location.search);
 
+const LOGO_LABEL = 'prasound.com';
 const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
 const DEFAULT_IMG_ID = 'bass-clarinet_As2_very-long_mezzo-piano_harmonic';
@@ -68,6 +69,38 @@ async function fetchWaveData(ctx) {
   return ctx.createFrameBuffer(m, n, 1, fp32array);
 }
 
+async function createLogoTexture(webgl) {
+  const font = new FontFace("DancingScript", "url(/create/DancingScript-Regular.ttf)");
+  document.fonts.add(font);
+  await font.load();
+  //await document.fonts.ready;
+
+  let text = LOGO_LABEL;
+  let canvas = document.createElement('canvas');
+  let ctx2d = canvas.getContext('2d');
+  let em = 25;
+  let ch = em; // tm.actualBoundingBoxAscent - tm.actualBoundingBoxDescent;
+  let cw = em * 20; // tm.width;
+  canvas.height = ch;
+  canvas.width = cw;
+  ctx2d.font = em + 'px DancingScript';
+  ctx2d.textBaseline = 'middle';
+  let tm = ctx2d.measureText(text);
+  //console.debug(tm);
+  canvas.width = tm.width + em;
+
+  //ctx2d.fillStyle = '#000';
+  //ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+  ctx2d.font = em + 'px DancingScript';
+  ctx2d.fillStyle = '#fff';
+  ctx2d.textBaseline = 'middle';
+  ctx2d.fillText(text, em / 2, ch / 2);
+
+  //document.body.append(canvas);
+  let img = ctx2d.getImageData(0, 0, canvas.width, canvas.height);
+  return webgl.createFrameBufferFromRGBA(img);
+}
+
 async function initShader(ctx, filename) {
   showStatus('Loading ' + filename + '...');
   let adapter = await fetchText('./glsl/adapter.glsl');
@@ -99,6 +132,7 @@ async function initWebGL() {
   //await initShader(ctx, 'waveform_draw');
   await initShader(ctx, 'string_4d');
 
+  let iLogo = await createLogoTexture(ctx);
   let iChannelImage = await fetchWaveData(ctx);
   let iChannelSound = ctx.createFrameBuffer(CW, CH, 1);
   let iChannel0 = ctx.createFrameBuffer(CW, 2, 4);
@@ -186,7 +220,7 @@ async function initWebGL() {
     let iTime = (time_msec - base_time) / 1000;
     let iMouse = [0, 0, 0];
     return {
-      iTime, iMouse, iFrame, iSoundMax, iSoundLen, iPass: 0,
+      iTime, iMouse, iFrame, iLogo, iSoundMax, iSoundLen, iPass: 0,
       iChannelSound, iChannelImage
     };
   }

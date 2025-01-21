@@ -8,6 +8,7 @@ uniform float iTime; // seconds
 uniform float iSoundMax;
 uniform int iSoundLen;
 uniform vec3 iMouse;
+uniform sampler2D iLogo;
 uniform sampler2D iChannel0;
 uniform sampler2D iChannel1;
 uniform sampler2D iChannel2;
