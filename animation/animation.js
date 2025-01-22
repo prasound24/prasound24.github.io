@@ -1,6 +1,7 @@
 import * as utils from '../lib/utils.js';
 import * as base from '../create/base.js';
 import { GpuContext } from '../webgl2.js';
+import { createEXR } from '../lib/exr.js';
 
 const { $, dcheck, DB, fetchText, fetchRGBA } = utils;
 
@@ -190,14 +191,33 @@ async function initWebGL() {
     }
   };
 
-  $('#download').onclick = () => downloadPNG();
+  $('#save_png').onclick = () => downloadPNG();
+  $('#save_exr').onclick = () => downloadEXR();
 
-  function downloadPNG() {
+  function downloadRGBA() {
     console.debug('Saving the float32 RGBA framebuffer');
     let args = initShaderArgs();
     runShader('string_4d', { ...args, iChannelId: -1 }, bufferD);
     let f32 = bufferD.download();
     dcheck(f32.length == CW * CH * 4);
+    return f32;
+  }
+
+  function genImageName() {
+    let t = new Date().toJSON().replace(/[-:T]|\.\d+Z$/g, '');
+    return 'image_' + t;
+  }
+
+  function saveBlobAsFile(blob, name) {
+    console.log('Downloading the image:', (blob.size / 2 ** 20).toFixed(1), 'MB', blob.type);
+    let a = document.createElement('a');
+    a.download = name;
+    a.href = URL.createObjectURL(blob);
+    a.click();
+  }
+
+  function downloadPNG() {
+    let f32 = downloadRGBA();
 
     console.debug('Creating a int16 RGBA PNG image');
     let u16 = new Uint16Array(CW * CH * 4);
@@ -207,14 +227,16 @@ async function initWebGL() {
       let b = utils.clamp(f32[j], 0, 1) * 0xFFFF;
       u16[i] = (b >> 8) | ((b & 255) << 8); // big-endian for PNG
     }
-    let png = UPNG.encodeLL([u16.buffer], CW, CH, 3, 1, 16);
 
-    console.log('Downloading the PNG image:', (png.byteLength / 2 ** 20).toFixed(1), 'MB');
+    let png = UPNG.encodeLL([u16.buffer], CW, CH, 3, 1, 16);
     let blob = new Blob([png], { type: 'image/png' });
-    let a = document.createElement('a');
-    a.download = 'image.png';
-    a.href = URL.createObjectURL(blob);
-    a.click();
+    saveBlobAsFile(blob, genImageName() + '.png');
+  }
+
+  function downloadEXR() {
+    let f32 = downloadRGBA();
+    let blob = createEXR(CW, CH, 3, f32);
+    saveBlobAsFile(blob, genImageName() + '.exr');
   }
 
   function runShader(name, args, out = null) {

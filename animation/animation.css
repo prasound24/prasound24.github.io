@@ -11,12 +11,17 @@ p {
   padding: 1em;
 }
 
-#fullscreen, #download {
+#info button {
   cursor: pointer;
   opacity: 0.5;
+  border-radius: inherit;
+  padding: 1em;
+  background: inherit;
+  display: inherit;
+  margin: inherit;
 }
 
-#fullscreen:hover, #download:hover {
+#info button:hover {
   opacity: 1;
   background: #444;
 }
