@@ -391,7 +391,7 @@ void addLogo(inout vec4 o, vec2 p) {
     p2.y = ls.y - 1. - p2.y;
     if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.) {
       vec4 tex = texelFetch(iLogo, ivec2(p2), 0);
-      o.rgb = mix(o.rgb, tex.rgb, tex.a*0.5);
+      o.rgb = mix(o.rgb, tex.rgb, tex.a);
     }
 }
 
