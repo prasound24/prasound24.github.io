@@ -5,7 +5,7 @@
 const float INF = 1e6;
 
 // Simulation consts
-const int N = 256;
+const int N = 300;
 const int GS = int(sqrt(float(N))); // group size
 const int NG = (N + GS - 1) / GS; // number of groups
 const float MASS = 25.0;
@@ -13,11 +13,12 @@ const float ZOOM = 1.0;
 const int NBOX = 32;
 
 // Rendering consts
-const vec3 RGB_OUTFLOW = vec3(0.1, 0.4, 1.5);
-const vec3 RGB_INFLOW = vec3(1.5, 0.4, 0.1);
+const float GAMMA = 2.2;
+const vec3 RGB_INFLOW = vec3(0.1, 0.4, 1.5);
+const vec3 RGB_OUTFLOW = vec3(1.5, 0.4, 0.1);
 const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
-const float R0 = 0.005;
-const float R2 = 0.0025;
+const float R0 = 0.0045;
+const float R2 = 0.0007;
 
 vec2 iexp(float phi) {
     return vec2(cos(phi), sin(phi));
@@ -37,13 +38,15 @@ float sound(int i) {
 }
 
 vec4 initPos(ivec2 pp) {
-    float phi = 2. * PI * (0.5 + float(pp.x)) / float(N);
+    float phi = 2. * PI * float(pp.x) / float(N);
 
     float x = sin(phi * 1.0);
     float y = cos(phi * 1.0);
 
-    float z = 1.0 * sin(phi * 3.0) - 0.3;
-    float w = 0.3 * cos(phi * 3.0);
+    float z = 0.2*sin(phi*5.0) - 0.3;
+    float w = 0.03 * cos(phi * 5.0);
+
+    z += 0.02*sin(phi*15.0+1.2)+0.007*sin(phi*45.0+3.1)+0.003*sin(phi*60.0+1.0);
 
     vec3 xyz = vec3(vec2(x, y) * cos(z), sin(z));
     vec4 xyzw = vec4(xyz * cos(w), sin(w));
@@ -226,9 +229,10 @@ void updateGroups(out vec4 o, vec2 p) {
 }
 
 float sdLine(vec2 p, vec2 a, vec2 b) {
-    vec2 pa = p - a, ba = b - a;
-    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-    return length(pa - ba * h);
+    p -= a, b -= a;
+    float t = clamp(dot(p, b) / dot(b, b), 0., 1.);
+    float d = length(p - b*t);
+    return d;
 }
 
 vec2 midpoint(vec2 ll, vec2 l, vec2 r, vec2 rr) {
@@ -237,7 +241,7 @@ vec2 midpoint(vec2 ll, vec2 l, vec2 r, vec2 rr) {
 
 float sdBox0(vec2 p, vec2 b) {
     vec2 d = abs(p) - b;
-    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+    return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
 }
 
 float sdBox(vec2 p, vec2 a, vec2 b) {
@@ -247,6 +251,45 @@ float sdBox(vec2 p, vec2 a, vec2 b) {
 float sdGroup(vec2 q, int i) {
     vec4 ab = texelFetch(CH_GROUPS, ivec2(i, 0), 0);
     return max(sdBox(q, ab.xy, ab.zw), 0.);
+}
+
+// Draws an arc from (l) to (r).
+void sdBezier3(vec2 q, vec2 ll, vec2 l, vec2 r, vec2 rr, inout float d) {
+    int n = max(1, min(16, int(ceil(length(q2p(r) - q2p(l))/5.0))));
+    mat4x2 abcd = mat4x2(l, l + (r - ll)/6., r + (l - rr)/6., r);
+    vec2 a = abcd[0];
+
+    for (int i = 0; i < n; i++) {
+        float t = float(i+1)/float(n), s = 1.0 - t;
+        vec4 ws = vec4(s*s*s, s*s*t, s*t*t, t*t*t)*vec4(1,3,3,1);
+        vec2 b = abcd*ws;
+        if (sdBox(q, a, b) < d)
+            d = min(d, sdLine(q, a, b));
+        a = b;
+    }
+}
+
+// Draws an arc from (l+r)/2 to (r+rr)/2.
+void sdBezier2(vec2 q, vec2 ll, vec2 l, vec2 r, vec2 rr, inout float d) {
+    int n = max(1, min(16, int(ceil(length(q2p(r) - q2p(l))/5.0))));
+    vec2 l2 = (l + r)*0.5, r2 = (r + rr)*0.5;
+    vec2 a = l2;
+
+    for (int i = 0; i < n; i++) {
+        float t = float(i+1)/float(n), s = 1.0 - t;
+        vec2 b = mix(mix(l2, r, t), mix(r, r2, t), t);
+        if (sdBox(q, a, b) < d)
+            d = min(d, sdLine(q, a, b));
+        a = b;
+    }
+}
+
+void sdLine2(vec2 q, vec2 ll, vec2 l, vec2 r, vec2 rr, inout float d) {
+    vec2 m = midpoint(ll, l, r, rr);
+    if (sdBox(q, l, m) < d)
+        d = min(d, sdLine(q, l, m));
+    if (sdBox(q, r, m) < d)
+        d = min(d, sdLine(q, r, m));
 }
 
 void sdf0(vec2 q, int imin, int imax, inout float d, inout int lookups) {
@@ -259,10 +302,9 @@ void sdf0(vec2 q, int imin, int imax, inout float d, inout int lookups) {
     for(int i = imin; i <= imax; i++) {
         lookups++;
         vec2 rr = pos(i + 2);
-        vec2 m = midpoint(ll, l, r, rr);
-        d = min(d, sdLine(q, l, m));
-        d = min(d, sdLine(q, r, m));
+        sdBezier3(q, ll, l, r, rr, d);
         ll = l, l = r, r = rr;
+        //d = min(d, abs(length(q - l) - 0.01));
     }
 } 
 
@@ -325,13 +367,32 @@ void updateFlow(out vec4 o, vec2 p) {
     vec2 q = ra.x * iexp(ra.y);
     o = sdf(q);
 
-    vec2 zoom = vec2(1, 0.995);
-    o.r += 0.98 * texFlow(uv / zoom).r; // inflow
-    o.g += 0.98 * texFlow(uv * zoom).g; // + 0.005*texFlow(uv*zoom).r; // outflow
+    float s = 0.997;
+    vec2 zoom = vec2(1, s);
+    o.r += s*s*texFlow(uv/zoom).r; // inflow
+    o.g += s*s*texFlow(uv*zoom).g; // outflow
 }
 
 vec3 flameRGB(float t) {
-    return vec3(t, t * t, t * t * t);
+    return vec3(t, t*t, t*t*t);
+}
+
+void addVignette(inout vec4 o, vec2 p) {
+	vec2 uv = p/iResolution.xy;
+    uv.xy *= 1. - uv.yx;
+    float v = uv.x*uv.y*15.0;
+    o.a *= pow(v, 0.125);
+}
+
+void addLogo(inout vec4 o, vec2 p) {
+    vec2 ls = vec2(textureSize(iLogo, 0));
+    vec2 bl = vec2(iResolution.x,0) + vec2(-ls.x-ls.y, ls.y);
+    vec2 p2 = p - bl;
+    p2.y = ls.y - 1. - p2.y;
+    if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.) {
+      vec4 tex = texelFetch(iLogo, ivec2(p2), 0);
+      o.rgb = mix(o.rgb, tex.rgb, tex.a*0.5);
+    }
 }
 
 void updateImg(out vec4 o, vec2 p) {
@@ -346,20 +407,11 @@ void updateImg(out vec4 o, vec2 p) {
     o.rgb += RGB_GLOW * flameRGB(e.b);
     //o.rgb += RGB_GLOW * flameRGB(e.a/32.);
 
-    o.rgb = pow(o.rgb, vec3(1.0 / 2.2));
-
-    vec2 ls = vec2(textureSize(iLogo, 0));
-    vec2 bl = vec2(iResolution.x,0) + vec2(-ls.x-ls.y, ls.y);
-    vec2 p2 = p - bl;
-    p2.y = ls.y - 1. - p2.y;
-    if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.) {
-      vec4 tex = texelFetch(iLogo, ivec2(p2), 0);
-      o.rgb = mix(o.rgb, tex.rgb, tex.a*2.0);
-    }
-
-    vec2 uv = p / iResolution.xy;
-    vec2 uv2 = uv * (1. - uv.yx);
-    o.rgb *= min(1., pow(15.0 * uv2.x * uv2.y, 0.25));
+    o.rgb = pow(o.rgb, vec3(1./GAMMA));
+    addLogo(o, p);
+    addVignette(o, p);
+    o.rgb *= o.a;
+    o.a = 1.;
 }
 
 void mainImage(out vec4 o, vec2 p) {
