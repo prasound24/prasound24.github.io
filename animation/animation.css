@@ -26,9 +26,26 @@ p {
   background: #444;
 }
 
-#info input {
+#config {
+  color: #888;
+}
+
+#config p {
+  text-align: left;
+}
+
+#config div {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  padding-left: 2em;
+}
+
+#config span {
   width: 6em;
-  margin: 0;
+}
+
+#config input {
   cursor: pointer;
   opacity: 0.5;
 }

@@ -13,12 +13,12 @@ const float ZOOM = 1.0;
 const int NBOX = 32;
 
 // Rendering consts
-const float GAMMA = 2.2;
 const vec3 RGB_INFLOW = vec3(0.1, 0.4, 1.5);
 const vec3 RGB_OUTFLOW = vec3(1.5, 0.8, 0.3);
 const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
-const float R0 = 0.0045;
-const float R2 = 0.0005;
+const vec3 RGB_BBOX = vec3(0.1, 0.4, 0.2);
+const float R0 = 0.0015;
+const float R2 = 0.0015;
 
 vec2 iexp(float phi) {
     return vec2(cos(phi), sin(phi));
@@ -39,14 +39,14 @@ float sound(int i) {
 
 vec4 initPos(ivec2 pp) {
     float phi = 2. * PI * (0.5+float(pp.x)) / float(N);
-    phi += float(pp.y) * 0.005;
+    //phi += float(pp.y) * 0.005;
 
     float x = sin(phi);
     float y = cos(phi);
 
-    float K = 5.0;
-    float z = 0.5*sin(phi*K) - 0.8;
-    float w = 1.3*cos(phi*2.0);
+    float K = 3.0;
+    float z = 0.3*sin(phi*K) - 0.8;
+    float w = 0.1*cos(phi*K);
 
     z += 0.03*sin(phi*K*5.0+1.2)+0.007*sin(phi*K*10.0+3.1)+0.003*sin(phi*K*30.0+1.0);
 
@@ -124,8 +124,8 @@ vec2 pos(int i) {
         r.xz *= rot2(PI * m.x);
     }
     // basic perspective projection
-    r.xyz /= 2.0 - r.w;
-    r.xy /= 2.0 - r.z;
+    r.xyz /= 1.25 - r.w;
+    r.xy /= 1.25 - r.z;
     return r.xy * ZOOM;
 }
 
@@ -195,6 +195,18 @@ ivec4 findImpactRange(vec4 box) {
     return rr;
 }
 
+mat4x2 bezierCP(vec2 ll, vec2 l, vec2 r, vec2 rr) {
+    return mat4x2(l, l + (r - ll)/6., r + (l - rr)/6., r);
+}
+
+vec2 min4(mat4x2 m) {
+    return min(min(m[0], m[1]), min(m[2], m[3]));
+}
+
+vec2 max4(mat4x2 m) {
+    return -min4(-m);
+}
+
 void updateGroups(out vec4 o, vec2 p) {
     if(p.y < 1.0) {
         if (int(p.x) > NG)
@@ -204,16 +216,24 @@ void updateGroups(out vec4 o, vec2 p) {
         o.zw = -vec2(INF); // box max
 
         if(int(p.x) == 0) {
+            // CH_GROUPS[0,0] = bbox for the entire curve
             for(int i = 1; i <= NG; i++) {
                 vec4 b = texelFetch(CH_GROUPS, ivec2(i, 0), 0);
                 o.xy = min(o.xy, b.xy);
                 o.zw = max(o.zw, b.zw);
             }
         } else {
-            for(int i = 1; i <= GS + 1; i++) {
-                vec2 a = pos(int(p.x) * GS + i);
-                o.xy = min(o.xy, a);
-                o.zw = max(o.zw, a);
+            // CH_GROUPS[i,0] = bbox for the segment [i*GS+1..i*GS+GS]
+            vec2 ll, l, r, rr;
+            for(int i = 0; i <= GS + 2; i++) {
+                rr = pos(int(p.x)*GS + i);
+                if (i >= 2) {
+                    // cubic bezier is bounded by its control polygon
+                    mat4x2 cp = bezierCP(ll, l, r, rr);
+                    o.xy = min(o.xy, min4(cp));
+                    o.zw = max(o.zw, max4(cp));
+                }
+                ll = l, l = r, r = rr;
             }
         }
         return;
@@ -256,17 +276,19 @@ float sdGroup(vec2 q, int i) {
 }
 
 // Draws an arc from (l) to (r).
-void sdBezier3(vec2 q, vec2 ll, vec2 l, vec2 r, vec2 rr, inout float d) {
+void sdBezier3(vec2 q, vec2 ll, vec2 l, vec2 r, vec2 rr, inout vec3 d3) {
     int n = max(1, min(16, int(ceil(length(q2p(r) - q2p(l))/5.0))));
-    mat4x2 abcd = mat4x2(l, l + (r - ll)/6., r + (l - rr)/6., r);
+    mat4x2 abcd = bezierCP(ll, l, r, rr);
     vec2 a = abcd[0];
 
     for (int i = 0; i < n; i++) {
         float t = float(i+1)/float(n), s = 1.0 - t;
         vec4 ws = vec4(s*s*s, s*s*t, s*t*t, t*t*t)*vec4(1,3,3,1);
         vec2 b = abcd*ws;
-        if (sdBox(q, a, b) < d)
-            d = min(d, sdLine(q, a, b));
+        //if (sdBox(q, a, b) < d)
+        //    d = min(d, sdLine(q, a, b));
+        float d = sdLine(q, a, b);
+        d3 = max(d3, dist2flow(d));
         a = b;
     }
 }
@@ -294,7 +316,7 @@ void sdLine2(vec2 q, vec2 ll, vec2 l, vec2 r, vec2 rr, inout float d) {
         d = min(d, sdLine(q, r, m));
 }
 
-void sdf0(vec2 q, int imin, int imax, inout float d, inout int lookups) {
+void sdf0(vec2 q, int imin, int imax, inout vec3 d3, inout int lookups) {
     if (imax <= imin)
         return;
 
@@ -304,15 +326,17 @@ void sdf0(vec2 q, int imin, int imax, inout float d, inout int lookups) {
     for(int i = imin; i <= imax; i++) {
         lookups++;
         vec2 rr = pos(i + 2);
-        sdBezier3(q, ll, l, r, rr, d);
+        sdBezier3(q, ll, l, r, rr, d3);
         ll = l, l = r, r = rr;
-        //d = min(d, abs(length(q - l) - 0.01));
+        
+        //d3 = max(d3, dist2flow(abs(length(q - l) - 0.01)));
     }
 } 
 
 vec4 sdf(vec2 q) {
     int lookups = 0;
-    float d = estMaxDist(); // as good as INF
+    float d0 = estMaxDist(); // as good as INF
+    vec3 d3;
 
     /* lookups++;
     ivec4 ir = ivec4(texelFetch(CH_GROUPS, ivec2(q2p(q))/NBOX + ivec2(0,1), 0));
@@ -323,20 +347,20 @@ vec4 sdf(vec2 q) {
     sdf0(q, ir.z, ir.w - 1, d, lookups); */
 
     lookups++;
-    if(sdGroup(q, 0) > d)
+    if(sdGroup(q, 0) > d0)
         return vec4(0, 0, 0, lookups);
 
     for(int j = 1; j <= NG; j++) {
         lookups++;
-        if(sdGroup(q, j) > d)
+        if(sdGroup(q, j) > d0)
             continue;
 
         int imin = j * GS + 1;
         int imax = j * GS + GS;
-        sdf0(q, imin, imax, d, lookups);
+        sdf0(q, imin, imax, d3, lookups);
     }
 
-    return vec4(dist2flow(d), float(lookups));
+    return vec4(d3, float(lookups));
 }
 
 vec2 hash22(vec2 p) {
@@ -407,7 +431,7 @@ void updateImg(out vec4 o, vec2 p) {
     o.rgb += RGB_OUTFLOW * flameRGB(e.g);
     o.rgb += RGB_INFLOW * flameRGB(e.r);
     o.rgb += RGB_GLOW * flameRGB(e.b);
-    //o.rgb += RGB_GLOW * flameRGB(e.a/32.);
+    //o.rgb += RGB_BBOX * flameRGB(e.a/32.);
 
     o.rgb = exp(iGamma.y)*pow(o.rgb, vec3(1./iGamma.x));
     addLogo(o, p);
