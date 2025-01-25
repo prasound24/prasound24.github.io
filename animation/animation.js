@@ -18,11 +18,15 @@ const SAMPLE_RATE = 48000;
 let sound = null;
 let canvas = $('canvas#webgl');
 let spanFPS = $('#fps'), spanFrameId = $('#frame_id');
+let elGamma = $('input#gamma');
+let elAlpha = $('input#alpha');
 let shaders = {};
 
 init();
 
 async function init() {
+  elGamma.value = 2.2;
+  elAlpha.value = 0.0;
   $('#img_size').textContent = CW + '×' + CH;
   await initErrHandler();
   await initSound();
@@ -192,13 +196,15 @@ async function initWebGL() {
     }
   };
 
+  elGamma.onchange = () => runShader('string_4d', initShaderArgs());
+  elAlpha.onchange = () => runShader('string_4d', initShaderArgs());
+
   $('#save_png').onclick = () => downloadPNG();
   $('#save_exr').onclick = () => downloadEXR();
 
   function downloadRGBA() {
     console.debug('Saving the float32 RGBA framebuffer');
-    let args = initShaderArgs();
-    runShader('string_4d', { ...args, iChannelId: -1 }, bufferD);
+    runShader('string_4d', initShaderArgs(), bufferD);
     let f32 = bufferD.download();
     dcheck(f32.length == CW * CH * 4);
     return f32;
@@ -253,9 +259,10 @@ async function initWebGL() {
   function initShaderArgs(time_msec = performance.now()) {
     let iTime = (time_msec - base_time) / 1000;
     let iMouse = [0, 0, 0];
+    let iGamma = [+elGamma.value, +elAlpha.value];
     return {
       iTime, iMouse, iFrame, iLogo, iSoundMax, iSoundLen, iPass: 0,
-      iChannelSound, iChannelImage
+      iChannelSound, iChannelImage, iGamma, iChannelId: -1,
     };
   }
 

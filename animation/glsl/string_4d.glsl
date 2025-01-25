@@ -15,10 +15,10 @@ const int NBOX = 32;
 // Rendering consts
 const float GAMMA = 2.2;
 const vec3 RGB_INFLOW = vec3(0.1, 0.4, 1.5);
-const vec3 RGB_OUTFLOW = vec3(1.5, 0.4, 0.1);
+const vec3 RGB_OUTFLOW = vec3(1.5, 0.8, 0.3);
 const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
 const float R0 = 0.0045;
-const float R2 = 0.0007;
+const float R2 = 0.0005;
 
 vec2 iexp(float phi) {
     return vec2(cos(phi), sin(phi));
@@ -38,20 +38,22 @@ float sound(int i) {
 }
 
 vec4 initPos(ivec2 pp) {
-    float phi = 2. * PI * float(pp.x) / float(N);
+    float phi = 2. * PI * (0.5+float(pp.x)) / float(N);
+    phi += float(pp.y) * 0.005;
 
-    float x = sin(phi * 1.0);
-    float y = cos(phi * 1.0);
+    float x = sin(phi);
+    float y = cos(phi);
 
-    float z = 0.2*sin(phi*5.0) - 0.3;
-    float w = 0.03 * cos(phi * 5.0);
+    float K = 5.0;
+    float z = 0.5*sin(phi*K) - 0.8;
+    float w = 1.3*cos(phi*2.0);
 
-    z += 0.02*sin(phi*15.0+1.2)+0.007*sin(phi*45.0+3.1)+0.003*sin(phi*60.0+1.0);
+    z += 0.03*sin(phi*K*5.0+1.2)+0.007*sin(phi*K*10.0+3.1)+0.003*sin(phi*K*30.0+1.0);
 
     vec3 xyz = vec3(vec2(x, y) * cos(z), sin(z));
-    vec4 xyzw = vec4(xyz * cos(w), sin(w));
+    vec4 r = vec4(xyz * cos(w), sin(w));
 
-    return normalize(xyzw);
+    return normalize(r);
 }
 
 vec4 texString(ivec2 p) {
@@ -122,14 +124,14 @@ vec2 pos(int i) {
         r.xz *= rot2(PI * m.x);
     }
     // basic perspective projection
-    r.xyz /= 1.25 - r.w;
-    r.xy /= 1.25 - r.z;
+    r.xyz /= 2.0 - r.w;
+    r.xy /= 2.0 - r.z;
     return r.xy * ZOOM;
 }
 
 vec3 dist2flow(float d) {
     float flow = exp(-pow(d / R2, 2.));
-    float glow = pow(R0 / d, 1.5) * exp(-pow(0.2 * d / R0, 2.));
+    float glow = exp(-pow(0.2 * d / R0, 2.));
     return vec3(flow, flow, glow);
 }
 
@@ -391,7 +393,7 @@ void addLogo(inout vec4 o, vec2 p) {
     p2.y = ls.y - 1. - p2.y;
     if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.) {
       vec4 tex = texelFetch(iLogo, ivec2(p2), 0);
-      o.rgb = mix(o.rgb, tex.rgb, tex.a);
+      o.rgb = mix(o.rgb, tex.rgb, tex.a*0.8);
     }
 }
 
@@ -407,7 +409,7 @@ void updateImg(out vec4 o, vec2 p) {
     o.rgb += RGB_GLOW * flameRGB(e.b);
     //o.rgb += RGB_GLOW * flameRGB(e.a/32.);
 
-    o.rgb = pow(o.rgb, vec3(1./GAMMA));
+    o.rgb = exp(iGamma.y)*pow(o.rgb, vec3(1./iGamma.x));
     addLogo(o, p);
     addVignette(o, p);
     o.rgb *= o.a;

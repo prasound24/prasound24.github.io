@@ -1,8 +1,14 @@
+@font-face {
+  font-family: DancingScript;
+  src: url(/create/DancingScript-Regular.ttf);
+}
+
 #motto {
-  display: none;
   margin: 2em 0;
   font-size: 1rem;
   text-align: center;
+  color: #888;
+  font-family: DancingScript;
 }
 
 #motto img {
@@ -36,6 +42,12 @@
 
 .stage div > * {
   flex: 1;
+}
+
+@media(orientation:portrait) {
+  .stage .landscapes {
+    flex-direction: column;
+  }
 }
 
 #make_your_own {
