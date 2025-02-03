@@ -3,6 +3,7 @@
 #define CH_FLOW iChannel2
 
 const float INF = 1e6;
+const float PHI = (sqrt(5.) - 1.)/2.;
 
 // Simulation consts
 const int N = 300;
@@ -13,8 +14,8 @@ const float ZOOM = 1.0;
 const int NBOX = 32;
 
 // Rendering consts
-const vec3 RGB_INFLOW = vec3(0.1, 0.4, 1.5);
-const vec3 RGB_OUTFLOW = vec3(1.5, 0.8, 0.3);
+const vec3 RGB_OUTFLOW = vec3(1.5, 0.6, 0.2);
+const vec3 RGB_INFLOW = vec3(1.5, 0.8, 0.3);
 const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
 const vec3 RGB_BBOX = vec3(0.1, 0.4, 0.2);
 const float R0 = 0.0015;
@@ -44,7 +45,7 @@ vec4 initPos(ivec2 pp) {
     float x = sin(phi);
     float y = cos(phi);
 
-    float K = 3.0;
+    float K = 5.0;
     float z = 0.3*sin(phi*K) - 0.8;
     float w = 0.1*cos(phi*K);
 
@@ -424,8 +425,9 @@ void addLogo(inout vec4 o, vec2 p) {
 void updateImg(out vec4 o, vec2 p) {
     o = vec4(0, 0, 0, 1);
 
-    vec2 q = p2q(p);
-    vec2 ra = xy2ra(q) / vec2(2.5, 2. * PI);
+    vec2 q0 = vec2(0.4, 0.7);
+    vec2 q = p2q(p) + q0;
+    vec2 ra = xy2ra(q) / vec2(3.0, 2. * PI);
     vec4 e = texFlow(ra.yx);
 
     o.rgb += RGB_OUTFLOW * flameRGB(e.g);
