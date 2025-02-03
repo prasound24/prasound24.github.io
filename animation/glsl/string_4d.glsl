@@ -425,7 +425,7 @@ void addLogo(inout vec4 o, vec2 p) {
 void updateImg(out vec4 o, vec2 p) {
     o = vec4(0, 0, 0, 1);
 
-    vec2 q0 = vec2(0.4, 0.7);
+    vec2 q0; // = vec2(0.4, 0.7);
     vec2 q = p2q(p) + q0;
     vec2 ra = xy2ra(q) / vec2(3.0, 2. * PI);
     vec4 e = texFlow(ra.yx);
