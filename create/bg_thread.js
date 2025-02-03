@@ -2,10 +2,11 @@ import { StringOscillator } from './oscillator.js';
 import * as utils from '../lib/utils.js';
 import * as cielab from '../lib/cielab.js';
 import { interpolate_1d_re } from '../lib/webfft.js';
+import { createEXR } from '../lib/exr.js';
 
 let { sleep, dcheck, clamp, fireballRGB, CurrentOp, Float32Tensor } = utils;
 
-let img_amps, img_freq, current_op, wforms, sig_freqs=[];
+let img_amps, img_freq, current_op, wforms, sig_freqs = [];
 
 onmessage = async (e) => {
   let { type, txid, signal, config } = e.data;
@@ -19,6 +20,7 @@ onmessage = async (e) => {
       current_op = new CurrentOp('bg:computeImgAmps', async () => {
         await utils.time('img_amps:', () => computeImgAmps(signal, config, [0.00, 0.90]));
         await utils.time('img_hues:', () => computeImgHues(signal, config, [0.90, 0.99]));
+        //exportAsEXR(wforms);
         postMessage({ type: 'wave_1d', img_amps_rect: img_amps.data, progress: 1.00 });
       });
       break;
@@ -30,6 +32,20 @@ onmessage = async (e) => {
       dcheck();
   }
 };
+
+async function exportAsEXR(src) {
+  let [h, w] = src.dims;
+
+  let rgba = new Float32Array(h * w * 4);
+  for (let i = 0; i < h * w; i++)
+    for (let j = 0; j < 4; j++)
+      rgba[i * 4 + j] = Math.abs(src.data[i]);
+
+  let blob = createEXR(w, h, 3, rgba);
+  let file = new File([blob], 'waveforms.exr');
+  let url = URL.createObjectURL(file);
+  console.log('waveforms:', (blob.size / 1e9).toFixed(1), 'GB', url);
+}
 
 async function computeImgHues(sig, conf, [pmin, pmax]) {
   let wf = wforms;
