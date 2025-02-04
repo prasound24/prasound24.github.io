@@ -12,6 +12,11 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: Pacifico;
+  src: url(/Pacifico.ttf);
+}
+
 html,
 body {
   margin: 0;
@@ -53,6 +58,7 @@ p {
 
 
 h1 {
+  font-family: Pacifico;
   font-size: 2rem;
   font-weight: 900;
   margin: 0;
