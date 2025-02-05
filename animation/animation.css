@@ -15,10 +15,17 @@ p {
   cursor: pointer;
   opacity: 0.5;
   border-radius: inherit;
-  padding: 1em;
+  padding: 1rem;
   background: inherit;
   display: inherit;
   margin: inherit;
+  font-weight: bold;
+  font-size: 0.6rem;
+  font-family: Rubik-Black;
+}
+
+#info button img {
+  height: 1.5rem;
 }
 
 #info button:hover {

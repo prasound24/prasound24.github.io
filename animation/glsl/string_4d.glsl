@@ -15,7 +15,7 @@ const int NBOX = 32;
 
 // Rendering consts
 const vec3 RGB_OUTFLOW = vec3(1.5, 0.6, 0.2);
-const vec3 RGB_INFLOW = vec3(1.5, 0.8, 0.3);
+const vec3 RGB_INFLOW = vec3(0.8, 0.3, 1.5);
 const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
 const vec3 RGB_BBOX = vec3(0.1, 0.4, 0.2);
 const float R0 = 0.0015;

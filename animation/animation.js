@@ -2,6 +2,7 @@ import * as utils from '../lib/utils.js';
 import * as base from '../create/base.js';
 import { GpuContext } from '../webgl2.js';
 import { createEXR } from '../lib/exr.js';
+import { createRGBE } from '../lib/rgbe.js';
 
 const { $, dcheck, DB, fetchText, fetchRGBA } = utils;
 
@@ -201,6 +202,7 @@ async function initWebGL() {
 
   $('#save_png').onclick = () => downloadPNG();
   $('#save_exr').onclick = () => downloadEXR();
+  $('#save_hdr').onclick = () => downloadHDR();
 
   function downloadRGBA() {
     console.debug('Saving the float32 RGBA framebuffer');
@@ -244,6 +246,12 @@ async function initWebGL() {
     let f32 = downloadRGBA();
     let blob = createEXR(CW, CH, 3, f32);
     saveBlobAsFile(blob, genImageName() + '.exr');
+  }
+
+  function downloadHDR() {
+    let rgba = downloadRGBA();
+    let blob = createRGBE(CW, CH, rgba);
+    saveBlobAsFile(blob, genImageName() + '.hdr');
   }
 
   function runShader(name, args, out = null) {
