@@ -405,3 +405,33 @@ export function initWaveformDrawer(canvas) {
 
   return { draw, clear };
 }
+
+export async function createLogoTexture(webgl, text = 'prasound.com') {
+  const font = new FontFace("DancingScript", "url(/create/DancingScript-Regular.ttf)");
+  document.fonts.add(font);
+  await font.load();
+  //await document.fonts.ready;
+
+  let canvas = document.createElement('canvas');
+  let ctx2d = canvas.getContext('2d');
+  let em = 25;
+  let ch = em; // tm.actualBoundingBoxAscent - tm.actualBoundingBoxDescent;
+  let cw = em * 20; // tm.width;
+  canvas.height = ch;
+  canvas.width = cw;
+  ctx2d.font = em + 'px DancingScript';
+  ctx2d.textBaseline = 'middle';
+  let tm = ctx2d.measureText(text);
+  //console.debug(tm);
+  canvas.width = tm.width + em;
+
+  //ctx2d.fillStyle = '#000';
+  //ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+  ctx2d.font = em + 'px DancingScript';
+  ctx2d.fillStyle = '#fff';
+  ctx2d.textBaseline = 'middle';
+  ctx2d.fillText(text, em / 2, ch / 2);
+
+  //document.body.append(canvas);
+  return ctx2d.getImageData(0, 0, canvas.width, canvas.height);
+}

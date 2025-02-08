@@ -8,10 +8,7 @@ const { $, dcheck, DB, fetchText, fetchRGBA } = utils;
 
 let args = new URLSearchParams(location.search);
 
-const LOGO_LABEL = 'prasound.com';
-const DB_PATH_IMAGE = 'user_samples/_last/image';
 const DB_PATH_CONFIG = 'user_samples/_last/config';
-const DEFAULT_IMG_ID = 'bass-clarinet_As2_very-long_mezzo-piano_harmonic';
 const LANDSCAPE = window.innerWidth > window.innerHeight;
 const [CW, CH] = parseImgSize(args.get('i') || '720p');
 const SAMPLE_RATE = 48000;
@@ -88,34 +85,7 @@ async function fetchWaveData(ctx) {
 }
 
 async function createLogoTexture(webgl) {
-  const font = new FontFace("DancingScript", "url(/create/DancingScript-Regular.ttf)");
-  document.fonts.add(font);
-  await font.load();
-  //await document.fonts.ready;
-
-  let text = LOGO_LABEL;
-  let canvas = document.createElement('canvas');
-  let ctx2d = canvas.getContext('2d');
-  let em = 25;
-  let ch = em; // tm.actualBoundingBoxAscent - tm.actualBoundingBoxDescent;
-  let cw = em * 20; // tm.width;
-  canvas.height = ch;
-  canvas.width = cw;
-  ctx2d.font = em + 'px DancingScript';
-  ctx2d.textBaseline = 'middle';
-  let tm = ctx2d.measureText(text);
-  //console.debug(tm);
-  canvas.width = tm.width + em;
-
-  //ctx2d.fillStyle = '#000';
-  //ctx2d.fillRect(0, 0, canvas.width, canvas.height);
-  ctx2d.font = em + 'px DancingScript';
-  ctx2d.fillStyle = '#fff';
-  ctx2d.textBaseline = 'middle';
-  ctx2d.fillText(text, em / 2, ch / 2);
-
-  //document.body.append(canvas);
-  let img = ctx2d.getImageData(0, 0, canvas.width, canvas.height);
+  let img = await base.createLogoTexture();
   return webgl.createFrameBufferFromRGBA(img);
 }
 

@@ -428,7 +428,7 @@ async function redrawImg() {
     let ts = Date.now();
     let url = await saveDiskImage();
     let url_xs = await saveDiskImagePreview(url);
-    $('html > head > link[rel=icon]').href = url_xs;
+    //$('html > head > link[rel=icon]').href = url_xs;
     await saveImageConfig();
     console.debug('saveDiskImage:', Date.now() - ts, 'ms');
     //await drawGallery();
@@ -537,13 +537,23 @@ async function drawLabel() {
 }
 
 async function drawStamp() {
+  let logo = await base.createLogoTexture();
+
+  for (let i = 0; i < logo.data.length; i += 4) {
+    let a = logo.data[i + 3];
+    for (let j = 0; j < 3; j++)
+      logo.data[i + j] *= a / 256 / 2;
+  }
+
+  for (let i = 0; i < logo.data.length; i += 4)
+    logo.data[i + 3] = 255;
+
   let canvas = $('canvas#disk');
   let ctx = canvas.getContext('2d');
   let ch = canvas.height, cw = canvas.width;
   let em = ch * 0.015;
-  let logo = $('img#logo');
-  let lh = em, lw = logo.width * lh / logo.height;
-  ctx.drawImage(logo, cw - em - lw, ch - em - lh, lw, lh);
+  // ctx.globalCompositeOperation = 'multiply';
+  ctx.putImageData(logo, cw - em - logo.width, ch - em - logo.height);
 }
 
 async function saveWaveData(img_amps) {
