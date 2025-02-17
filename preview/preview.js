@@ -68,7 +68,7 @@ async function init() {
 
     try {
       is_playing = true;
-      await utils.playSound(signal, sample_rate, {
+      await utils.playSound([signal], sample_rate, {
         audio,
         onstarted: () => startAudioProgressAnimation(audio),
       });

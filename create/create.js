@@ -15,8 +15,7 @@ let ui_settings = {};
 let mem = {
   audio_name: '',
   audio_file: null,
-  audio_signal: null,
-  decoded_audio: { data: null, sample_rate: 0, file: null },
+  decoded_audio: { channels: [], sample_rate: 0, file: null },
 
   sig_start: 0, // sec
   sig_end: 0, // sec
@@ -223,7 +222,7 @@ function initWaveMouseEvents() {
     capture: (e) => e.target.classList.contains('ptr'),
     release: () => runUserAction('redrawImg', redrawImg),
     move: (e, dx, target) => {
-      let diff = dx / wrapper.clientWidth * mem.audio_signal.length / gconf.sampleRate;
+      let diff = dx / wrapper.clientWidth * mem.decoded_audio.channels[0].length / gconf.sampleRate;
       if (target.id == 'ptr_start')
         setSilenceMarks(mem.sig_start + diff, mem.sig_end);
       if (target.id == 'ptr_end')
@@ -316,27 +315,28 @@ async function decodeAudio() {
       (mem.audio_file.size / 1024).toFixed(1) + ' KB');
     if (!mem.audio_file._buffer)
       mem.audio_file._buffer = await mem.audio_file.arrayBuffer();
-    mem.audio_signal = await utils.decodeAudioFile(mem.audio_file._buffer, sample_rate);
-    prepareAudioSignal(mem.audio_signal);
-    mem.decoded_audio = { data: mem.audio_signal, sample_rate, file };
+    let channels = await utils.decodeAudioFile2(mem.audio_file._buffer, sample_rate);
+    console.log('audio:', channels.length, 'ch');
+    mem.decoded_audio = { channels, sample_rate, file };
+    prepareAudioSignal();
     await saveAudioSignal();
-    // normalizeAudioSignal(mem.audio_signal);
-    mem.audio_signal = base.padAudioWithSilence(mem.audio_signal);
-
+    padAudioWithSilence();
     document.body.classList.remove('empty');
-
-    //let freq = utils.meanFreq(mem.audio_signal, sample_rate) | 0;
-    //let pitch = utils.meanPitch(freq);
-    //let note = utils.pitchToNote(pitch);
-    //console.debug('Avg freq:', freq + ' Hz', note + '=' + (pitch * 360).toFixed(0) + 'deg');
-    //setPitchColor(pitch);
   }
 }
 
-function prepareAudioSignal(s) {
-  let sum = s.reduce((s, x) => s + x, 0);
-  let avg = sum / s.length;
-  s.forEach((x, i) => s[i] -= avg);
+function padAudioWithSilence() {
+  let channels = mem.decoded_audio.channels;
+  for (let i = 0; i < channels.length; i++)
+    channels[i] = base.padAudioWithSilence(channels[i]);
+}
+
+function prepareAudioSignal() {
+  for (let s of mem.decoded_audio.channels) {
+    let sum = s.reduce((s, x) => s + x, 0);
+    let avg = sum / s.length;
+    s.forEach((x, i) => s[i] -= avg);
+  }
 }
 
 function setPitchColor(pitch) {
@@ -368,14 +368,14 @@ async function drawWaveform() {
     await current_op.throwIfCancelled();
 
     let drawer = base.initWaveformDrawer($('canvas#wave'));
-    drawer.draw(mem.audio_signal, [0, 1]);
+    drawer.draw(mem.decoded_audio.channels[0], [0, 1]);
     await sleep(50);
   } finally {
     is_drawing = false;
   }
 
   if (!mem.sig_start && !mem.sig_end) {
-    let [sleft, sright] = base.findSilenceMarks(mem.audio_signal, gconf.silenceThreshold, gconf.numSteps);
+    let [sleft, sright] = base.findSilenceMarks(mem.decoded_audio.channels[0], gconf.silenceThreshold, gconf.numSteps);
     setSilenceMarks(sleft / gconf.sampleRate, 0.1 + sright / gconf.sampleRate);
   }
 }
@@ -387,15 +387,16 @@ function updateAudioInfo() {
 }
 
 function setSilenceMarks(start_sec, end_sec) {
+  let sig = mem.decoded_audio.channels[0];
   let sleft = start_sec * gconf.sampleRate;
   let sright = end_sec * gconf.sampleRate;
   sright = Math.max(sright, sleft);
-  sleft = clamp(sleft, 0, mem.audio_signal.length - 1);
-  sright = clamp(sright, 0, mem.audio_signal.length - 1);
+  sleft = clamp(sleft, 0, sig.length - 1);
+  sright = clamp(sright, 0, sig.length - 1);
   mem.sig_start = sleft / gconf.sampleRate;
   mem.sig_end = sright / gconf.sampleRate;
-  let l = sleft * 100 / mem.audio_signal.length;
-  let r = sright * 100 / mem.audio_signal.length;
+  let l = sleft * 100 / sig.length;
+  let r = sright * 100 / sig.length;
   $('#wave_start').style.width = l.toFixed(2) + 'vw';
   $('#wave_end').style.width = (100 - r).toFixed(2) + 'vw';
   $('#wave_label').textContent = getSelectedDuration().toFixed(2) + ' s';
@@ -407,13 +408,15 @@ function getSelectedDuration() {
 }
 
 function getSelectedAudio() {
+  let channels = mem.decoded_audio.channels;
+  if (!channels) return null;
   let from = mem.sig_start * gconf.sampleRate;
   let to = mem.sig_end * gconf.sampleRate;
-  return mem.audio_signal.subarray(from, to);
+  return channels.map(ch => ch.subarray(from, to));
 }
 
 async function redrawImg() {
-  if (is_drawing || !mem.audio_signal)
+  if (is_drawing || !mem.decoded_audio.channels[0])
     return;
 
   let time = Date.now();
@@ -445,22 +448,32 @@ async function drawRoundWaveform() {
   let cw = canvas.width, sw = cw / 6 | 0;
   let img = ctx.getImageData(0, cw - sw, sw, sw);
 
-  let s = getSelectedAudio(), sn = s.length;
-  let smax = s.reduce((m, x) => Math.max(m, Math.abs(x)), 0);
   let buf = new utils.Float32Tensor([img.width, img.height]);
   let da = new utils.DrawingArea(buf, [-1, 1], [-1, 1]);
 
-  for (let t = 0; t < sn; t++) {
-    let r = s[t] / smax;
-    r = r * 0.5 + 0.5;
-    let a = -t / sn * 2 * Math.PI;
-    a += Math.PI;
-    buf.data[da.offsetRA(r, a / 2)] += 1;
-    buf.data[da.offsetRA(r, a / 2 + Math.PI)] += 1;
+  let channels = getSelectedAudio();
+  let nch = channels.length;
+  let smax = 0;
+  for (let s of channels)
+    smax = s.reduce((m, x) => Math.max(m, Math.abs(x)), smax);
+
+  for (let ch = 0; ch < nch; ch++) {
+    let s = channels[ch];
+    let sn = s.length;
+
+    for (let t = 0; t < sn; t++) {
+      let r = s[t] / smax;
+      r = r * 0.5 + 0.5;
+      let a = -t / sn * 2 * Math.PI;
+      a += Math.PI;
+      if (ch == 0 || nch < 2) buf.data[da.offsetRA(r, a / 2)] += 1;
+      if (ch == 1 || nch < 2) buf.data[da.offsetRA(r, a / 2 + Math.PI)] += 1;
+    }
   }
 
   let bmax = buf.max();
   dcheck(bmax >= 0);
+  console.log('smax:', smax, 'bmax:', bmax);
 
   for (let i = 0; i < buf.data.length; i++) {
     let v = Math.sqrt(buf.data[i] / bmax);
@@ -473,7 +486,7 @@ async function drawRoundWaveform() {
 }
 
 async function drawGallery() {
-  let index = 0, sig = getSelectedAudio();
+  let index = 0, channels = getSelectedAudio();
 
   for (let canvas of $$('#gallery canvas')) {
     index++;
@@ -481,7 +494,7 @@ async function drawGallery() {
     conf.imageSize = 256;
     conf.stringLen *= index == 1 ? 2 : 2 ** -(index - 1);
     console.debug('Drawing small img #' + index, 'stringLen=' + conf.stringLen);
-    await base.drawStringOscillations(sig, canvas, conf);
+    await base.drawStringOscillations(channels, canvas, conf);
     await base.drawDiskImage(canvas, { conf });
   }
 }
@@ -618,14 +631,14 @@ async function downloadAudio() {
 }
 
 async function playAudioSignal() {
-  if (mem.audio_signal)
+  if (mem.decoded_audio.channels[0])
     await utils.playSound(getSelectedAudio(), gconf.sampleRate);
 }
 
 async function saveAudioSignal(db_path = base.DB_PATH_AUDIO) {
   try {
-    if (!mem.audio_signal) return;
-    let file = utils.generateWavFile(mem.audio_signal, gconf.sampleRate, mem.audio_name);
+    if (!mem.decoded_audio.channels[0]) return;
+    let file = utils.generateWavFile(mem.decoded_audio.channels, gconf.sampleRate, mem.audio_name);
     console.log('Saving audio to DB:', file.size, file.type);
     await DB.set(db_path, file);
   } catch (err) {
@@ -666,11 +679,12 @@ async function recordAudio() {
   updateButton();
   document.body.classList.add('recording');
 
-  recorder.onaudiochunk = (chunk) => {
+  recorder.onaudiochunk = (channels) => {
     let xmin = num_samples / gconf.sampleRate / gconf.maxDuration;
-    let xlen = chunk.length / gconf.sampleRate / gconf.maxDuration;
-    wave_drawer.draw(chunk, [xmin, xmin + xlen], 1.0);
-    num_samples += chunk.length;
+    let xlen = channels[0].length / gconf.sampleRate / gconf.maxDuration;
+    for (let ch of channels)
+      wave_drawer.draw(ch, [xmin, xmin + xlen], 1.0);
+    num_samples += channels[0].length;
     updateButton();
     if (xmin + xlen > 1.0)
       stopRecording();

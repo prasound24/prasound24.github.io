@@ -167,7 +167,7 @@ export async function playTempSound(sid, sample_rate) {
   let ts = Date.now();
   let blob = await loadTempSound(sid);
   let sound = await utils.decodeAudioFile(blob, sample_rate);
-  await utils.playSound(sound, sample_rate, {
+  await utils.playSound([sound], sample_rate, {
     onstarted: () => console.debug('Delay to sound playing:', Date.now() - ts, 'ms'),
   });
 }
@@ -221,10 +221,10 @@ export function cancelWorkerCommand() {
   postWorkerCommand({ command: { type: 'cancel' } });
 }
 
-export async function drawStringOscillations(signal, canvas, conf, { cop, onprogress } = {}) {
+export async function drawStringOscillations(channels, canvas, conf, { cop, onprogress } = {}) {
   return new Promise((resolve, reject) => {
     postWorkerCommand({
-      command: { type: 'wave_1d', signal, config: clone(conf) },
+      command: { type: 'wave_1d', channels, config: clone(conf) },
       handlers: {
         'wave_1d': (e) => {
           if (e.data.error)

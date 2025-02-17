@@ -9,7 +9,7 @@ let { sleep, dcheck, clamp, fireballRGB, CurrentOp, Float32Tensor } = utils;
 let img_amps, img_freq, current_op, wforms, sig_freqs = [];
 
 onmessage = async (e) => {
-  let { type, txid, signal, config } = e.data;
+  let { type, txid, channels, config } = e.data;
   // console.log('received command:', type);
   switch (type) {
     case 'cancel':
@@ -18,8 +18,8 @@ onmessage = async (e) => {
       break;
     case 'wave_1d':
       current_op = new CurrentOp('bg:computeImgAmps', async () => {
-        await utils.time('img_amps:', () => computeImgAmps(signal, config, [0.00, 0.90]));
-        await utils.time('img_hues:', () => computeImgHues(signal, config, [0.90, 0.99]));
+        await utils.time('img_amps:', () => computeImgAmps(channels, config, [0.00, 0.90]));
+        await utils.time('img_hues:', () => computeImgHues(channels, config, [0.90, 0.99]));
         //exportAsEXR(wforms);
         postMessage({ type: 'wave_1d', img_amps_rect: img_amps.data, progress: 1.00 });
       });
@@ -35,11 +35,11 @@ onmessage = async (e) => {
 
 async function exportAsEXR(src) {
   let [h, w] = src.dims;
+  dcheck(src.data.length == h * w * 4);
 
   let rgba = new Float32Array(h * w * 4);
-  for (let i = 0; i < h * w; i++)
-    for (let j = 0; j < 4; j++)
-      rgba[i * 4 + j] = Math.abs(src.data[i]);
+  for (let i = 0; i < h * w * 4; i++)
+    rgba[i] = Math.abs(src.data[i]);
 
   let blob = createEXR(w, h, 3, rgba);
   let file = new File([blob], 'waveforms.exr');
@@ -47,11 +47,12 @@ async function exportAsEXR(src) {
   console.log('waveforms:', (blob.size / 1e9).toFixed(1), 'GB', url);
 }
 
-async function computeImgHues(sig, conf, [pmin, pmax]) {
-  let wf = wforms;
+async function computeImgHues([sig], conf, [pmin, pmax]) {
+  //let wf = wforms;
   let steps = 4; // conf.numSteps;
   let freqs = 8;
-  let [sn, strlen] = wf.dims;
+  let sn = sig.length;
+  //let [sn, strlen] = wf.dims;
   let ts = Date.now();
   let avg_freq = 0;
   img_freq = new Float32Tensor([steps, freqs]);
@@ -114,19 +115,26 @@ async function computeImgHues(sig, conf, [pmin, pmax]) {
   console.debug('Avg freq:', avg_freq.toFixed(1), 'Hz');
 }
 
-async function computeImgAmps(signal, conf, [pmin, pmax]) {
+async function computeImgAmps(channels, conf, [pmin, pmax]) {
   let strlen = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
   let ds = conf.imageSize;
   let subsampling = ds * 2 / conf.symmetry / strlen;
   strlen = Math.round(strlen * subsampling) & ~1; // make it even for FFT resampling
-  let oscillator = new StringOscillator({ width: strlen });
+  let oscillator = new StringOscillator(strlen);
 
-  let siglen = signal.length;
-  let siglen2 = Math.round(siglen * subsampling);
-  let sig2 = new Float32Array(siglen2);
-  interpolate_1d_re(signal, sig2);
-  siglen = sig2.length;
-  signal = sig2;
+  dcheck(channels.length <= 2);
+  let siglen = channels[0].length;
+
+  for (let i = 0; i < channels.length; i++) {
+    dcheck(channels[i].length == siglen);
+    let siglen2 = Math.round(siglen * subsampling);
+    let sig2 = new Float32Array(siglen2);
+    interpolate_1d_re(channels[i], sig2);
+    channels[i] = sig2;
+  }
+
+  siglen = channels[0].length;
+
   oscillator.dt = 1.0 / subsampling;
   oscillator.damping = 10 ** conf.damping;
 
@@ -136,18 +144,24 @@ async function computeImgAmps(signal, conf, [pmin, pmax]) {
   console.debug('siglen=' + siglen, 'strlen=' + strlen, 'steps=' + steps);
   console.debug('sn/height=' + (siglen / steps));
 
-  let wf = wforms = new Float32Tensor([siglen, strlen]);
+  //let wf = wforms = new Float32Tensor([siglen, strlen, 2]);
   let ia = img_amps = new Float32Tensor([steps, strlen]);
+  let [ch0, ch1] = channels;
 
   for (let t = 0; t < siglen; t++) {
-    oscillator.update(signal[t]);
+    let sigx = ch0[t], sigy = ch1 ? ch1[t] : 0;
+    oscillator.update(sigx, sigy);
     let y = Math.round(t / siglen * steps);
 
+    dcheck(oscillator.wave.length == strlen * 2);
+
     for (let x = 0; x < strlen; x++) {
-      let amp = oscillator.wave[x] - signal[t];
-      wf.data[t * strlen + x] = amp;
+      let dx = oscillator.wave[x * 2 + 0] - sigx;
+      let dy = oscillator.wave[x * 2 + 1] - sigy;
+      //wf.data[(t * strlen + x) * 2 + 0] = dx;
+      //wf.data[(t * strlen + x) * 2 + 1] = dy;
       let i = y * strlen + x;
-      ia.data[i] = Math.max(ia.data[i], Math.abs(amp));
+      ia.data[i] = Math.max(ia.data[i], Math.hypot(dx, dy));
     }
 
     if (y <= y_prev) continue;

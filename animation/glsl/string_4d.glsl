@@ -6,20 +6,21 @@ const float INF = 1e6;
 const float PHI = (sqrt(5.) - 1.)/2.;
 
 // Simulation consts
-const int N = 300;
+const int N = 1800;
 const int GS = int(sqrt(float(N))); // group size
 const int NG = (N + GS - 1) / GS; // number of groups
-const float MASS = 25.0;
-const float ZOOM = 1.0;
+const float MASS = 10.0;
+const float ZOOM = 3.0;
 const int NBOX = 32;
 
 // Rendering consts
+const vec3 GAMMA = vec3(1,2,3);
 const vec3 RGB_OUTFLOW = vec3(1.5, 0.6, 0.2);
-const vec3 RGB_INFLOW = vec3(0.8, 0.3, 1.5);
+const vec3 RGB_INFLOW = vec3(0.2, 1.5, 0.6);
 const vec3 RGB_GLOW = vec3(0.5, 0.2, 1.5);
 const vec3 RGB_BBOX = vec3(0.1, 0.4, 0.2);
-const float R0 = 0.0015;
-const float R2 = 0.0015;
+const float R0 = 0.001;
+const float RFLOW = 0.0015;
 
 vec2 iexp(float phi) {
     return vec2(cos(phi), sin(phi));
@@ -45,9 +46,9 @@ vec4 initPos(ivec2 pp) {
     float x = sin(phi);
     float y = cos(phi);
 
-    float K = 5.0;
-    float z = 0.3*sin(phi*K) - 0.8;
-    float w = 0.1*cos(phi*K);
+    float K = 3.0;
+    float z = 0.3*sin(phi*K*2.) - 0.8;
+    float w = 0.6*cos(phi*K) - 0.4;
 
     z += 0.03*sin(phi*K*5.0+1.2)+0.007*sin(phi*K*10.0+3.1)+0.003*sin(phi*K*30.0+1.0);
 
@@ -117,8 +118,8 @@ vec2 q2p(vec2 q) {
     return 0.5 * (q * a + r);
 }
 
-vec2 pos(int i) {
-    vec4 r = texString(ivec2(i, 0));
+vec2 _pos(int i, int j) {
+    vec4 r = texString(ivec2(i, j));
     if(iMouse.z > 0.) {
         vec2 m = p2q(iMouse.xy);
         //r.yw *= rot2(PI * m.y);
@@ -130,8 +131,12 @@ vec2 pos(int i) {
     return r.xy * ZOOM;
 }
 
+vec2 pos(int i) {
+    return _pos(i,0);
+}
+
 vec3 dist2flow(float d) {
-    float flow = exp(-pow(d / R2, 2.));
+    float flow = exp(-pow(d / RFLOW, 2.));
     float glow = exp(-pow(0.2 * d / R0, 2.));
     return vec3(flow, flow, glow);
 }
@@ -142,6 +147,7 @@ float estMaxDist() {
     for(int i = 0; i < 10; i++) {
         float d = mix(d1, d2, 0.5);
         vec3 e = dist2flow(d);
+        e = pow(e, vec3(0.2));
         if(max(e.y, e.z) > 1e-6)
             d1 = d;
         else
@@ -226,15 +232,16 @@ void updateGroups(out vec4 o, vec2 p) {
         } else {
             // CH_GROUPS[i,0] = bbox for the segment [i*GS+1..i*GS+GS]
             vec2 ll, l, r, rr;
-            for(int i = 0; i <= GS + 2; i++) {
+            for(int i = 1; i <= GS; i++) {
                 rr = pos(int(p.x)*GS + i);
-                if (i >= 2) {
-                    // cubic bezier is bounded by its control polygon
-                    mat4x2 cp = bezierCP(ll, l, r, rr);
-                    o.xy = min(o.xy, min4(cp));
-                    o.zw = max(o.zw, max4(cp));
-                }
-                ll = l, l = r, r = rr;
+                ll = _pos(int(p.x)*GS + i, 1);
+                o.xy = min(o.xy, min(ll, rr));
+                o.zw = max(o.zw, max(ll, rr));
+                // cubic bezier is bounded by its control polygon
+                //mat4x2 cp = bezierCP(ll, l, r, rr);
+                //o.xy = min(o.xy, min4(cp));
+                //o.zw = max(o.zw, max4(cp));
+                //ll = l, l = r, r = rr;
             }
         }
         return;
@@ -326,9 +333,13 @@ void sdf0(vec2 q, int imin, int imax, inout vec3 d3, inout int lookups) {
 
     for(int i = imin; i <= imax; i++) {
         lookups++;
-        vec2 rr = pos(i + 2);
-        sdBezier3(q, ll, l, r, rr, d3);
-        ll = l, l = r, r = rr;
+        vec2 rr = _pos(i, 0);
+        vec2 pp = _pos(i, 1);
+        float d = sdLine(q, rr, pp);
+        if (i % 12 == 0) d *= 0.8;
+        d3 = max(d3, dist2flow(d));
+        //sdBezier3(q, ll, l, r, rr, d3);
+        //ll = l, l = r, r = rr;
         
         //d3 = max(d3, dist2flow(abs(length(q - l) - 0.01)));
     }
@@ -396,12 +407,8 @@ void updateFlow(out vec4 o, vec2 p) {
 
     float s = 0.997;
     vec2 zoom = vec2(1, s);
-    o.r += s*s*texFlow(uv/zoom).r; // inflow
-    o.g += s*s*texFlow(uv*zoom).g; // outflow
-}
-
-vec3 flameRGB(float t) {
-    return vec3(t, t*t, t*t*t);
+    o.r += 0.995*texFlow(uv/zoom).r; // inflow
+    o.g += 0.96*texFlow(uv*zoom).g; // outflow
 }
 
 void addVignette(inout vec4 o, vec2 p) {
@@ -427,12 +434,12 @@ void updateImg(out vec4 o, vec2 p) {
 
     vec2 q0; // = vec2(0.4, 0.7);
     vec2 q = p2q(p) + q0;
-    vec2 ra = xy2ra(q) / vec2(3.0, 2. * PI);
+    vec2 ra = xy2ra(q) / vec2(6.5, 2. * PI);
     vec4 e = texFlow(ra.yx);
 
-    o.rgb += RGB_OUTFLOW * flameRGB(e.g);
-    o.rgb += RGB_INFLOW * flameRGB(e.r);
-    o.rgb += RGB_GLOW * flameRGB(e.b);
+    o.rgb += pow(vec3(e.g), RGB_OUTFLOW);
+    o.rgb += pow(vec3(e.r), RGB_INFLOW);
+    //o.rgb += pow(vec3(e.b), RGB_GLOW);
     //o.rgb += RGB_BBOX * flameRGB(e.a/32.);
 
     o.rgb = exp(iGamma.y)*pow(o.rgb, vec3(1./iGamma.x));
