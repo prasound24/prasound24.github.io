@@ -83,6 +83,7 @@ function initSettings() {
   });
 
   initSetting('hue', {
+    debug: true,
     units: '\u00b0',
     addStep: (x, d) => (x + 10 * d + 360) % 360,
     toText: (x) => x.toFixed(0),
@@ -110,17 +111,18 @@ function initSettings() {
   });
 
   initSetting('imageSize', {
-    debug: true,
     addStep: (x, d) => clamp(x * 2 ** Math.sign(d), 1, 4096),
     onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
   initSetting('numSteps', {
+    debug: true,
     addStep: (x, d) => clamp(x * 2 ** d | 0, 1, 8192),
     onChanged: () => runUserAction('redrawImg', redrawImg),
   });
 
   initSetting('stringLen', {
+    debug: true,
     units: 'ms',
     addStep: (x, d) => clamp(x * 2 ** d, 1, 100),
     toText: (x) => x.toFixed(2),
@@ -128,6 +130,7 @@ function initSettings() {
   });
 
   initSetting('symmetry', {
+    debug: true,
     addStep: (x, d) => clamp(x + Math.sign(d), 1, 6),
     onChanged: () => runUserAction('redrawImg', redrawImg),
   });

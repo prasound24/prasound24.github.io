@@ -5,8 +5,7 @@ for (let a of $$('.grid > a')) {
   let img = a.querySelector('img');
   if (!a.href && img.src) {
     let filename = img.src.split('/').slice(-1)[0].split('.')[0];
-    let keynote = img.className;
-    a.href = 'preview?src=' + filename + '&c=' + keynote;
+    a.href = 'preview?src=' + filename;
   }
 }
 
