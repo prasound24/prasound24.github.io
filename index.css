@@ -54,23 +54,10 @@
   margin: 2em 0;
 }
 
-#tabs {
-  display: flex;
-  justify-content: center;
-  gap: 1em;
-}
-
-#tabs span {
-  cursor: pointer;
-  font-weight: bold;
-  color: #888;
-  text-decoration: underline;
-}
-
-#examples span.active {
-  color: #fff;
-}
-
-.grid:not(.active) {
+#examples .grid:empty {
   display: none;
+}
+
+#examples h4 {
+  font-family: DancingScript;
 }
