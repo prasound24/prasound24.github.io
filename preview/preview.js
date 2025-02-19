@@ -40,6 +40,8 @@ async function init() {
     }
   }
 
+  //initWaveformCanvas();
+
   if (src) {
     for (let a of $$('#hires_buttons a.button'))
       a.href += '?src=' + src;
@@ -49,6 +51,18 @@ async function init() {
 
   let sample_rate = conf?.sampleRate || base.gconf.sampleRate;
   let signal, animation = { id: 0 }, audio = { ctx: null };
+
+
+  if (img_file?.name)
+    document.querySelector('#sound_info').textContent = img_file.name;
+
+  if (img_url) {
+    img_main.src = img_url;
+    img_inline.src = img_url;
+  }
+}
+
+async function initWaveformCanvas() {
   let canvas = $('canvas#wave');
   let wd = base.initWaveformDrawer(canvas);
 
@@ -77,14 +91,6 @@ async function init() {
       is_playing = false;
     }
   };
-
-  if (img_file?.name)
-    document.querySelector('#sound_info').textContent = img_file.name;
-
-  if (img_url) {
-    img_main.src = img_url;
-    img_inline.src = img_url;
-  }
 }
 
 async function initAudioSignal(sample_rate) {

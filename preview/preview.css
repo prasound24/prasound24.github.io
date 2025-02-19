@@ -4,6 +4,7 @@
 }
 
 #wave_wrapper {
+  display: none;
   position: relative;
   overflow-x: hidden;
 }
