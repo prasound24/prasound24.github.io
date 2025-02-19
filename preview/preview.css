@@ -39,6 +39,7 @@ a#customize[href=''] {
 button,
 a.button {
   margin: 0 inherit;
+  background: #8416;
 }
 
 .buttons>* {
@@ -92,3 +93,13 @@ body:not(.debug) #sound_info_wrapper {
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
 }
+
+.giclee p {
+  color: #888;
+  text-align: center;
+}
+
+.giclee a.button {
+  flex-direction: row;
+}
+

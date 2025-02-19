@@ -13,7 +13,6 @@ init();
 
 async function init() {
   let img_main = $('.preview img');
-  let img_inline = $('img.inline');
   let src = args.get('src');
   let note_class = args.get('c');
   let conf, img_file, img_url, is_playing = false;
@@ -22,7 +21,6 @@ async function init() {
 
   if (note_class) {
     img_main.classList.add(note_class);
-    img_inline.classList.add(note_class);
   }
 
   if (src && !src.startsWith('db:')) {
@@ -34,7 +32,7 @@ async function init() {
       img_url = URL.createObjectURL(img_file);
       conf = await base.loadAudioConfig(src);
       if (conf?.hue > 0) {
-        for (let img of [img_main, img_inline])
+        for (let img of [img_main])
           img.style.filter = 'hue-rotate(' + conf.hue + 'deg)';
       }
     }
@@ -58,7 +56,6 @@ async function init() {
 
   if (img_url) {
     img_main.src = img_url;
-    img_inline.src = img_url;
   }
 }
 
