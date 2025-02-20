@@ -474,9 +474,10 @@ async function drawRoundWaveform() {
   for (let ch = 0; ch < nch; ch++) {
     let s = channels[ch];
     let sn = s.length;
+    let dt = Math.min(1, 1024 / cw);
 
-    for (let t = 0; t < sn; t++) {
-      let r = s[t] / smax;
+    for (let t = 0; t < sn; t += dt) {
+      let r = utils.interpolateLinear(t/sn, s) / smax;
       r = r * 0.5 + 0.5;
       let a = -t / sn * 2 * Math.PI;
       a += Math.PI;
