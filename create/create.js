@@ -33,6 +33,7 @@ async function init() {
   base.initConfFromURL();
   initWaveMouseEvents();
   initSettings();
+  initCanvasClick();
 
   $('#preview').onclick = () => saveToGallery();
   $('#upload').onclick = () => runUserAction('uploadAudio', uploadAudio);
@@ -65,6 +66,16 @@ async function runUserAction(name, async_fn) {
       throw err;
   }
   current_op = null;
+}
+
+function initCanvasClick() {
+  $('#art_main canvas').onclick = () => {
+    runUserAction('redrawImg', async () => {
+      gconf.hue = (gconf.hue + 330) % 360;
+      ui_settings.hue.refresh();
+      await redrawImg();
+    });
+  };
 }
 
 function initSettings() {
