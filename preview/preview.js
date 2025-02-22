@@ -45,11 +45,11 @@ async function init() {
       a.href += '?src=' + src;
     for (let a of $$('#gif_buttons a.button'))
       a.href += '?src=' + src;
+    setAudioSrc(src);
   }
 
   let sample_rate = conf?.sampleRate || base.gconf.sampleRate;
   let signal, animation = { id: 0 }, audio = { ctx: null };
-
 
   if (img_file?.name)
     document.querySelector('#sound_info').textContent = img_file.name;
@@ -88,6 +88,16 @@ async function initWaveformCanvas() {
       is_playing = false;
     }
   };
+}
+
+async function setAudioSrc(src) {
+  for (let url of ['/mp3/' + src + '.mp3', '/mp3/' + src + '.ogg']) {
+    let res = await fetch(url, { method: 'HEAD' });
+    if (res.status != 200) continue;
+    $('audio').src = url;
+    $('audio').style.display = 'block';
+    return;
+  }
 }
 
 async function initAudioSignal(sample_rate) {
