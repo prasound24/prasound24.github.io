@@ -97,9 +97,19 @@ body:not(.debug) #sound_info_wrapper {
 .giclee p {
   color: #888;
   text-align: center;
+  margin-left: 10%;
+  margin-right: 10%;
+}
+
+.giclee p:not(.price) {
+  color: #555;
 }
 
 .giclee a.button {
   flex-direction: row;
+}
+
+a.button {
+  color: #888;
 }
 

@@ -290,10 +290,6 @@ body:not(.debug) #download_image {
   height: 0;
 }
 
-body:not(.debug) #wave_play_info {
-  display: none;
-}
-
 #play_sound {
   position: absolute;
   left: 0;

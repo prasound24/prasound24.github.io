@@ -75,7 +75,8 @@ float freqHue(float freq_hz) {
 
 vec3 fire_rgb(float t) {
   float q = max(0., t * 1.88); // t=0..1 -> q=0..1.88 -> rgb=black..white
-  return clamp(vec3(q, q * q * .4, q * q * q * .15), 0., 1.);
+  //return clamp(vec3(q, q * q * .4, q * q * q * .15), 0., 1.);
+  return clamp(pow(vec3(q), vec3(1,2,3))*vec3(1.0,0.5,0.2), 0., 1.);
 }
 
 vec3 cos_rgb(float t, vec3 a, vec3 b, vec3 c, vec3 d) {

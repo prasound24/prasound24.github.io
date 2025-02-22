@@ -116,16 +116,14 @@ async function computeImgHues([sig], conf, [pmin, pmax]) {
 }
 
 async function computeImgAmps(channels, conf, [pmin, pmax]) {
+  let nch = channels.length;
   let strlen = Math.round(conf.stringLen / 1000 * conf.sampleRate); // oscillating string length
   let ds = conf.imageSize;
   let subsampling = ds * 2 / conf.symmetry / strlen;
   strlen = Math.round(strlen * subsampling) & ~1; // make it even for FFT resampling
-  let oscillator = new StringOscillator(strlen);
-
-  dcheck(channels.length <= 2);
   let siglen = channels[0].length;
 
-  for (let i = 0; i < channels.length; i++) {
+  for (let i = 0; i < nch; i++) {
     dcheck(channels[i].length == siglen);
     let siglen2 = Math.round(siglen * subsampling);
     let sig2 = new Float32Array(siglen2);
@@ -135,8 +133,13 @@ async function computeImgAmps(channels, conf, [pmin, pmax]) {
 
   siglen = channels[0].length;
 
-  oscillator.dt = 1.0 / subsampling;
-  oscillator.damping = 10 ** conf.damping;
+  let oscillators = [];
+
+  for (let ch = 0; ch < nch; ch++) {
+    oscillators[ch] = new StringOscillator(strlen);
+    oscillators[ch].dt = 1.0 / subsampling;
+    oscillators[ch].damping = 10 ** conf.damping;
+  }
 
   let steps = conf.numSteps;
   let y_prev = 0, ts = Date.now();
@@ -144,24 +147,21 @@ async function computeImgAmps(channels, conf, [pmin, pmax]) {
   console.debug('siglen=' + siglen, 'strlen=' + strlen, 'steps=' + steps);
   console.debug('sn/height=' + (siglen / steps));
 
-  //let wf = wforms = new Float32Tensor([siglen, strlen, 2]);
-  let ia = img_amps = new Float32Tensor([steps, strlen]);
-  let [ch0, ch1] = channels;
+  img_amps = new Float32Tensor([steps, strlen]);
 
   for (let t = 0; t < siglen; t++) {
-    let sigx = ch0[t], sigy = ch1 ? ch1[t] : 0;
-    oscillator.update(sigx, sigy);
+    for (let ch = 0; ch < nch; ch++)
+      oscillators[ch].update(channels[ch][t]);
+
     let y = Math.round(t / siglen * steps);
 
-    dcheck(oscillator.wave.length == strlen * 2);
-
     for (let x = 0; x < strlen; x++) {
-      let dx = oscillator.wave[x * 2 + 0] - sigx;
-      let dy = oscillator.wave[x * 2 + 1] - sigy;
-      //wf.data[(t * strlen + x) * 2 + 0] = dx;
-      //wf.data[(t * strlen + x) * 2 + 1] = dy;
+      let sum = 0;
+      for (let ch = 0; ch < nch; ch++)
+        sum += utils.sqr(oscillators[ch].wave[x] - channels[ch][t]);
+
       let i = y * strlen + x;
-      ia.data[i] = Math.max(ia.data[i], Math.hypot(dx, dy));
+      img_amps.data[i] = Math.max(img_amps.data[i], Math.sqrt(sum));
     }
 
     if (y <= y_prev) continue;

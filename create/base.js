@@ -123,10 +123,17 @@ export async function loadAudioSignal(src) {
     return tmp || await DB.get(DB_SAVED_SOUNDS + '/' + src.slice(3));
   }
 
-  let res = await fetch('/mp3/' + src + '.mp3');
-  check(res.status == 200, src + '.mp3 not found');
+  let ext = '.mp3';
+  let res = await fetch('/mp3/' + src + ext);
+  if (res.status != 200) {
+    console.warn(src + '.mp3 not found');
+    ext = '.ogg';
+    res = await fetch('/mp3/' + src + ext);
+    if (res.status != 200)
+      throw new Error(src + '.mp3/ogg not found');
+  }
   let blob = await res.blob();
-  return new File([blob], src + '.mp3', { type: blob.type });
+  return new File([blob], src + ext, { type: blob.type });
 }
 
 export async function saveTempSounds(files) {
@@ -393,7 +400,7 @@ export function initWaveformDrawer(canvas) {
     let bmax = area.max();
 
     for (let i = 0; i < area.data.length; i++) {
-      let v = Math.pow(area.data[i] / bmax, 0.2);
+      let v = 3.5 * Math.sqrt(area.data[i] / bmax); // gamma correction
       img.data[4 * i + 3] = 255 * v;
     }
 

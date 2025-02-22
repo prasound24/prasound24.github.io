@@ -25,7 +25,7 @@ window.conf = gconf;
 window.utils = utils;
 window.onload = init;
 utils.setUncaughtErrorHandlers((err) => {
-  if (!err) return;
+  if (!err || err == 'Error: cancelled') return;
   $('#error_info').textContent = err;
 });
 
@@ -73,7 +73,11 @@ function initCanvasClick() {
     runUserAction('redrawImg', async () => {
       gconf.hue = (gconf.hue + 330) % 360;
       ui_settings.hue.refresh();
-      await redrawImg();
+      await drawDiskImage();
+      await saveImageConfig();
+      await drawRoundWaveform();
+      await drawLabel();
+      await drawStamp();
     });
   };
 }
@@ -95,12 +99,16 @@ function initSettings() {
 
   initSetting('hue', {
     debug: true,
+    delay: 0.0,
     units: '\u00b0',
     addStep: (x, d) => (x + 10 * d + 360) % 360,
     toText: (x) => x.toFixed(0),
     onChanged: () => runUserAction('redrawImg', async () => {
-      //$('#disk').style.filter = 'hue-rotate(' + gconf.hue + 'deg)';
-      await redrawImg();
+      await drawDiskImage();
+      await saveImageConfig();
+      await drawRoundWaveform();
+      await drawLabel();
+      await drawStamp();
     }),
   });
 
@@ -111,6 +119,9 @@ function initSettings() {
     onChanged: () => runUserAction('redrawImg', async () => {
       await drawDiskImage();
       await saveImageConfig();
+      await drawRoundWaveform();
+      await drawLabel();
+      await drawStamp();
     }),
   });
 
@@ -396,8 +407,12 @@ async function drawWaveform() {
 
 function updateAudioInfo() {
   $('#audio_name').textContent = mem.audio_name.replace(/_/g, ' ');
-  $('#audio_info').textContent = getSelectedDuration().toFixed(2) + ' s, '
-    + (gconf.sampleRate / 1000) + ' kHz, ' + (mem.audio_file.size / 1024).toFixed(1) + ' KB';
+  $('#audio_info').textContent = [
+    getSelectedDuration().toFixed(2) + ' s',
+    (gconf.sampleRate / 1000) + ' kHz',
+    mem.decoded_audio.channels.length + ' ch',
+    (mem.audio_file.size / 1024).toFixed(1) + ' KB'
+  ].join(', ');
 }
 
 function setSilenceMarks(start_sec, end_sec) {
@@ -461,13 +476,14 @@ async function drawRoundWaveform() {
   let ctx = canvas.getContext('2d');
   let cw = canvas.width, sw = cw / 6 | 0;
   let img = ctx.getImageData(0, cw - sw, sw, sw);
-
-  let buf = new utils.Float32Tensor([img.width, img.height]);
+  let [iw, ih] = [img.width, img.height];
+  let buf = new utils.Float32Tensor([iw, ih]);
   let da = new utils.DrawingArea(buf, [-1, 1], [-1, 1]);
 
   let channels = getSelectedAudio();
   let nch = channels.length;
   let smax = 0;
+
   for (let s of channels)
     smax = s.reduce((m, x) => Math.max(m, Math.abs(x)), smax);
 
@@ -477,12 +493,16 @@ async function drawRoundWaveform() {
     let dt = Math.min(1, 1024 / cw);
 
     for (let t = 0; t < sn; t += dt) {
-      let r = utils.interpolateLinear(t/sn, s) / smax;
+      let r = utils.interpolateLinear(t / sn, s) / smax;
       r = r * 0.5 + 0.5;
       let a = -t / sn * 2 * Math.PI;
       a += Math.PI;
-      if (ch == 0 || nch < 2) buf.data[da.offsetRA(r, a / 2)] += 1;
-      if (ch == 1 || nch < 2) buf.data[da.offsetRA(r, a / 2 + Math.PI)] += 1;
+
+      if (ch == 0 || nch != 2)
+        buf.data[da.offsetRA(r, a / 2)] += 1;
+
+      if (ch == 1 || nch != 2)
+        buf.data[da.offsetRA(r, a / 2 + Math.PI)] += 1;
     }
   }
 
@@ -491,7 +511,7 @@ async function drawRoundWaveform() {
   console.log('smax:', smax, 'bmax:', bmax);
 
   for (let i = 0; i < buf.data.length; i++) {
-    let v = Math.sqrt(buf.data[i] / bmax);
+    let v = 1.0 * Math.sqrt(buf.data[i] / bmax); // gamma correction
     img.data[4 * i + 0] += v * 255;
     img.data[4 * i + 1] += v * 255;
     img.data[4 * i + 2] += v * 255;
@@ -520,7 +540,7 @@ async function drawStringOscillations() {
     let img_amps = await base.drawStringOscillations(getSelectedAudio(), $('canvas#disk'), gconf, {
       onprogress: (pct) => base.setCircleProgress(pct * 50),
     });
-    await saveWaveData(img_amps);
+    saveWaveData(img_amps);
     await current_op.throwIfCancelled();
     await drawDiskImage([0.5, 1.0]);
   } finally {

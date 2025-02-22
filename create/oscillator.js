@@ -18,7 +18,7 @@ export class StringOscillator {
     return this.string.get(0);
   }
 
-  update(sigx = 0, sigy = 0) {
+  update(sigx) {
     let n = this.strlen;
     let a = this.damping; // c = this.stiffness;
     let h = this.dt;
@@ -30,20 +30,17 @@ export class StringOscillator {
     //let ch2 = c / (h * h);
 
     wave[0] = sigx;
-    wave[1] = sigy;
 
     //if (c) wave[1] = sigx;
 
     for (let x = 0; x < n; x++) {
       let l = x > 0 ? x - 1 : n - 1;
       let r = x < n - 1 ? x + 1 : 0;
-      let lx = wave[l * 2], ly = wave[l * 2 + 1];
-      let rx = wave[r * 2], ry = wave[r * 2 + 1];
-      let px = prev[x * 2], py = prev[x * 2 + 1];
+      let lx = wave[l];
+      let rx = wave[r];
+      let px = prev[x];
       let sx = px * a0 - (lx + rx);
-      let sy = py * a0 - (ly + ry);
-      next[x * 2 + 0] = clamp(-sx / a2, -3, +3);
-      next[x * 2 + 1] = clamp(-sy / a2, -3, +3);
+      next[x] = clamp(-sx / a2, -3, +3);
     }
 
     this.string.iteration++;
@@ -55,7 +52,7 @@ class WaveFront {
     this.iteration = 0;
     this.w = [];
     for (let i = 0; i < k; i++)
-      this.w[i] = new Float32Array(n * 2); // x,y
+      this.w[i] = new Float32Array(n);
   }
 
   get(i) {
