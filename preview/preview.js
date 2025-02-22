@@ -95,7 +95,7 @@ async function setAudioSrc(src) {
     let res = await fetch(url, { method: 'HEAD' });
     if (res.status != 200) continue;
     $('audio').src = url;
-    $('audio').style.display = 'block';
+    $('#wave_top').onclick = () => $('audio').play();
     return;
   }
 }

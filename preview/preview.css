@@ -95,14 +95,11 @@ body:not(.debug) #sound_info_wrapper {
 }
 
 audio {
-  width: 100%;
-  opacity: 0.25;
-  cursor: pointer;
   display: none;
 }
 
 .giclee p {
-  color: #888;
+  color: #ccc;
   text-align: center;
   margin-left: 10%;
   margin-right: 10%;
@@ -117,6 +114,6 @@ audio {
 }
 
 a.button {
-  color: #888;
+  color: #ccc;
 }
 
