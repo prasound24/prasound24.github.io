@@ -4,7 +4,7 @@ import { GpuContext } from '../webgl2.js';
 import { createEXR } from '../lib/exr.js';
 import { createRGBE } from '../lib/rgbe.js';
 
-const { $, check, dcheck, DB, fetchText, fetchRGBA } = utils;
+const { $, check, dcheck, DB, fetchText } = utils;
 
 let url_args = new URLSearchParams(location.search);
 
@@ -99,6 +99,14 @@ async function initShader(ctx, filename) {
   shaders[filename] = ctx.createTransformProgram({ fshader });
 }
 
+async function initShaderConfig() {
+  try {
+    return await import('./glsl/' + SHADER_ID + '.js');
+  } catch (err) {
+    return { drawFrame: (ctx, args) => ctx.runShader(args) };
+  }
+}
+
 async function initWebGL() {
   // window.onresize = resizeCanvas;
   // resizeCanvas();
@@ -121,9 +129,9 @@ async function initWebGL() {
   //await initShader(ctx, 'string_draw');
   //await initShader(ctx, 'waveform_draw');
   await initShader(ctx, SHADER_ID);
-  let shader = await import('./glsl/' + SHADER_ID + '.js');
+  let shader = await initShaderConfig();
   let shader_ctx = {
-    runShader(args, out) {
+    runShader(args, out = -1) {
       let buffers = [bufferA, bufferB, bufferC, bufferD];
       runShader(SHADER_ID, args, buffers[out]);
     },
