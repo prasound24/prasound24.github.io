@@ -1,11 +1,11 @@
-import { DB, $, $$ } from './lib/utils.js';
-import * as base from './create/base.js';
+import { DB, $, $$ } from '../lib/utils.js';
+import * as base from '../create/base.js';
 
 for (let a of $$('.grid > a')) {
   let img = a.querySelector('img');
   if (!a.href && img.src) {
     let filename = img.src.split('/').slice(-1)[0].split('.')[0];
-    a.href = 'preview?src=' + filename;
+    a.href = '/preview?src=' + filename;
   }
 }
 

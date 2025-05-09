@@ -50,14 +50,25 @@
   }
 }
 
+#prints {
+  text-align: center;
+  margin: 2em 0;
+}
+
+#prints a {
+  color: #ccc;
+  font-size: 0.8rem;
+}
+
 #make_your_own {
   margin: 2em 0;
 }
 
-#examples .grid:empty {
-  display: none;
+#sounds {
+  text-align: center;
 }
 
-#examples h4 {
-  font-family: DancingScript;
+#sounds a {
+  color: #ccc;
+  font-size: 0.8rem;
 }

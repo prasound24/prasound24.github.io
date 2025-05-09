@@ -1,0 +1,32 @@
+@font-face {
+  font-family: DancingScript;
+  src: url(/create/DancingScript-Regular.ttf);
+}
+
+.stage {
+  margin-top: 2em;;
+}
+
+.stage img {
+  width: 100%
+}
+
+.stage a img {
+  height: inherit;
+}
+
+.stage div {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.stage div > * {
+  flex: 1;
+}
+
+@media(orientation:portrait) {
+  .stage .landscapes {
+    flex-direction: column;
+  }
+}
