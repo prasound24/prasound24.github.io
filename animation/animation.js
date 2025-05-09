@@ -4,13 +4,14 @@ import { GpuContext } from '../webgl2.js';
 import { createEXR } from '../lib/exr.js';
 import { createRGBE } from '../lib/rgbe.js';
 
-const { $, dcheck, DB, fetchText, fetchRGBA } = utils;
+const { $, check, dcheck, DB, fetchText, fetchRGBA } = utils;
 
-let args = new URLSearchParams(location.search);
+let url_args = new URLSearchParams(location.search);
 
 const DB_PATH_CONFIG = 'user_samples/_last/config';
 const LANDSCAPE = window.innerWidth > window.innerHeight;
-const [CW, CH] = parseImgSize(args.get('i') || '720p');
+const [CW, CH] = parseImgSize(url_args.get('i') || '720p');
+const SHADER_ID = url_args.get('s') || 'string_4d';
 const SAMPLE_RATE = 48000;
 
 let sound = null;
@@ -23,6 +24,7 @@ let shaders = {};
 init();
 
 async function init() {
+  check(/^[\w_]+$/.test(SHADER_ID), 'Bad shader id: ?s=');
   elGamma.value = 2.2;
   elAlpha.value = 0.0;
   $('#img_size').textContent = CW + '×' + CH;
@@ -57,7 +59,7 @@ function initErrHandler() {
 }
 
 async function initSound() {
-  let blob = await base.loadAudioSignal(args.get('src'));
+  let blob = await base.loadAudioSignal(url_args.get('src'));
   if (!blob) return;
   sound = await utils.decodeAudioFile(blob, SAMPLE_RATE);
   console.log('Sound:', (sound.length / SAMPLE_RATE).toFixed(1), 'sec,', sound.length, 'samples');
@@ -118,7 +120,14 @@ async function initWebGL() {
   //await initShader(ctx, 'string_wave');
   //await initShader(ctx, 'string_draw');
   //await initShader(ctx, 'waveform_draw');
-  await initShader(ctx, 'string_4d');
+  await initShader(ctx, SHADER_ID);
+  let shader = await import('./glsl/' + SHADER_ID + '.js');
+  let shader_ctx = {
+    runShader(args, out) {
+      let buffers = [bufferA, bufferB, bufferC, bufferD];
+      runShader(SHADER_ID, args, buffers[out]);
+    },
+  };
 
   let iLogo = await createLogoTexture(ctx);
   let iChannelImage = await fetchWaveData(ctx);
@@ -167,8 +176,8 @@ async function initWebGL() {
     }
   };
 
-  elGamma.onchange = () => runShader('string_4d', initShaderArgs());
-  elAlpha.onchange = () => runShader('string_4d', initShaderArgs());
+  elGamma.onchange = () => runShader(SHADER_ID, initShaderArgs());
+  elAlpha.onchange = () => runShader(SHADER_ID, initShaderArgs());
 
   $('#save_png').onclick = () => downloadPNG();
   $('#save_exr').onclick = () => downloadEXR();
@@ -176,7 +185,7 @@ async function initWebGL() {
 
   function downloadRGBA() {
     console.debug('Saving the float32 RGBA framebuffer');
-    runShader('string_4d', initShaderArgs(), bufferD);
+    runShader(SHADER_ID, initShaderArgs(), bufferD);
     let f32 = bufferD.download();
     dcheck(f32.length == CW * CH * 4);
     return f32;
@@ -226,11 +235,6 @@ async function initWebGL() {
 
   function runShader(name, args, out = null) {
     let iResolution = out ? [out.width, out.height] : [canvas.width, canvas.height];
-    args = { ...args, iChannel0, iChannel1, iChannel2, iChannel3 };
-    args.iChannelResolution0 = [iChannel0.width, iChannel0.height];
-    args.iChannelResolution1 = [iChannel1.width, iChannel1.height];
-    args.iChannelResolution2 = [iChannel2.width, iChannel2.height];
-    args.iChannelResolution3 = [iChannel3.width, iChannel3.height];
     shaders[name].draw({ ...args, iResolution }, out);
   }
 
@@ -241,6 +245,11 @@ async function initWebGL() {
     return {
       iTime, iMouse, iFrame, iLogo, iSoundMax, iSoundLen, iPass: 0,
       iChannelSound, iChannelImage, iGamma, iChannelId: -1,
+      iChannel0, iChannel1, iChannel2, iChannel3,
+      iChannelResolution0: [iChannel0.width, iChannel0.height],
+      iChannelResolution1: [iChannel1.width, iChannel1.height],
+      iChannelResolution2: [iChannel2.width, iChannel2.height],
+      iChannelResolution3: [iChannel3.width, iChannel3.height],
     };
   }
 
@@ -251,27 +260,7 @@ async function initWebGL() {
       canvas.style.display = '';
     }
 
-    let num_steps = 1;
-
-    for (let k = num_steps; k > 0; k--) {
-      let args = initShaderArgs(time_msec);
-
-      runShader('string_4d', { ...args, iChannelId: 0 }, bufferA);
-      [iChannel0, bufferA] = [bufferA, iChannel0];
-
-      for (let i = 0; i < 2; i++) {
-        runShader('string_4d', { ...args, iChannelId: 1, iPass: i }, bufferB);
-        [iChannel1, bufferB] = [bufferB, iChannel1];
-      }
-
-      runShader('string_4d', { ...args, iChannelId: 2 }, bufferC);
-      [iChannel2, bufferC] = [bufferC, iChannel2];
-
-      runShader('string_4d', { ...args, iChannelId: 3 }, bufferD);
-      [iChannel3, bufferD] = [bufferD, iChannel3];
-
-      if (k == 1) runShader('string_4d', { ...args, iChannelId: -1 });
-
+    for (let k = 1; k > 0; k--) {
       //let iSound = sound[iFrame % sound.length];
       //runShader('string_wave', { ...args, iSound }, bufferA);
       //if (k == 1) {
@@ -295,14 +284,17 @@ async function initWebGL() {
       //runShader('minmax', { ...args, iSound }, bufferB);
       //if (k == 1) runShader('drum_img', args);
 
-      //[iChannel0, bufferA] = [bufferA, iChannel0];
-      //[iChannel1, bufferB] = [bufferB, iChannel1];
-      //[iChannel2, bufferC] = [bufferC, iChannel2];
-      //[iChannel3, bufferD] = [bufferD, iChannel3];
+      let args = initShaderArgs(time_msec);
+      shader.drawFrame(shader_ctx, args);
+
+      [iChannel0, bufferA] = [bufferA, iChannel0];
+      [iChannel1, bufferB] = [bufferB, iChannel1];
+      [iChannel2, bufferC] = [bufferC, iChannel2];
+      [iChannel3, bufferD] = [bufferD, iChannel3];
 
       iFrame++;
 
-      let fps = (iFrame - stats.frames) / num_steps / (time_msec - stats.time) * 1000;
+      let fps = (iFrame - stats.frames) / (time_msec - stats.time) * 1000;
       spanFPS.textContent = 'fps ' + fps.toFixed(0);
       spanFrameId.textContent = iFrame;
     }
