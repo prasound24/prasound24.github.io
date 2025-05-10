@@ -2,10 +2,8 @@
   margin-top: 2em;
 }
 
-@media(orientation:portrait) {
-  .stage.grid > a {
-    width: 25%;
-  }
+.stage.grid > a {
+  width: 25%;
 }
 
 .stage img {
