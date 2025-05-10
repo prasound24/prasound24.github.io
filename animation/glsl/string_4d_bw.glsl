@@ -12,16 +12,16 @@ const int NG = (N + GS - 1) / GS; // number of groups
 const float MASS = 10.0;
 const float ZOOM = 1.0;
 const int NBOX = 32;
+#define SYMM 5.
 
 // Rendering consts
-#define RGB_OUTFLOW vec3(1.0, 0.3, 0.1)
-#define RGB_INFLOW vec3(0.1, 0.3, 1.0)
+#define RGB_OUTFLOW vec3(0.01) // vec3(1.0, 0.3, 0.1)
+#define RGB_INFLOW vec3(0.1) // vec3(0.1, 0.3, 1.0)
 #define RGB_GLOW vec3(0.5, 0.2, 1.5)
 #define RGB_BBOX vec3(0.1, 0.4, 0.2)
-#define RGLOW 0.0050
-#define RFLOW 0.0015
-#define DECAY 0.995
-#define INVERT 0.
+#define RGLOW 0.001
+#define RFLOW 0.001
+#define DECAY 0.997
 
 vec2 iexp(float phi) {
     return vec2(cos(phi), sin(phi));
@@ -47,7 +47,7 @@ vec4 initPos(ivec2 pp) {
     float x = sin(phi);
     float y = cos(phi);
 
-    float K = 3.0;
+    float K = SYMM;
     float z = 0.3*sin(phi*K*2.) - 0.8;
     float w = 0.6*cos(phi*K) - 0.4;
 
@@ -437,13 +437,10 @@ void updateImg(out vec4 o, vec2 p) {
     vec2 ra = xy2ra(q) / vec2(6.5, 2. * PI);
     vec4 e = texFlow(ra.yx);
 
-    o.rgb += pow(vec3(e.g), RGB_OUTFLOW);
-    o.rgb += pow(vec3(e.r), RGB_INFLOW);
+    o.rgb += e.g*RGB_OUTFLOW;
+    o.rgb += e.r*RGB_INFLOW;
     //o.rgb += pow(vec3(e.b), RGB_GLOW);
     //o.rgb += RGB_BBOX * flameRGB(e.a/32.);
-
-    if (INVERT > 0.)
-        o.rgb = max(vec3(1) - o.rgb, vec3(0));
 
     o.rgb = exp(iGamma.y)*pow(o.rgb, vec3(1./iGamma.x));
     addLogo(o, p);

@@ -140,8 +140,8 @@ async function initWebGL() {
   let iLogo = await createLogoTexture(ctx);
   let iChannelImage = await fetchWaveData(ctx);
   let iChannelSound = ctx.createFrameBuffer(CW, CH, 1);
-  let iChannel0 = ctx.createFrameBuffer(CW, 2, 4);
-  let iChannel1 = ctx.createFrameBuffer(CW, 1, 4);
+  let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
+  let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel2 = ctx.createFrameBuffer(CW, CH, 4);
   let iChannel3 = ctx.createFrameBuffer(CW, CH, 4);
   let bufferA = ctx.createFrameBuffer(iChannel0.width, iChannel0.height, iChannel0.channels);
