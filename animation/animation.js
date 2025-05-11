@@ -24,6 +24,7 @@ let shaders = {};
 init();
 
 async function init() {
+  if (utils.DEBUG) document.body.classList.add('debug');
   check(/^[\w_]+$/.test(SHADER_ID), 'Bad shader id: ?s=');
   elGamma.value = 2.2;
   elAlpha.value = 0.0;
@@ -152,6 +153,7 @@ async function initWebGL() {
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
   let base_time = 0;
+  let dispChannelId = -1;
 
   if (sound) {
     iSoundMax = sound.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
@@ -164,7 +166,7 @@ async function initWebGL() {
   else
     $('#fullscreen').style.display = 'none';
 
-  canvas.onclick = () => {
+  $('#fps').onclick = () => {
     if (animationId) {
       cancelAnimationFrame(animationId);
       animationId = 0;
@@ -175,26 +177,35 @@ async function initWebGL() {
     }
   };
 
-  document.onkeydown = (e) => {
-    if (!animationId) {
-      let key = e.key.toUpperCase();
-      //console.debug('onkeydown:', key);
-      if (key == 'ARROWRIGHT')
-        drawFrame();
-    }
-  };
-
   elGamma.onchange = () => runShader(SHADER_ID, initShaderArgs());
   elAlpha.onchange = () => runShader(SHADER_ID, initShaderArgs());
 
+  $('#frame_id').onclick = () => !animationId && drawFrame();
+  $('#channel').onclick = () => switchChannel();
   $('#save_png').onclick = () => downloadPNG();
   $('#save_exr').onclick = () => downloadEXR();
   $('#save_hdr').onclick = () => downloadHDR();
 
+  function switchChannel() {
+    dispChannelId++;
+    if (dispChannelId > 3)
+      dispChannelId = -1;
+    $('#channel').textContent = dispChannelId < 0 ? 'img' : 'ch' + dispChannelId;
+    drawFrame();
+  }
+
   function downloadRGBA() {
     console.debug('Saving the float32 RGBA framebuffer');
-    runShader(SHADER_ID, initShaderArgs(), bufferD);
-    let f32 = bufferD.download();
+    let f32 = null;
+
+    if (dispChannelId < 0) {
+      runShader(SHADER_ID, initShaderArgs(), bufferD);
+      f32 = bufferD.download();
+    } else {
+      let buffers = [bufferA, bufferB, bufferC, bufferD];
+      f32 = buffers[dispChannelId].download();
+    }
+    
     dcheck(f32.length == CW * CH * 4);
     return f32;
   }
@@ -229,7 +240,7 @@ async function initWebGL() {
     saveBlobAsFile(blob, genImageName() + '.png');
   }
 
-  function downloadEXR() {
+  function downloadEXR(fb = null) {
     let f32 = downloadRGBA();
     let blob = createEXR(CW, CH, 3, f32);
     saveBlobAsFile(blob, genImageName() + '.exr');
@@ -268,44 +279,47 @@ async function initWebGL() {
       canvas.style.display = '';
     }
 
-    for (let k = 1; k > 0; k--) {
-      //let iSound = sound[iFrame % sound.length];
-      //runShader('string_wave', { ...args, iSound }, bufferA);
-      //if (k == 1) {
-      //  runShader('string_draw', { ...args, iSound }, bufferB);
-      //  bufferB.draw();
-      //}
+    //let iSound = sound[iFrame % sound.length];
+    //runShader('string_wave', { ...args, iSound }, bufferA);
+    //if (k == 1) {
+    //  runShader('string_draw', { ...args, iSound }, bufferB);
+    //  bufferB.draw();
+    //}
 
-      //runShader('fireball', args, bufferB);
-      //runShader('fluid_ch0', args, bufferA);
-      //if (k == 1) runShader('fluid_img', args);
+    //runShader('fireball', args, bufferB);
+    //runShader('fluid_ch0', args, bufferA);
+    //if (k == 1) runShader('fluid_img', args);
 
-      //runShader('fireball', args, bufferB);
-      //runShader('sphere', args);
+    //runShader('fireball', args, bufferB);
+    //runShader('sphere', args);
 
-      //runShader('fireball', args, bufferB);
-      //runShader('disk', args);
+    //runShader('fireball', args, bufferB);
+    //runShader('disk', args);
 
-      //let iSound = sound[iFrame % sound.length];
-      //runShader('fireball', args, bufferC);
-      //runShader('drum', { ...args, iSound }, bufferA);
-      //runShader('minmax', { ...args, iSound }, bufferB);
-      //if (k == 1) runShader('drum_img', args);
+    //let iSound = sound[iFrame % sound.length];
+    //runShader('fireball', args, bufferC);
+    //runShader('drum', { ...args, iSound }, bufferA);
+    //runShader('minmax', { ...args, iSound }, bufferB);
+    //if (k == 1) runShader('drum_img', args);
 
+    if (dispChannelId < 0) {
       let args = initShaderArgs(time_msec);
       shader.drawFrame(shader_ctx, args);
-
       [iChannel0, bufferA] = [bufferA, iChannel0];
       [iChannel1, bufferB] = [bufferB, iChannel1];
       [iChannel2, bufferC] = [bufferC, iChannel2];
       [iChannel3, bufferD] = [bufferD, iChannel3];
-
-      iFrame++;
-
-      let fps = (iFrame - stats.frames) / (time_msec - stats.time) * 1000;
-      spanFPS.textContent = 'fps ' + fps.toFixed(0);
-      spanFrameId.textContent = iFrame;
+    } else {
+      let args = initShaderArgs();
+      args.iChannelId = dispChannelId;
+      runShader(SHADER_ID, args, null);
     }
+
+    iFrame++;
+    let fps = (iFrame - stats.frames) / (time_msec - stats.time) * 1000;
+    if (!Number.isFinite(fps) || fps < 0) fps = 0;
+    spanFPS.textContent = fps ? 'fps ' + fps.toFixed(0) : '';
+    spanFrameId.textContent = iFrame;
 
     if (time_msec) {
       if (time_msec > stats.time + 5000) {
@@ -322,5 +336,3 @@ async function initWebGL() {
   // drawFrame(0);
   // ctx.destroy();
 }
-
-

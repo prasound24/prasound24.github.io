@@ -33,6 +33,23 @@ p {
   background: #444;
 }
 
+#fps {
+  cursor: pointer;
+  user-select: none;
+  width: 4em;
+}
+
+#frame_id {
+  cursor: pointer;
+  width: 3em;
+  user-select: none;
+}
+
+#extras {
+  display: flex;
+  flex-direction: row;
+}
+
 #config {
   color: #888;
 }
@@ -65,4 +82,8 @@ canvas#webgl {
 img {
   border: none;
   outline: none;
+}
+
+body:not(.debug) .debug {
+  display: none !important;
 }
