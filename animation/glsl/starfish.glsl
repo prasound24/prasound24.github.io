@@ -28,7 +28,7 @@ void mainImage(out vec4 o, vec2 sp) {
 
     for (int i = 0; i < 50; i++) {
         vec3 p = z * vp;
-        p.z += 5.5 - 12.5*sin(iTime*0.3);
+        p.z += 9.5;
 
         //p.xy *= rot2(-0.1*iTime);
         p.yz *= rot2(PI/2.0 + 0.0*iTime);
