@@ -15,7 +15,7 @@ const int NBOX = 32;
 #define SYMM 5.
 
 // Rendering consts
-#define RGB_OUTFLOW vec3(0.01) // vec3(1.0, 0.3, 0.1)
+#define RGB_OUTFLOW vec3(0.002) // vec3(1.0, 0.3, 0.1)
 #define RGB_INFLOW vec3(0.1) // vec3(0.1, 0.3, 1.0)
 #define RGB_GLOW vec3(0.5, 0.2, 1.5)
 #define RGB_BBOX vec3(0.1, 0.4, 0.2)
