@@ -100,11 +100,17 @@ async function initShader(ctx, filename) {
   shaders[filename] = ctx.createTransformProgram({ fshader });
 }
 
-async function initShaderConfig() {
+class DefaultShader {
+  drawFrame(ctx, args) {
+    return ctx.runShader(args);
+  }
+}
+
+async function loadShaderConfig() {
   try {
     return await import('./glsl/' + SHADER_ID + '.js');
   } catch (err) {
-    return { drawFrame: (ctx, args) => ctx.runShader(args) };
+    return new DefaultShader;
   }
 }
 
@@ -118,42 +124,46 @@ async function initWebGL() {
   let ctx = new GpuContext(canvas);
   ctx.init();
 
-  //await initShader(ctx, 'disk');
-  //await initShader(ctx, 'sphere');
-  //await initShader(ctx, 'fireball');
-  //await initShader(ctx, 'fluid_img');
-  //await initShader(ctx, 'fluid_ch0');
-  //await initShader(ctx, 'drum');
-  //await initShader(ctx, 'minmax');
-  //await initShader(ctx, 'drum_img');
-  //await initShader(ctx, 'string_wave');
-  //await initShader(ctx, 'string_draw');
-  //await initShader(ctx, 'waveform_draw');
-  await initShader(ctx, SHADER_ID);
-  let shader = await initShaderConfig();
-  let shader_ctx = {
-    runShader(args, out = -1) {
-      let buffers = [bufferA, bufferB, bufferC, bufferD];
-      runShader(SHADER_ID, args, buffers[out]);
-    },
-  };
-
   let iLogo = await createLogoTexture(ctx);
   let iChannelImage = await fetchWaveData(ctx);
   let iChannelSound = ctx.createFrameBuffer(CW, CH, 1);
-  let iChannel0 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel1 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel2 = ctx.createFrameBuffer(CW, CH, 4);
-  let iChannel3 = ctx.createFrameBuffer(CW, CH, 4);
-  let bufferA = ctx.createFrameBuffer(iChannel0.width, iChannel0.height, iChannel0.channels);
-  let bufferB = ctx.createFrameBuffer(iChannel1.width, iChannel1.height, iChannel1.channels);
-  let bufferC = ctx.createFrameBuffer(iChannel2.width, iChannel2.height, iChannel2.channels);
-  let bufferD = ctx.createFrameBuffer(iChannel3.width, iChannel3.height, iChannel3.channels);
+  let iChannels = [0, 1, 2, 3].map(i => ctx.createFrameBuffer(CW, CH, 4));
+  let buffers = iChannels.map(ch => ctx.createFrameBuffer(ch.width, ch.height, ch.channels));
   let iSoundMax = 0, iSoundLen = 0;
+  let iMouse = [0, 0, 0];
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
   let base_time = 0;
   let dispChannelId = -1;
+
+  await initShader(ctx, SHADER_ID);
+  let shader = await loadShaderConfig();
+  if (shader.initChannels)
+    await shader.initChannels(iChannels);
+
+  let shader_ctx = {
+    runShader(args, id = -1) {
+      args = {
+        ...args,
+        iChannel0: iChannels[0],
+        iChannel1: iChannels[1],
+        iChannel2: iChannels[2],
+        iChannel3: iChannels[3],
+        iChannelResolution0: [iChannels[0].width, iChannels[0].height],
+        iChannelResolution1: [iChannels[1].width, iChannels[1].height],
+        iChannelResolution2: [iChannels[2].width, iChannels[2].height],
+        iChannelResolution3: [iChannels[3].width, iChannels[3].height],
+      };
+
+      let buf = buffers[id] || null;
+      runShader(SHADER_ID, args, buf);
+      if (buf) {
+        let ch = iChannels[id];
+        iChannels[id] = buf;
+        buffers[id] = ch;
+      }
+    },
+  };
 
   if (sound) {
     iSoundMax = sound.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
@@ -175,6 +185,16 @@ async function initWebGL() {
       animationId = requestAnimationFrame(drawFrame);
       //console.log('animation started');
     }
+  };
+
+  canvas.onmousemove = (e) => {
+    if (!e.buttons) return;
+    let x = e.clientX - canvas.offsetLeft;
+    let y = e.clientY - canvas.offsetTop;
+    iMouse[0] = (x + 0.5) / canvas.offsetWidth * canvas.width;
+    iMouse[1] = (1 - (y + 0.5) / canvas.offsetHeight) * canvas.height;
+    iMouse[2] = e.buttons;
+    if (!animationId) drawFrame();
   };
 
   elGamma.onchange = () => runShader(SHADER_ID, initShaderArgs());
@@ -199,13 +219,12 @@ async function initWebGL() {
     let f32 = null;
 
     if (dispChannelId < 0) {
-      runShader(SHADER_ID, initShaderArgs(), bufferD);
-      f32 = bufferD.download();
+      shader_ctx.runShader(initShaderArgs(), 3);
+      f32 = iChannels[3].download();
     } else {
-      let buffers = [bufferA, bufferB, bufferC, bufferD];
-      f32 = buffers[dispChannelId].download();
+      f32 = iChannels[dispChannelId].download();
     }
-    
+
     dcheck(f32.length == CW * CH * 4);
     return f32;
   }
@@ -242,7 +261,7 @@ async function initWebGL() {
 
   function downloadEXR(fb = null) {
     let f32 = downloadRGBA();
-    let blob = createEXR(CW, CH, 3, f32);
+    let blob = createEXR(CW, CH, 3, f32, 4);
     saveBlobAsFile(blob, genImageName() + '.exr');
   }
 
@@ -259,16 +278,10 @@ async function initWebGL() {
 
   function initShaderArgs(time_msec = performance.now()) {
     let iTime = (time_msec - base_time) / 1000;
-    let iMouse = [0, 0, 0];
     let iGamma = [+elGamma.value, +elAlpha.value];
     return {
       iTime, iMouse, iFrame, iLogo, iSoundMax, iSoundLen, iPass: 0,
       iChannelSound, iChannelImage, iGamma, iChannelId: -1,
-      iChannel0, iChannel1, iChannel2, iChannel3,
-      iChannelResolution0: [iChannel0.width, iChannel0.height],
-      iChannelResolution1: [iChannel1.width, iChannel1.height],
-      iChannelResolution2: [iChannel2.width, iChannel2.height],
-      iChannelResolution3: [iChannel3.width, iChannel3.height],
     };
   }
 
@@ -305,20 +318,17 @@ async function initWebGL() {
     if (dispChannelId < 0) {
       let args = initShaderArgs(time_msec);
       shader.drawFrame(shader_ctx, args);
-      [iChannel0, bufferA] = [bufferA, iChannel0];
-      [iChannel1, bufferB] = [bufferB, iChannel1];
-      [iChannel2, bufferC] = [bufferC, iChannel2];
-      [iChannel3, bufferD] = [bufferD, iChannel3];
     } else {
-      let args = initShaderArgs();
-      args.iChannelId = dispChannelId;
-      runShader(SHADER_ID, args, null);
+      //let args = initShaderArgs();
+      //args.iChannelId = dispChannelId;
+      //shader_ctx.runShader(args);
+      iChannels[dispChannelId].draw();
     }
 
     iFrame++;
     let fps = (iFrame - stats.frames) / (time_msec - stats.time) * 1000;
     if (!Number.isFinite(fps) || fps < 0) fps = 0;
-    spanFPS.textContent = fps ? 'fps ' + fps.toFixed(0) : '';
+    spanFPS.textContent = fps ? 'fps ' + fps.toFixed(0) : 'fps --';
     spanFrameId.textContent = iFrame;
 
     if (time_msec) {

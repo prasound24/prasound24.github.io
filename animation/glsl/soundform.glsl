@@ -6,7 +6,7 @@ const int DQN = 32; // deque (stack) size
 const int QTN = 16; // quad-tree spans at most 4096x4096 points
 const float R0 = 0.001;
 const float CAMERA = -3.0;
-const float SCREEN = -2.0; // when BBOX is rotated, it must fit under the screen
+const float SCREEN = -1.0; // when BBOX is rotated, it must fit under the screen
 const float ZOOM = 1.0;
 const float SPD = 200.; // density
 const float FOG = 0.5; // density
@@ -18,7 +18,6 @@ const vec3 BBOX_RGB = vec3(4.4, 5.6, 7.4); // wavelengths
 const ivec2[] NB4 = ivec2[](
     ivec2(0,0), ivec2(0,1), ivec2(1,0), ivec2(1,1));
 
-// https://www.shadertoy.com/view/4djSRW
 vec2 hash22(vec2 p) {
 	vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
     p3 += dot(p3, p3.yzx+33.33);
@@ -97,10 +96,10 @@ mat3 rotWorldMatrix(mat3 wm, vec2 m) {
 }
 
 mat3 getWorldMatrix(vec2 iMouse, vec2 iResolution) {
-    //vec2 m = iMouse/iResolution - 0.5;
+    vec2 m = iMouse/iResolution - 0.5;
     mat3 wm = mat3(1,0,0,0,0,-1,0,1,0);
     //wm = rotWorldMatrix(wm, -vec2(0,0)*PI*2.);
-    //wm = rotWorldMatrix(wm, -m*PI*2.);
+    wm = rotWorldMatrix(wm, -m*PI*2.);
     return wm;
 }
 
@@ -128,7 +127,7 @@ mat2x4 unpackBBox(vec4 b) {
 // The idea is to define a density field
 // as a (u,v) -> (x,y,z,w) function.
 
-void mainImageA(out vec4 o, in vec2 p) {
+void mainImage00(out vec4 o, in vec2 p) {
     vec2 uv = p/iResolution.xy;
     float a = uv.y*2.*PI;
     
@@ -146,8 +145,14 @@ void mainImageA(out vec4 o, in vec2 p) {
     o.w = SPD; // density, can exceed 1.0
     //o.w *= 1.0 - pow(abs(o.z), 20.0);
     //o.w *= int(p.x)%40 < 1 || int(p.y)%80 < 1 ? 1.5 : 1.0;
-    
-    
+}
+
+void mainImage01(out vec4 o, in vec2 p) {
+  o = texelFetch(iChannel1, ivec2(p), 0);
+  // basic perspective projection: 4d to 3d
+  o.xyz /= 1.25 - o.w;
+  //o.xy /= 1.25 - o.z;
+  o.w = SPD;
 }
 
 /// Buffer C /////////////////////////////////////////////////////////////////////
@@ -190,7 +195,7 @@ mat2x4 bboxJoin(ivec2 pp, int d, ivec4[QTN] qt) {
     return mat2x4(a,b);
 }
 
-void mainImageC( out vec4 o, in vec2 p ) {
+void mainImage2( out vec4 o, in vec2 p ) {
     ivec2 nn = textureSize(iChannel0, 0);
     ivec2 pp = ivec2(p);
     ivec4[QTN] qt = qtInit(ivec2(iResolution));
@@ -344,7 +349,6 @@ int findPoints(sampler2D iChannel0, sampler2D iChannel2,
     return len;
 }
 
-// https://www.shadertoy.com/view/4tlSzl
 vec3 flameRGB(float temp, vec3 L) {
     float T = 1400. + 1300.*temp; // temperature in kelvins
     vec3 W = pow(L, vec3(5))*(exp(1.43e5/T/L) - 1.);
@@ -412,9 +416,9 @@ vec4 raymarch(sampler2D iChannel0, sampler2D iChannel2,
     return sum;
 }
 
-void mainImageCanvas(out vec4 o, in vec2 p) {
+void mainImage3(out vec4 o, in vec2 p) {
     o = vec4(0,0,0,1);
-    vec2 r = iResolution.xy;    
+    vec2 r = iResolution.xy;
     vec2 rand = hash22(p + iTime); // 0..1
     vec2 uv = (p + rand - 0.5)/r; // 0..1
     
@@ -424,8 +428,8 @@ void mainImageCanvas(out vec4 o, in vec2 p) {
     vec3 rd = normalize(vec3((uv - 0.5)*r/r.yy, SCREEN - CAMERA));
     rd.zy = rot2(-camrot.x*PI*2.0)*rd.zy;
     rd.xz = rot2(-camrot.y*PI*2.0)*rd.xz;
-    mat3 wm = getWorldMatrix(vec2(0), r);
-       
+    
+    mat3 wm = getWorldMatrix(iMouse.z > 0. ? iMouse.xy : vec2(0), r);
     vec4 rr = raymarch(iChannel0, iChannel2, wm, ro, rd);
     
     if (rr.w < 0.)
@@ -433,17 +437,18 @@ void mainImageCanvas(out vec4 o, in vec2 p) {
     if (rr.w > 0.)
         o.rgb = flameRGB(rr.x, GRAAL_RGB);
     
-    //vec4 sum = texture(iChannel3, p/r);
+    vec4 sum = texture(iChannel3, p/r);
     //if (iMouse.z > 0.) sum.a = 0.;
-    //o = mix(sum, o, 1./(1. + sum.a)); // average a few randomized frames 
-    //o.a = min(sum.a + 1., 5.); // the number of frames rendered
+    o = mix(sum, o, 1./(1. + sum.a)); // average a few randomized frames 
+    o.a = min(sum.a + 1., 15.); // the number of frames rendered
 }
 
 void mainImage(out vec4 o, in vec2 p) {
   o = vec4(0);
   switch (iChannelId) {
-    case 0: mainImageA(o, p); return;
-    case 2: mainImageC(o, p); return;
-    case -1: mainImageCanvas(o, p); return;
+    case 0: mainImage01(o, p); return;
+    case 2: mainImage2(o, p); return;
+    case 3: mainImage3(o, p); return;
+    case -1: o = texture(iChannel3, p/iResolution.xy); o.a = 1.0; return;
   }
 }
