@@ -97,7 +97,7 @@ mat3 rotWorldMatrix(mat3 wm, vec2 m) {
 
 mat3 getWorldMatrix(vec2 iMouse, vec2 iResolution) {
     vec2 m = iMouse/iResolution - 0.5;
-    mat3 wm = mat3(1,0,0,0,0,-1,0,1,0);
+    mat3 wm = mat3(1);
     //wm = rotWorldMatrix(wm, -vec2(0,0)*PI*2.);
     wm = rotWorldMatrix(wm, -m*PI*2.);
     return wm;
@@ -150,7 +150,7 @@ void mainImage00(out vec4 o, in vec2 p) {
 void mainImage01(out vec4 o, in vec2 p) {
   o = texelFetch(iChannel1, ivec2(p), 0);
   // basic perspective projection: 4d to 3d
-  o.xyz /= 1.25 - o.w;
+  //o.xyz /= 1.25 - o.w;
   //o.xy /= 1.25 - o.z;
   o.w = SPD;
 }
@@ -426,8 +426,8 @@ void mainImage3(out vec4 o, in vec2 p) {
     vec4 camrot = vec4(0); // texelFetch(iChannel1, ivec2(1,0), 0);
     vec3 ro = vec3(0,0,CAMERA) + campos.xyz;
     vec3 rd = normalize(vec3((uv - 0.5)*r/r.yy, SCREEN - CAMERA));
-    rd.zy = rot2(-camrot.x*PI*2.0)*rd.zy;
-    rd.xz = rot2(-camrot.y*PI*2.0)*rd.xz;
+    //rd.zy = rot2(-camrot.x*PI*2.0)*rd.zy;
+    //rd.xz = rot2(-camrot.y*PI*2.0)*rd.xz;
     
     mat3 wm = getWorldMatrix(iMouse.z > 0. ? iMouse.xy : vec2(0), r);
     vec4 rr = raymarch(iChannel0, iChannel2, wm, ro, rd);
