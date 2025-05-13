@@ -7,7 +7,7 @@ export async function initChannels(iChannels) {
   let res = await fetch('soundform.exr');
   let blob = await res.blob();
   let data = await blob.arrayBuffer();
-  let exr = openEXR(data, ch1.width, ch1.height, 3);
+  let exr = openEXR(data, ch1.width, ch1.height, 4);
   ch1.upload(exr.rgba);
 }
 

@@ -261,7 +261,7 @@ async function initWebGL() {
 
   function downloadEXR(fb = null) {
     let f32 = downloadRGBA();
-    let blob = createEXR(CW, CH, 3, f32, 4);
+    let blob = createEXR(CW, CH, 4, f32, 4);
     saveBlobAsFile(blob, genImageName() + '.exr');
   }
 

@@ -5,7 +5,7 @@ const int MM = 1024; // max lookups in the quad tree
 const int DQN = 32; // deque (stack) size
 const int QTN = 16; // quad-tree spans at most 4096x4096 points
 const float R0 = 0.001;
-const float CAMERA = -3.0;
+const float CAMERA = -9.0;
 const float SCREEN = -1.0; // when BBOX is rotated, it must fit under the screen
 const float ZOOM = 1.0;
 const float SPD = 200.; // density
@@ -149,10 +149,8 @@ void mainImage00(out vec4 o, in vec2 p) {
 
 void mainImage01(out vec4 o, in vec2 p) {
   o = texelFetch(iChannel1, ivec2(p), 0);
-  // basic perspective projection: 4d to 3d
-  //o.xyz /= 1.25 - o.w;
-  //o.xy /= 1.25 - o.z;
-  o.w = SPD;
+  o.xyz /= 1.25 - o.w; // basic perspective projection: 4d to 3d
+  o.w = SPD; // sphere radius
 }
 
 /// Buffer C /////////////////////////////////////////////////////////////////////
