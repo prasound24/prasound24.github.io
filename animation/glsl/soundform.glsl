@@ -1,6 +1,6 @@
 const float INF = 1e6;
 const float SQ3 = sqrt(3.0);
-const int NN = 6; // max intersections per pixel, 3..64
+const int NN = 12; // max intersections per pixel, 3..64
 const int MM = 1024; // max lookups in the quad tree
 const int DQN = 32; // deque (stack) size
 const int QTN = 16; // quad-tree spans at most 4096x4096 points
@@ -8,7 +8,7 @@ const float R0 = 0.001;
 const float CAMERA = -9.0;
 const float SCREEN = -1.0; // when BBOX is rotated, it must fit under the screen
 const float ZOOM = 1.0;
-const float SPD = 200.; // density
+const float SPD = 500.; // density
 const float FOG = 0.5; // density
 const mat2x4 BBOX = mat2x4(vec4(-1), vec4(+1));
 const vec3 ERROR_RGB = vec3(1, 0, 0);
@@ -150,7 +150,7 @@ void mainImage00(out vec4 o, in vec2 p) {
 void mainImage01(out vec4 o, in vec2 p) {
   o = texelFetch(iChannel1, ivec2(p), 0);
   o.xyz /= 1.25 - o.w; // basic perspective projection: 4d to 3d
-  o.w = SPD; // sphere radius
+  o.w = SPD * (1.0 - o.z)/2.0; // sphere density
 }
 
 /// Buffer C /////////////////////////////////////////////////////////////////////
@@ -438,7 +438,7 @@ void mainImage3(out vec4 o, in vec2 p) {
     vec4 sum = texture(iChannel3, p/r);
     //if (iMouse.z > 0.) sum.a = 0.;
     o = mix(sum, o, 1./(1. + sum.a)); // average a few randomized frames 
-    o.a = min(sum.a + 1., 15.); // the number of frames rendered
+    o.a = min(sum.a + 1., 3.); // the number of frames rendered
 }
 
 void mainImage(out vec4 o, in vec2 p) {

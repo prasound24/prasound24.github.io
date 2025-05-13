@@ -6,7 +6,7 @@ const float INF = 1e6;
 const float PHI = (sqrt(5.) - 1.)/2.;
 
 // Simulation consts
-const int N = 1280; // must be less than iChannel0 width
+const int N = 720; // must be less than iChannel0 width
 const int GS = int(sqrt(float(N))); // group size
 const int NG = (N + GS - 1) / GS; // number of groups
 const float MASS = 10.0;
@@ -15,7 +15,7 @@ const int NBOX = 32;
 #define SYMM 5.
 
 // Rendering consts
-#define RGB_OUTFLOW vec3(0.002) // vec3(1.0, 0.3, 0.1)
+#define RGB_OUTFLOW vec3(0.001) // vec3(1.0, 0.3, 0.1)
 #define RGB_INFLOW vec3(0.1) // vec3(0.1, 0.3, 1.0)
 #define RGB_GLOW vec3(0.5, 0.2, 1.5)
 #define RGB_BBOX vec3(0.1, 0.4, 0.2)
@@ -407,8 +407,8 @@ void updateFlow(out vec4 o, vec2 p) {
     o = sdf(q);
 
     vec2 zoom = vec2(1, DECAY);
-    o.r += zoom.y*texFlow(uv/zoom).r; // inflow
-    o.g += zoom.y*texFlow(uv*zoom).g; // outflow
+    o.r += DECAY*DECAY*texFlow(uv/zoom).r; // inflow
+    o.g += DECAY*DECAY*texFlow(uv*zoom).g; // outflow
 }
 
 void addVignette(inout vec4 o, vec2 p) {
