@@ -149,8 +149,14 @@ void mainImage00(out vec4 o, in vec2 p) {
 
 void mainImage01(out vec4 o, in vec2 p) {
   o = texelFetch(iChannel1, ivec2(p), 0);
-  o.xyz /= 1.25 - o.w; // basic perspective projection: 4d to 3d
-  o.w = SPD * (1.0 - o.z)/2.0; // sphere density
+  o.xyz /= 1.25 - o.w; // basic perspective projection from 4d to 3d
+  o.w = SPD; // sphere density
+
+  float t = p.y; // time
+  o.xyz *= pow(0.997, t);
+  o.w *= pow(0.997, t*2.0);
+  o.z += pow(1.003, t*0.5);
+  o.xyz *= 0.5;
 }
 
 /// Buffer C /////////////////////////////////////////////////////////////////////
@@ -165,7 +171,7 @@ void mainImage01(out vec4 o, in vec2 p) {
 // in the 3d space.
 
 mat2x4 bboxInit(ivec2 pp, ivec2 nn) {
-    vec4 a = vec4(INF), b = vec4(-INF);
+    vec4 a = vec4(1), b = vec4(-1);
     
     for (int i = 0; i < 4; i++) {
         ivec2 pp2 = pp*2 + NB4[i];
@@ -179,7 +185,7 @@ mat2x4 bboxInit(ivec2 pp, ivec2 nn) {
 }
 
 mat2x4 bboxJoin(ivec2 pp, int d, ivec4[QTN] qt) {
-    vec4 a = vec4(INF), b = vec4(-INF);
+    vec4 a = vec4(1), b = vec4(-1);
     
     for (int i = 0; i < 4; i++) {
          ivec2 pp2 = pp*2 + NB4[i];
@@ -426,6 +432,7 @@ void mainImage3(out vec4 o, in vec2 p) {
     vec3 rd = normalize(vec3((uv - 0.5)*r/r.yy, SCREEN - CAMERA));
     //rd.zy = rot2(-camrot.x*PI*2.0)*rd.zy;
     //rd.xz = rot2(-camrot.y*PI*2.0)*rd.xz;
+    ro.z += 5.0;
     
     mat3 wm = getWorldMatrix(iMouse.z > 0. ? iMouse.xy : vec2(0), r);
     vec4 rr = raymarch(iChannel0, iChannel2, wm, ro, rd);
@@ -438,7 +445,7 @@ void mainImage3(out vec4 o, in vec2 p) {
     vec4 sum = texture(iChannel3, p/r);
     //if (iMouse.z > 0.) sum.a = 0.;
     o = mix(sum, o, 1./(1. + sum.a)); // average a few randomized frames 
-    o.a = min(sum.a + 1., 3.); // the number of frames rendered
+    o.a = min(sum.a + 1., 2.); // the number of frames rendered
 }
 
 void mainImage(out vec4 o, in vec2 p) {
