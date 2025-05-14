@@ -188,11 +188,12 @@ async function initWebGL() {
   };
 
   canvas.onmousemove = (e) => {
-    if (!e.buttons) return;
     let x = e.clientX - canvas.offsetLeft;
     let y = e.clientY - canvas.offsetTop;
-    iMouse[0] = (x + 0.5) / canvas.offsetWidth * canvas.width;
-    iMouse[1] = (1 - (y + 0.5) / canvas.offsetHeight) * canvas.height;
+    if (e.buttons) {
+      iMouse[0] = (x + 0.5) / canvas.offsetWidth * canvas.width;
+      iMouse[1] = (1 - (y + 0.5) / canvas.offsetHeight) * canvas.height;
+    }
     iMouse[2] = e.buttons;
     if (!animationId) drawFrame();
   };

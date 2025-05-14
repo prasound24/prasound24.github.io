@@ -14,6 +14,7 @@ export async function initChannels(iChannels) {
 export function drawFrame(ctx, args) {
   ctx.runShader({ ...args, iChannelId: 0 }, 0);
   
+  // TODO: must increment iFrame, see mainImage2
   for (let i = 0; i < QTN; i++)
     ctx.runShader({ ...args, iChannelId: 2 }, 2);
   

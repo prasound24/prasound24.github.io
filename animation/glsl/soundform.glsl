@@ -1,14 +1,13 @@
 const float INF = 1e6;
 const float SQ3 = sqrt(3.0);
-const int NN = 12; // max intersections per pixel, 3..64
+const int NN = 64; // max intersections per pixel, 3..64
 const int MM = 1024; // max lookups in the quad tree
 const int DQN = 32; // deque (stack) size
 const int QTN = 16; // quad-tree spans at most 4096x4096 points
-const float R0 = 0.001;
+const float R0 = 0.0005;
 const float CAMERA = -9.0;
 const float SCREEN = -1.0; // when BBOX is rotated, it must fit under the screen
-const float ZOOM = 1.0;
-const float SPD = 500.; // density
+const float DENS = 2e3; // density
 const float FOG = 0.5; // density
 const mat2x4 BBOX = mat2x4(vec4(-1), vec4(+1));
 const vec3 ERROR_RGB = vec3(1, 0, 0);
@@ -22,20 +21,6 @@ vec2 hash22(vec2 p) {
 	vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
     p3 += dot(p3, p3.yzx+33.33);
     return fract((p3.xx+p3.yz)*p3.zy);
-
-}
-
-vec3 uv2ta(vec2 uv, vec2 r) {
-    vec3 ta = vec3(uv*2. - 1., SCREEN);
-    ta.x *= r.x/r.y; // aspect ratio
-    ta.xy /= ZOOM;
-    return ta;
-}
-
-vec2 ta2uv(vec2 ta, vec2 r) {
-    vec2 uv = ta*ZOOM;
-    uv.x /= r.x/r.y;
-    return uv*0.5 + 0.5;
 }
 
 #define eq2(a,b) ((a).x == (b).x && (a).y == (b).y)
@@ -142,7 +127,7 @@ void mainImage00(out vec4 o, in vec2 p) {
     // Thus the mesh can evolve, but only very slowly.
     //o.xyz += 0.05*(texture(iChannel0, uv).rgb - 0.5);
     
-    o.w = SPD; // density, can exceed 1.0
+    o.w = R0;
     //o.w *= 1.0 - pow(abs(o.z), 20.0);
     //o.w *= int(p.x)%40 < 1 || int(p.y)%80 < 1 ? 1.5 : 1.0;
 }
@@ -150,13 +135,12 @@ void mainImage00(out vec4 o, in vec2 p) {
 void mainImage01(out vec4 o, in vec2 p) {
   o = texelFetch(iChannel1, ivec2(p), 0);
   o.xyz /= 1.25 - o.w; // basic perspective projection from 4d to 3d
-  o.w = SPD; // sphere density
+  o.w = R0; // sphere density
 
   float t = p.y; // time
-  o.xyz *= pow(0.997, t);
-  o.w *= pow(0.997, t*2.0);
+  o *= pow(0.997, t);
   o.z += pow(1.003, t*0.5);
-  o.xyz *= 0.5;
+  o *= 0.5; // make it fit in BBOX
 }
 
 /// Buffer C /////////////////////////////////////////////////////////////////////
@@ -176,9 +160,9 @@ mat2x4 bboxInit(ivec2 pp, ivec2 nn) {
     for (int i = 0; i < 4; i++) {
         ivec2 pp2 = pp*2 + NB4[i];
         vec4 r = texelFetch(iChannel0, pp2, 0);
-        r.w = dot(r.xyz, vec3(1))/3.0; // -1..1
-        a = min(a, r);
-        b = max(b, r);
+        //r.w = dot(r.xyz, vec3(1))/3.0; // -1..1
+        a = min(a, r - r.w);
+        b = max(b, r + r.w);
     }
     
     return mat2x4(a,b);
@@ -293,7 +277,7 @@ int findPoints(sampler2D iChannel0, sampler2D iChannel2,
             if (lookups++ > MM)
                 return len;
             ivec2 qq = qtLookup(pp, d, qt); 
-            if (!rayBBox(iChannel2, iro, ird, qq, R0, tt))
+            if (!rayBBox(iChannel2, iro, ird, qq, 0., tt))
                 continue;
             if (len == NN && tt.x > tmax)
                 continue;
@@ -328,7 +312,7 @@ int findPoints(sampler2D iChannel0, sampler2D iChannel2,
                 if (r.w < 1e-6) continue; // transparent
                 
                 //if (!rayCube(iro, ird, r.xyz, R0, tt)) // fast
-                if (!raySphere(ro, rd, wm*r.xyz, R0, tt)) // accurate
+                if (!raySphere(ro, rd, wm*r.xyz, r.w, tt)) // accurate
                     continue;
                     
                 if (tt.x > tr.y || tt.y < tr.x)
@@ -364,7 +348,7 @@ vec4 raymarch(sampler2D iChannel0, sampler2D iChannel2,
     
     mat3 iwm = inverse(wm);
     vec2 tt;
-    if (!rayBBox(iChannel2, iwm*ro, iwm*rd, ivec2(0), R0, tt))
+    if (!rayBBox(iChannel2, iwm*ro, iwm*rd, ivec2(0), 0., tt))
         return vec4(0);
         
     ro += rd*tt.x;
@@ -379,8 +363,8 @@ vec4 raymarch(sampler2D iChannel0, sampler2D iChannel2,
     
     for (int i = 0; i < len; i++) {
         vec4 r = pts[i];
-        tts[i*2+0] = vec2(r.x, +r.w); // entry
-        tts[i*2+1] = vec2(r.y, -r.w); // exit
+        tts[i*2+0] = vec2(r.x, +DENS); // entry
+        tts[i*2+1] = vec2(r.y, -DENS); // exit
     }
     
     // sort entry/exit points: closest first
@@ -402,7 +386,6 @@ vec4 raymarch(sampler2D iChannel0, sampler2D iChannel2,
 
         if (dist > 0.) {
             // Each sphere is assumed to have a const density.
-            // A better way is to approx it with a gaussian.
             vec4 col = vec4(1,0,0,dens);
             
             if (dist > 0. && col.w > 0.) {
@@ -434,7 +417,7 @@ void mainImage3(out vec4 o, in vec2 p) {
     //rd.xz = rot2(-camrot.y*PI*2.0)*rd.xz;
     ro.z += 5.0;
     
-    mat3 wm = getWorldMatrix(iMouse.z > 0. ? iMouse.xy : vec2(0), r);
+    mat3 wm = getWorldMatrix(iMouse.xy, r);
     vec4 rr = raymarch(iChannel0, iChannel2, wm, ro, rd);
     
     if (rr.w < 0.)
@@ -443,9 +426,9 @@ void mainImage3(out vec4 o, in vec2 p) {
         o.rgb = flameRGB(rr.x, GRAAL_RGB);
     
     vec4 sum = texture(iChannel3, p/r);
-    //if (iMouse.z > 0.) sum.a = 0.;
+    if (iMouse.z > 0.) sum.a = 0.;
     o = mix(sum, o, 1./(1. + sum.a)); // average a few randomized frames 
-    o.a = min(sum.a + 1., 2.); // the number of frames rendered
+    o.a = min(sum.a + 1., 50.); // the number of frames rendered
 }
 
 void mainImage(out vec4 o, in vec2 p) {
@@ -454,6 +437,6 @@ void mainImage(out vec4 o, in vec2 p) {
     case 0: mainImage01(o, p); return;
     case 2: mainImage2(o, p); return;
     case 3: mainImage3(o, p); return;
-    case -1: o = texture(iChannel3, p/iResolution.xy); o.a = 1.0; return;
+    case -1: o = 2.5*texture(iChannel3, p/iResolution.xy); o.a = 1.0; return;
   }
 }
