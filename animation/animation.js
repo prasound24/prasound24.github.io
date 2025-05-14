@@ -133,6 +133,7 @@ async function initWebGL() {
   let iMouse = [0, 0, 0];
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
+  let frames = 0;
   let base_time = 0;
   let dispChannelId = -1;
 
@@ -145,6 +146,7 @@ async function initWebGL() {
     runShader(args, id = -1) {
       args = {
         ...args,
+        iFrame,
         iChannel0: iChannels[0],
         iChannel1: iChannels[1],
         iChannel2: iChannels[2],
@@ -196,6 +198,15 @@ async function initWebGL() {
     }
     iMouse[2] = e.buttons;
     if (!animationId) drawFrame();
+  };
+  canvas.onmouseup = () => {
+    iMouse[2] = 0;
+  };
+  canvas.onmouseout = () => {
+    iMouse[2] = 0;
+  };
+  canvas.onmouseleave = () => {
+    iMouse[2] = 0;
   };
 
   elGamma.onchange = () => runShader(SHADER_ID, initShaderArgs());
@@ -274,7 +285,8 @@ async function initWebGL() {
 
   function runShader(name, args, out = null) {
     let iResolution = out ? [out.width, out.height] : [canvas.width, canvas.height];
-    shaders[name].draw({ ...args, iResolution }, out);
+    shaders[name].draw({ ...args, iResolution }, out); // calls WebGL
+    iFrame++;
   }
 
   function initShaderArgs(time_msec = performance.now()) {
@@ -319,6 +331,7 @@ async function initWebGL() {
     if (dispChannelId < 0) {
       let args = initShaderArgs(time_msec);
       shader.drawFrame(shader_ctx, args);
+      frames++;
     } else {
       //let args = initShaderArgs();
       //args.iChannelId = dispChannelId;
@@ -326,16 +339,15 @@ async function initWebGL() {
       iChannels[dispChannelId].draw();
     }
 
-    iFrame++;
-    let fps = (iFrame - stats.frames) / (time_msec - stats.time) * 1000;
+    let fps = (frames - stats.frames) / (time_msec - stats.time) * 1000;
     if (!Number.isFinite(fps) || fps < 0) fps = 0;
     spanFPS.textContent = fps ? 'fps ' + fps.toFixed(0) : 'fps --';
-    spanFrameId.textContent = iFrame;
+    spanFrameId.textContent = frames;
 
     if (time_msec) {
       if (time_msec > stats.time + 5000) {
         stats.time = time_msec;
-        stats.frames = iFrame;
+        stats.frames = frames;
         //sound && console.debug('sound:', (iFrame / sound.length * 100).toFixed() + '%');
       }
       animationId = requestAnimationFrame(drawFrame);

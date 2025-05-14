@@ -1,14 +1,15 @@
 const float INF = 1e6;
 const float SQ3 = sqrt(3.0);
-const int NN = 64; // max intersections per pixel, 3..64
+const int NN = 8; // max intersections per pixel, 3..64
 const int MM = 1024; // max lookups in the quad tree
 const int DQN = 32; // deque (stack) size
 const int QTN = 16; // quad-tree spans at most 4096x4096 points
-const float R0 = 0.0005;
+const float R0 = 0.001;
 const float CAMERA = -9.0;
 const float SCREEN = -1.0; // when BBOX is rotated, it must fit under the screen
-const float DENS = 2e3; // density
+const float DENS = 1e3; // density
 const float FOG = 0.5; // density
+const float BRIGHTNESS = 1.0;
 const mat2x4 BBOX = mat2x4(vec4(-1), vec4(+1));
 const vec3 ERROR_RGB = vec3(1, 0, 0);
 const vec3 GRAAL_RGB = vec3(7.4, 5.6, 4.4); // wavelengths
@@ -141,6 +142,8 @@ void mainImage01(out vec4 o, in vec2 p) {
   o *= pow(0.997, t);
   o.z += pow(1.003, t*0.5);
   o *= 0.5; // make it fit in BBOX
+
+  //o.xy *= 1.0 + 0.1*cos(p.y/iResolution.y*PI*6.0 + iTime);
 }
 
 /// Buffer C /////////////////////////////////////////////////////////////////////
@@ -429,6 +432,7 @@ void mainImage3(out vec4 o, in vec2 p) {
     if (iMouse.z > 0.) sum.a = 0.;
     o = mix(sum, o, 1./(1. + sum.a)); // average a few randomized frames 
     o.a = min(sum.a + 1., 50.); // the number of frames rendered
+    //o.a = 0.; // debug
 }
 
 void mainImage(out vec4 o, in vec2 p) {
@@ -437,6 +441,6 @@ void mainImage(out vec4 o, in vec2 p) {
     case 0: mainImage01(o, p); return;
     case 2: mainImage2(o, p); return;
     case 3: mainImage3(o, p); return;
-    case -1: o = 2.5*texture(iChannel3, p/iResolution.xy); o.a = 1.0; return;
+    case -1: o = BRIGHTNESS*texture(iChannel3, p/iResolution.xy); o.a = 1.0; return;
   }
 }
