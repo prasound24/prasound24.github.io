@@ -136,11 +136,14 @@ void mainImage00(out vec4 o, in vec2 p) {
 void mainImage01(out vec4 o, in vec2 p) {
   o = texelFetch(iChannel1, ivec2(p), 0);
   o.xyz /= 1.25 - o.w; // basic perspective projection from 4d to 3d
-  o.w = R0; // sphere density
+  //o.xy /= 1.25 - o.z;
+  o.w = R0; // sphere radius
 
   float t = p.y; // time
   o *= pow(0.997, t);
-  o.z += pow(1.003, t*0.5);
+  o.z *= pow(1.003, t*0.5);
+  o.z += 0.4;
+  //o.z = pow(p.y/iResolution.y, 2.0);
   o *= 0.5; // make it fit in BBOX
 
   //o.xy *= 1.0 + 0.1*cos(p.y/iResolution.y*PI*6.0 + iTime);
@@ -418,7 +421,7 @@ void mainImage3(out vec4 o, in vec2 p) {
     vec3 rd = normalize(vec3((uv - 0.5)*r/r.yy, SCREEN - CAMERA));
     //rd.zy = rot2(-camrot.x*PI*2.0)*rd.zy;
     //rd.xz = rot2(-camrot.y*PI*2.0)*rd.xz;
-    ro.z += 5.0;
+    ro.z += 6.0;
     
     mat3 wm = getWorldMatrix(iMouse.xy, r);
     vec4 rr = raymarch(iChannel0, iChannel2, wm, ro, rd);

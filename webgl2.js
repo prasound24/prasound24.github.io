@@ -127,23 +127,27 @@ export class GpuContext {
 
     let gl = canvas.getContext('webgl2', params);
     if (!gl) throw new Error('WebGL 2.0 not available');
-    this.log?.d('WebGL v' + gl.VERSION);
 
-    this.log?.d('Texture access in vertex shaders:',
-      gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS));
-    this.log?.d('Max gl_PointSize:',
-      gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE).join('..'));
+    let props = [
+      'VERSION',
+      'MAX_TEXTURE_SIZE',
+      'MAX_3D_TEXTURE_SIZE',
+      'MAX_ARRAY_TEXTURE_LAYERS',
+    ];
 
-    let fsprec = (fp) => (2 ** - gl.getShaderPrecisionFormat(
-      gl.FRAGMENT_SHADER, fp).precision).toExponential(1);
-    this.log?.d('Shader precision:',
-      'highp=' + fsprec(gl.HIGH_FLOAT),
-      'mediump=' + fsprec(gl.MEDIUM_FLOAT),
-      'lowp=' + fsprec(gl.LOW_FLOAT));
+    let sprop = props.map(
+      prop => prop + ' ' + gl.getParameter(gl[prop]));
+
+    for (let sp of ['HIGH_FLOAT', 'MEDIUM_FLOAT', 'LOW_FLOAT']) {
+      let f = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl[sp]);
+      sprop.push(sp + ' ' + f.precision);
+    }
+
+    this.log?.i('WebGL', sprop.join(' / '));
 
     gl.getExtension('EXT_color_buffer_float');
     gl.getExtension('OES_texture_float_linear');
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clearColor(0, 0, 0, 0);
 
     let floatTexType = gl.FLOAT;
     let formatRGBA = this.getSupportedFormat(gl, gl.RGBA32F, gl.RGBA, floatTexType);

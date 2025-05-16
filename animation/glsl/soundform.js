@@ -4,7 +4,7 @@ const QTN = 16;
 
 export async function initChannels(iChannels) {
   let ch1 = iChannels[1];
-  let res = await fetch('soundform.exr');
+  let res = await fetch('glsl/soundform.exr');
   let blob = await res.blob();
   let data = await blob.arrayBuffer();
   let exr = openEXR(data, ch1.width, ch1.height, 4);
@@ -14,7 +14,6 @@ export async function initChannels(iChannels) {
 export function drawFrame(ctx, args) {
   ctx.runShader({ ...args, iChannelId: 0 }, 0);
   
-  // TODO: must increment iFrame, see mainImage2
   for (let i = 0; i < QTN; i++)
     ctx.runShader({ ...args, iChannelId: 2 }, 2);
   
