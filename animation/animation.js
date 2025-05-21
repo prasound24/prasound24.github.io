@@ -130,7 +130,7 @@ async function initWebGL() {
   let iChannels = [0, 1, 2, 3].map(i => ctx.createFrameBuffer(CW, CH, 4));
   let buffers = iChannels.map(ch => ctx.createFrameBuffer(ch.width, ch.height, ch.channels));
   let iSoundMax = 0, iSoundLen = 0;
-  let iMouse = [0, 0, 0];
+  let iMouse = [0, 0, 0, 0];
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
   let frames = 0;
@@ -189,25 +189,7 @@ async function initWebGL() {
     }
   };
 
-  canvas.onmousemove = (e) => {
-    let x = e.clientX - canvas.offsetLeft;
-    let y = e.clientY - canvas.offsetTop;
-    if (e.buttons) {
-      iMouse[0] = (x + 0.5) / canvas.offsetWidth * canvas.width;
-      iMouse[1] = (1 - (y + 0.5) / canvas.offsetHeight) * canvas.height;
-    }
-    iMouse[2] = e.buttons;
-    if (!animationId && e.buttons) drawFrame();
-  };
-  canvas.onmouseup = () => {
-    iMouse[2] = 0;
-  };
-  canvas.onmouseout = () => {
-    iMouse[2] = 0;
-  };
-  canvas.onmouseleave = () => {
-    iMouse[2] = 0;
-  };
+  initMouseHandler();
 
   elGamma.onchange = () => runShader(SHADER_ID, initShaderArgs());
   elAlpha.onchange = () => runShader(SHADER_ID, initShaderArgs());
@@ -358,4 +340,49 @@ async function initWebGL() {
   animationId = requestAnimationFrame(drawFrame);
   // drawFrame(0);
   // ctx.destroy();
+
+  function initMouseHandler() {
+    let mouseXY = (e) => {
+      let x = e.clientX - canvas.offsetLeft;
+      let y = e.clientY - canvas.offsetTop;
+      return [
+        (x + 0.5) / canvas.offsetWidth * canvas.width,
+        (1 - (y + 0.5) / canvas.offsetHeight) * canvas.height];
+    };
+  
+    canvas.onmousemove = (e) => {
+      iMouse[0] = iMouse[2];
+      iMouse[1] = iMouse[3];
+      if (e.buttons == 1) {
+        let [x, y] = mouseXY(e);
+        iMouse[2] = x;
+        iMouse[3] = y;
+      } else {
+        iMouse[2] = 0;
+        iMouse[3] = 0;
+      }
+      if (!animationId && e.buttons) drawFrame();
+    };
+    canvas.onmousedown = (e) => {
+      if (e.buttons != 1)
+        return;
+      iMouse[0] = 0;
+      iMouse[1] = 0;
+      let [x, y] = mouseXY(e);
+      iMouse[2] = x;
+      iMouse[3] = y;
+      if (!animationId) drawFrame();
+    };
+    canvas.onmouseup = (e) => {
+      iMouse[0] = iMouse[2];
+      iMouse[1] = iMouse[3];
+    };
+    canvas.onmouseout =
+      canvas.onmouseleave = () => {
+        iMouse[0] = 0;
+        iMouse[1] = 0;
+        iMouse[2] = 0;
+        iMouse[3] = 0;
+      };
+  }
 }

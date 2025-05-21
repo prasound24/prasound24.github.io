@@ -9,10 +9,10 @@ const float PHI = (sqrt(5.) - 1.)/2.;
 const int N = 1280; // must be less than iChannel0 width
 const int GS = int(sqrt(float(N))); // group size
 const int NG = (N + GS - 1) / GS; // number of groups
-const float MASS = 10.0;
+const float MASS = 25.0;
 const float ZOOM = 1.0;
 const int NBOX = 32;
-#define SYMM 5.
+#define SYMM 3.
 
 // Rendering consts
 #define RGB_OUTFLOW vec3(0.001) // vec3(1.0, 0.3, 0.1)

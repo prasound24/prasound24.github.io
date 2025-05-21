@@ -3,12 +3,12 @@ const int MAX_LOOKUPS = 4096; // max lookups in the quad tree
 const int STACK_SIZE = 32; // deque (stack) size
 const int BVH_DEPTH = 16; // quad-tree spans at most 4096x4096 points
 const float R0 = 0.003;
-const float SEGLEN = R0*0.05;
 const float SIGMA = 3.5; // gaussian
-const float MOUSE_ZOOM = 0.05;
+const float MOUSE_ZOOM = 0.1;
 const float INIT_ZOOM = 0.5;
+const bool INK_STYLE = true;
 const float BRIGHTNESS = 1e-5/R0/R0; // gaussians
-const int MAX_SAMPLES = 10;
+const int MAX_SAMPLES = 1000;
 
 const ivec2[] NB4 = ivec2[](
     ivec2(0,0), ivec2(0,1), ivec2(1,0), ivec2(1,1));
@@ -55,12 +55,14 @@ mat2 rot2(float phi) {
 /// Buffer A
 
 void mainImage0(out vec4 o, in vec2 p) {
-    o = texelFetch(iChannel1, ivec2(p), 0);
+    vec2 uv = p/iChannelResolution0.xy;
+    //o = texelFetch(iChannel1, ivec2(p), 0);
+    o = texture(iChannel1, uv);
     o.w = R0; // sphere radius
     o /= 1.25 - o.w; // basic perspective projection
     o /= 1.25 - o.z;
     o *= pow(0.997, p.y); // time
-    o.z = p.y/iResolution.y; // o.z is now unused
+    o.z = 0.5 + 0.5*sin(uv.y*PI*1.5); // o.z is now unused
 }
 
 /// Buffer C /////////////////////////////////////////////////////////////////////
@@ -79,10 +81,11 @@ vec4 bboxInit(ivec2 pp) {
     ivec2 wh = textureSize(iChannel0, 0);
     
     for (int i = 0; i < 4; i++) {
-        ivec2 pp2 = pp*2 + NB4[i];
-        for (int j = 0; j < 2; j++) {
-            vec4 r = texelFetch(iChannel0, min(pp2 + ivec2(0,j), wh-1), 0);
-            if (r.w <= 0.) continue;
+        for (int j = 0; j < 1; j++) {
+            ivec2 qq = pp*2 + NB4[i] + ivec2(0,j);
+            qq.x = qq.x % wh.x;
+            vec4 r = texelFetch(iChannel0, qq, 0);
+            //if (r.w <= 0.) continue;
             b.xy = min(b.xy, r.xy - r.w);
             b.zw = max(b.zw, r.xy + r.w);
         }
@@ -133,8 +136,15 @@ float sdBBox(vec2 uv, ivec2 pp) {
     return sdBox(uv, bb.xy, bb.zw);
 }
 
+vec2 hash22(vec2 p) {
+	vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yzx+33.33);
+    return fract((p3.xx+p3.yz)*p3.zy);
+}
+
 vec3 raymarch(vec2 uv) {
     vec3 rgb = vec3(0);
+    vec2 rand = hash22(uv*iResolution.xy + iTime);
     int lookups = 0;
     ivec2 wh = textureSize(iChannel0, 0);
     ivec4[BVH_DEPTH] qt = qtInit(wh);
@@ -181,18 +191,15 @@ vec3 raymarch(vec2 uv) {
 
                 lookups += 2;
                 vec4 s1 = texelFetch(iChannel0, pp2, 0);
-                vec4 s2 = texelFetch(iChannel0, min(pp2 + ivec2(0,1), wh-1), 0);
-                int n = int(ceil(length(s1.xy - s2.xy)/SEGLEN));
-
-                for (int i = 0; i < n; i++) {
-                    vec4 s = mix(s1, s2, float(i)/float(n));
-                    float r = length(s.xy - uv);
-                    if (r > s.w) continue;
-                    float ds = r/s.w*SIGMA;
-                    float temp = exp(-ds*ds)/float(n);
-                    rgb += temp*mix(vec3(1,0.5,0.2), vec3(0.5,0.2,1), 
-                        0.5+0.5*sin(1.5*s.z*PI*2.0));
-                }
+                vec4 s2 = texelFetch(iChannel0, pp2 + ivec2(0,1), 0);
+                vec4 s = mix(s1, s2, rand.x);
+                float r = length(s.xy - uv);
+                if (r > s.w) continue;
+                float ds = r/s.w*SIGMA;
+                float temp = exp(-ds*ds);
+                vec3 col = mix(vec3(1.0, 0.5, 0.2), vec3(0.5, 0.2, 1.0), s.z);
+                if (INK_STYLE) col = 1.0 - col;
+                rgb += temp*col;
             }
         }
     }
@@ -200,18 +207,12 @@ vec3 raymarch(vec2 uv) {
     return rgb;
 }
 
-vec2 hash22(vec2 p) {
-	vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
-    p3 += dot(p3, p3.yzx+33.33);
-    return fract((p3.xx+p3.yz)*p3.zy);
-}
-
 void mainImage3(out vec4 o, in vec2 p) {
     vec2 r = iResolution.xy;
     vec2 p2 = p + hash22(p + iTime) - 0.5;
     
     if (iMouse.z > 0.)
-        p2 = (p - iMouse.xy)*MOUSE_ZOOM + iMouse.xy;
+        p2 = (p - iMouse.zw)*MOUSE_ZOOM + iMouse.zw;
     
     vec2 uv = p2/r; // 0..1
     uv = (uv - 0.5)*r/r.yy;
@@ -219,12 +220,14 @@ void mainImage3(out vec4 o, in vec2 p) {
     
     o.rgb = raymarch(uv);
     o *= BRIGHTNESS;
+    if (INK_STYLE) o = exp(-o);
     o.a = 1.0;
     
     vec4 avg = texture(iChannel3, p/r);
-    if (iMouse.z > 0.) avg.a = 0.;
-    o = mix(avg, o, 1./(1. + avg.a)); // average a few randomized frames 
-    o.a = min(avg.a + 1., float(MAX_SAMPLES)); // the number of frames rendered
+    if (length(iMouse.xy - iMouse.zw) > 0.)
+        avg = vec4(0);
+    o = mix(avg, o, 1./(1. + avg.a));
+    o.a = min(avg.a + 1., float(MAX_SAMPLES));
 }
 
 void mainImage(out vec4 o, in vec2 p) {
