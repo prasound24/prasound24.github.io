@@ -5,9 +5,9 @@ const int BVH_DEPTH = 16; // quad-tree spans at most 4096x4096 points
 const float R0 = 0.003;
 const float SIGMA = 3.5; // gaussian
 const float MOUSE_ZOOM = 0.1;
-const float INIT_ZOOM = 0.5;
+const float INIT_ZOOM = 0.4;
 const bool INK_STYLE = true;
-const float BRIGHTNESS = 1e-5/R0/R0; // gaussians
+const float BRIGHTNESS = 2e-5/R0/R0; // gaussians
 const int MAX_SAMPLES = 1000;
 
 const ivec2[] NB4 = ivec2[](
@@ -58,11 +58,12 @@ void mainImage0(out vec4 o, in vec2 p) {
     vec2 uv = p/iChannelResolution0.xy;
     //o = texelFetch(iChannel1, ivec2(p), 0);
     o = texture(iChannel1, uv);
+    o.xy = o.yx;
     o.w = R0; // sphere radius
     o /= 1.25 - o.w; // basic perspective projection
     o /= 1.25 - o.z;
     o *= pow(0.997, p.y); // time
-    o.z = 0.5 + 0.5*sin(uv.y*PI*1.5); // o.z is now unused
+    o.z = 0.5 + 0.5*sin(uv.y*PI*3.0); // o.z is now unused
 }
 
 /// Buffer C /////////////////////////////////////////////////////////////////////
@@ -197,7 +198,7 @@ vec3 raymarch(vec2 uv) {
                 if (r > s.w) continue;
                 float ds = r/s.w*SIGMA;
                 float temp = exp(-ds*ds);
-                vec3 col = mix(vec3(1.0, 0.5, 0.2), vec3(0.5, 0.2, 1.0), s.z);
+                vec3 col = mix(vec3(1.0, 0.8, 0.2), vec3(0.8, 0.2, 1.0), s.z);
                 if (INK_STYLE) col = 1.0 - col;
                 rgb += temp*col;
             }
