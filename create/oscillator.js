@@ -29,7 +29,8 @@ export class StringOscillator {
     let a2 = 1 + a * h / 2;
     //let ch2 = c / (h * h);
 
-    wave[0] = sigx;
+    if (Number.isFinite(sigx))
+      wave[0] = sigx;
 
     //if (c) wave[1] = sigx;
 

@@ -1,3 +1,4 @@
+import { StringOscillator } from '../create/oscillator.js';
 import * as utils from '../lib/utils.js';
 import * as webfft from '../lib/webfft.js';
 
@@ -14,11 +15,36 @@ const args = new URLSearchParams(location.search);
 $('#start').onclick = start;
 
 async function start() {
+  await testStringAudio();
   await testAudioImage();
   await testImage();
   await testAudio();
   await testImageDFT();
   await testCurvature();
+}
+
+async function testStringAudio() {
+  let osc = new StringOscillator(600);
+  let str = osc.wave;
+
+  for (let i = 0; i < str.length; i++) {
+    let phi = (i + 0.5) / str.length * 2 * Math.PI;
+    for (let k = 1; k < 120; k++)
+      str[i] += 0.5 * (0.5 + Math.cos(k)) / k ** (1.5 + Math.sin(k)) * Math.sin(phi * 5 * k + 123.456 * Math.cos(k * k));
+  }
+
+  let audio = new Float32Array(3e5);
+  osc.damping = 0.015;
+
+  for (let t = 0; t < audio.length / str.length; t++) {
+    osc.update();
+    //audio[t] = osc.wave[0];
+    let str = osc.wave;
+    for (let i = 0; i < str.length; i++)
+      audio[t * str.length + i] = str[i];
+  }
+
+  await utils.playSound([audio], 48000);
 }
 
 async function testCurvature() {

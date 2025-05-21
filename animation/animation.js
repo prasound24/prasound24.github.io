@@ -197,7 +197,7 @@ async function initWebGL() {
       iMouse[1] = (1 - (y + 0.5) / canvas.offsetHeight) * canvas.height;
     }
     iMouse[2] = e.buttons;
-    if (!animationId) drawFrame();
+    if (!animationId && e.buttons) drawFrame();
   };
   canvas.onmouseup = () => {
     iMouse[2] = 0;
