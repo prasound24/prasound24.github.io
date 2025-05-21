@@ -6,7 +6,7 @@ const float INF = 1e6;
 const float PHI = (sqrt(5.) - 1.)/2.;
 
 // Simulation consts
-const int N = 720; // must be less than iChannel0 width
+const int N = 1280; // must be less than iChannel0 width
 const int GS = int(sqrt(float(N))); // group size
 const int NG = (N + GS - 1) / GS; // number of groups
 const float MASS = 10.0;
