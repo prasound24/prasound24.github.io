@@ -1,6 +1,6 @@
 import { openEXR } from "../../lib/exr.js";
 
-const QTN = 12;
+const QTN = 16;
 
 export async function initChannels(iChannels) {
   let ch1 = iChannels[1];
@@ -14,7 +14,7 @@ export async function initChannels(iChannels) {
 export function drawFrame(ctx, args) {
   ctx.runShader({ ...args, iChannelId: 0 }, 0);
   
-  for (let i = 0; i < QTN; i++)
+  for (let i = 0; i <= QTN; i++)
     ctx.runShader({ ...args, iChannelId: 2 }, 2);
   
   ctx.runShader({ ...args, iChannelId: 3 }, 3);

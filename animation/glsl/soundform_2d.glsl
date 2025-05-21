@@ -1,14 +1,14 @@
 const float INF = 1e6;
-const float SQ3 = sqrt(3.0);
 const int MAX_LOOKUPS = 4096; // max lookups in the quad tree
 const int STACK_SIZE = 32; // deque (stack) size
-const int BVH_DEPTH = 12; // quad-tree spans at most 4096x4096 points
-const float R0 = 0.001;
+const int BVH_DEPTH = 16; // quad-tree spans at most 4096x4096 points
+const float R0 = 0.003;
+const float SEGLEN = R0*0.05;
 const float SIGMA = 3.5; // gaussian
-const float ZOOM = 0.05;
-const int MAX_SAMPLES = 15;
-const vec3 RGB1 = vec3(7.4, 5.6, 4.4); // wavelengths
-const vec3 RGB2 = vec3(3.4, 4.5, 7.4); // wavelengths
+const float MOUSE_ZOOM = 0.05;
+const float INIT_ZOOM = 0.5;
+const float BRIGHTNESS = 1e-5/R0/R0; // gaussians
+const int MAX_SAMPLES = 10;
 
 const ivec2[] NB4 = ivec2[](
     ivec2(0,0), ivec2(0,1), ivec2(1,0), ivec2(1,1));
@@ -52,35 +52,11 @@ mat2 rot2(float phi) {
     return mat2(c,s,-s,c);
 }
 
-mat3 rotWorldMatrix(mat3 wm, vec2 m) {
-    if (length(m) < 1.0/INF)
-        return wm;
-
-    mat2 mx = rot2(m.x);
-    mat2 my = rot2(m.y);
-    mat3 xy = mat3(0,1,0,1,0,0,0,0,1); // swap xy
-    mat3 yz = mat3(1,0,0,0,0,1,0,1,0); // swap yz
-    mat3 rx = yz*mat3(mx)*yz;
-    mat3 ry = xy*yz*mat3(my)*yz*xy;
-
-    return rx*ry*wm;
-}
-
-mat3 getWorldMatrix(vec2 iMouse, vec2 iResolution) {
-    vec2 m = iMouse/iResolution - 0.5;
-    mat3 wm = mat3(1);
-    //wm = rotWorldMatrix(wm, -vec2(0,0)*PI*2.);
-    wm = rotWorldMatrix(wm, -m*PI*2.);
-    return wm;
-}
-
 /// Buffer A
 
 void mainImage0(out vec4 o, in vec2 p) {
     o = texelFetch(iChannel1, ivec2(p), 0);
     o.w = R0; // sphere radius
-    //mat3 wm = getWorldMatrix(iMouse.xy, iResolution.xy);
-    //o.xyz = wm*o.xyz;
     o /= 1.25 - o.w; // basic perspective projection
     o /= 1.25 - o.z;
     o *= pow(0.997, p.y); // time
@@ -106,11 +82,13 @@ vec4 bboxInit(ivec2 pp) {
         ivec2 pp2 = pp*2 + NB4[i];
         for (int j = 0; j < 2; j++) {
             vec4 r = texelFetch(iChannel0, min(pp2 + ivec2(0,j), wh-1), 0);
+            if (r.w <= 0.) continue;
             b.xy = min(b.xy, r.xy - r.w);
             b.zw = max(b.zw, r.xy + r.w);
         }
     }
     
+    b.zw = max(b.zw, b.xy);
     return b;
 }
 
@@ -125,6 +103,7 @@ vec4 bboxJoin(ivec2 pp, int d, ivec4[BVH_DEPTH] qt) {
          b.zw = max(b.zw, r.zw);
     }
     
+    b.zw = max(b.zw, b.xy);
     return b;
 }
 
@@ -144,12 +123,6 @@ void mainImage2( out vec4 o, in vec2 p ) {
 
 /// Image ////////////////////////////////////////////////////////
 
-float sdSegment( in vec2 p, in vec2 a, in vec2 b ) {
-    vec2 pa = p-a, ba = b-a;
-    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
-    return length( pa - ba*h );
-}
-
 float sdBox( in vec2 p, vec2 a, vec2 b ) {
     vec2 d = abs(p - (a + b)*0.5) - abs(a - b)*0.5;
     return length(max(d, 0.)) + min(max(d.x, d.y), 0.);
@@ -158,12 +131,6 @@ float sdBox( in vec2 p, vec2 a, vec2 b ) {
 float sdBBox(vec2 uv, ivec2 pp) {
     vec4 bb = texelFetch(iChannel2, pp, 0);
     return sdBox(uv, bb.xy, bb.zw);
-}
-
-vec3 flameRGB(float temp, vec3 L) {
-    float T = 1400. + 1300.*temp; // temperature in kelvins
-    vec3 W = pow(L, vec3(5))*(exp(1.43e5/T/L) - 1.);
-    return 1. - exp(-5e8/W);
 }
 
 vec3 raymarch(vec2 uv) {
@@ -177,7 +144,7 @@ vec3 raymarch(vec2 uv) {
     
     while (head <= tail) {
         if (lookups >= MAX_LOOKUPS)
-            return vec3(0,1,0)*0.5;
+            return vec3(0,1,0);
 
         for (int i = tail-head+1; i > 0; i--) {
             // DFS-style search allows a compact deque
@@ -187,7 +154,7 @@ vec3 raymarch(vec2 uv) {
 
             lookups++;
             ivec2 qq = qtLookup(pp, d, qt); 
-            if (sdBBox(uv, qq) > 0.)
+            if (sdBBox(uv, qq) >= 0.)
                 continue;
 
             for (int j = 0; j < 4; j++) {
@@ -196,7 +163,7 @@ vec3 raymarch(vec2 uv) {
                 if (d < BVH_DEPTH-1) {
                     if (tail+1 == STACK_SIZE) {
                         if (head == 0)
-                            return vec3(1,0,0)*0.5;
+                            return vec3(1,0,0);
                         for (int k = head; k <= tail; k++)
                             deque[k - head] = deque[k];
                         tail -= head;
@@ -215,7 +182,7 @@ vec3 raymarch(vec2 uv) {
                 lookups += 2;
                 vec4 s1 = texelFetch(iChannel0, pp2, 0);
                 vec4 s2 = texelFetch(iChannel0, min(pp2 + ivec2(0,1), wh-1), 0);
-                int n = int(ceil(length(s1.xy - s2.xy)/R0*15.0));
+                int n = int(ceil(length(s1.xy - s2.xy)/SEGLEN));
 
                 for (int i = 0; i < n; i++) {
                     vec4 s = mix(s1, s2, float(i)/float(n));
@@ -223,7 +190,8 @@ vec3 raymarch(vec2 uv) {
                     if (r > s.w) continue;
                     float ds = r/s.w*SIGMA;
                     float temp = exp(-ds*ds)/float(n);
-                    rgb += temp*mix(vec3(1,0.5,0.2), vec3(0.5,0.2,1), s.z);
+                    rgb += temp*mix(vec3(1,0.5,0.2), vec3(0.5,0.2,1), 
+                        0.5+0.5*sin(1.5*s.z*PI*2.0));
                 }
             }
         }
@@ -243,14 +211,14 @@ void mainImage3(out vec4 o, in vec2 p) {
     vec2 p2 = p + hash22(p + iTime) - 0.5;
     
     if (iMouse.z > 0.)
-        p2 = (p - iMouse.xy)*ZOOM + iMouse.xy;
+        p2 = (p - iMouse.xy)*MOUSE_ZOOM + iMouse.xy;
     
     vec2 uv = p2/r; // 0..1
     uv = (uv - 0.5)*r/r.yy;
-    uv *= 0.5; // DEBUG
+    uv *= INIT_ZOOM; // DEBUG
     
     o.rgb = raymarch(uv);
-    o *= 10.0; // DEBUG
+    o *= BRIGHTNESS;
     o.a = 1.0;
     
     vec4 avg = texture(iChannel3, p/r);
@@ -265,6 +233,6 @@ void mainImage(out vec4 o, in vec2 p) {
     case 0: mainImage0(o, p); return;
     case 2: mainImage2(o, p); return;
     case 3: mainImage3(o, p); return;
-    case -1: o = texelFetch(iChannel3, ivec2(p), 0), o.a = 1.0; return;
+    case -1: o = texelFetch(iChannel3, ivec2(p), 0); return;
   }
 }
