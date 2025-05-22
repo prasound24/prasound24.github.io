@@ -206,11 +206,7 @@ button[disabled]:hover {
 }
 
 #footer img {
-  opacity: 0.5;
-}
-
-#footer img {
-  opacity: 0.2;
+  opacity: 0.3;
 }
 
 #error_info:empty {

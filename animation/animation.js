@@ -272,7 +272,7 @@ async function initWebGL() {
   }
 
   function initShaderArgs(time_msec = performance.now()) {
-    let iTime = (time_msec - base_time) / 1000;
+    let iTime = time_msec / 1000;
     let iGamma = [+elGamma.value, +elAlpha.value];
     return {
       iTime, iMouse, iFrame, iLogo, iSoundMax, iSoundLen, iPass: 0,

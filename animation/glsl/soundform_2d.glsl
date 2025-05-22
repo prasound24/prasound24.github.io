@@ -3,7 +3,7 @@ const int MAX_LOOKUPS = 4096; // max lookups in the quad tree
 const int STACK_SIZE = 32; // deque (stack) size
 const int BVH_DEPTH = 16; // quad-tree spans at most 4096x4096 points
 const float R0 = 0.003;
-const float SIGMA = 3.5; // gaussian
+const float SIGMA = 3.0; // gaussian
 const float MOUSE_ZOOM = 0.1;
 const float INIT_ZOOM = 0.4;
 const bool INK_STYLE = true;
@@ -60,9 +60,9 @@ void mainImage0(out vec4 o, in vec2 p) {
     o = texture(iChannel1, uv);
     o.xy = o.yx;
     o.w = R0; // sphere radius
+    o *= pow(0.997, p.y); // time
     o /= 1.25 - o.w; // basic perspective projection
     o /= 1.25 - o.z;
-    o *= pow(0.997, p.y); // time
     o.z = 0.5 + 0.5*sin(uv.y*PI*3.0); // o.z is now unused
 }
 
@@ -82,8 +82,8 @@ vec4 bboxInit(ivec2 pp) {
     ivec2 wh = textureSize(iChannel0, 0);
     
     for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 1; j++) {
-            ivec2 qq = pp*2 + NB4[i] + ivec2(0,j);
+        for (int j = 0; j < 2; j++) {
+            ivec2 qq = pp*2 + NB4[i] + NB4[j];
             qq.x = qq.x % wh.x;
             vec4 r = texelFetch(iChannel0, qq, 0);
             //if (r.w <= 0.) continue;
@@ -193,7 +193,10 @@ vec3 raymarch(vec2 uv) {
                 lookups += 2;
                 vec4 s1 = texelFetch(iChannel0, pp2, 0);
                 vec4 s2 = texelFetch(iChannel0, pp2 + ivec2(0,1), 0);
+                //vec4 s3 = texelFetch(iChannel0, (pp2 + ivec2(1,0)) % wh, 0);
+                //vec4 s4 = texelFetch(iChannel0, (pp2 + ivec2(1,1)) % wh, 0);
                 vec4 s = mix(s1, s2, rand.x);
+                //vec4 s = mix(mix(s1, s2, rand.x), mix(s3, s4, rand.x), rand.y);
                 float r = length(s.xy - uv);
                 if (r > s.w) continue;
                 float ds = r/s.w*SIGMA;
@@ -221,7 +224,6 @@ void mainImage3(out vec4 o, in vec2 p) {
     
     o.rgb = raymarch(uv);
     o *= BRIGHTNESS;
-    if (INK_STYLE) o = exp(-o);
     o.a = 1.0;
     
     vec4 avg = texture(iChannel3, p/r);
@@ -232,11 +234,14 @@ void mainImage3(out vec4 o, in vec2 p) {
 }
 
 void mainImage(out vec4 o, in vec2 p) {
-  o = vec4(0);
+  vec2 r = iResolution;
   switch (iChannelId) {
     case 0: mainImage0(o, p); return;
     case 2: mainImage2(o, p); return;
     case 3: mainImage3(o, p); return;
-    case -1: o = texelFetch(iChannel3, ivec2(p), 0); return;
+    case -1:
+        o = texture(iChannel3, p/r); 
+        if (INK_STYLE) o = exp(-o);
+        return;
   }
 }
