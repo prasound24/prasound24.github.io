@@ -372,34 +372,23 @@ export class GpuFrameBuffer {
     return id;
   }
 
-  upload(source) {
-    if (source.length > this.capacity) {
-      source = source.subarray(0, this.capacity);
+  upload(pixels) {
+    if (pixels.length > this.capacity) {
+      pixels = pixels.subarray(0, this.capacity);
     }
-    if (source.length < this.capacity) {
+    if (pixels.length < this.capacity) {
       let temp = new Float32Array(this.capacity);
-      temp.set(source.subarray(0, temp.length));
-      source = temp;
+      temp.set(pixels.subarray(0, temp.length));
+      pixels = temp;
     }
 
     let gl = this.webgl.gl;
-    let mipmap = 0;
-    let border = 0;
-    let offset = 0;
-    let fmt = this.fmt;
     // gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      mipmap,
-      fmt.internalFormat,
-      this.width,
-      this.height,
-      border,
-      fmt.format,
-      this.type,
-      source,
-      offset);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D, 0, 0, 0,
+      this.width, this.height,
+      this.fmt.format, this.type, pixels, 0);
     this.webgl.checkError();
   }
 
