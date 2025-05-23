@@ -222,7 +222,7 @@ vec3 raymarch(vec2 uv) {
                     float r2 = dot2((s.xy - uv)/s.w);
                     if (r2 < 1.0) {
                         float temp = exp(-r2*SIGMA*SIGMA);
-                        float hue = 0.5 + 0.5*sin(float(pp2.y)/float(wh.y-1)*PI*2.0);
+                        float hue = 0.5 - 0.5*sin(float(pp2.y)/float(wh.y-1)*PI*2.0);
                         vec3 col = mix(vec3(1.0, 0.8, 0.2), vec3(0.8, 0.2, 1.0), hue);
                         if (INK_STYLE) col = 1.0 - col;
                         rgb += temp*col;
@@ -290,9 +290,9 @@ void mainImage4(out vec4 o, vec2 p) {
 
     if (int(p.x) == ID_POSITION) {
         if (isKeyPressed(KEY_R))
-            o.y -= 0.01;
-        if (isKeyPressed(KEY_F))
             o.y += 0.01;
+        if (isKeyPressed(KEY_F))
+            o.y -= 0.01;
         if (iFrame == 0)
             o = vec4(0);
     }
