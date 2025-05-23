@@ -29,7 +29,7 @@ async function init() {
   elAlpha.value = 0.0;
   $('#img_size').textContent = CW + '×' + CH;
   await initErrHandler();
-  await initSound();
+  //await initSound();
   await initWebGL();
   showStatus(null);
 }
@@ -127,26 +127,20 @@ async function initWebGL() {
     await shader.initChannels(iChannels, ctx);
 
   let shader_ctx = {
-    runShader(args, chid = -1) {
+    runShader(args, output = null) {
       args.iFrame = iFrame;
-
       for (let i = 0; i < iChannels.length; i++)
         args['iChannel' + i] = iChannels[i];
 
+      let chid = args.iChannelId;
       let ch = iChannels[chid]; // null if the output is the canvas
-      let shape = ch && ch.width + 'x' + ch.height + 'x' + ch.channels;
-      let buffer = tmpBuffers[shape];
+      let tmpid = ch && !output && getTmpBuffer(ch.shape);
 
-      if (ch && !buffer) {
-        buffer = ctx.createFrameBuffer(ch.width, ch.height, ch.channels);
-        tmpBuffers[shape] = buffer;
-      }
+      runShaderWebGL(SHADER_ID, args, output || tmpBuffers[tmpid]);
 
-      runShader(SHADER_ID, args, buffer);
-
-      if (!ch) return;
-      iChannels[chid] = buffer;
-      tmpBuffers[shape] = ch;
+      if (!ch || output) return;
+      iChannels[chid] = tmpBuffers[tmpid];
+      tmpBuffers[tmpid] = ch;
     },
   };
 
@@ -166,8 +160,8 @@ async function initWebGL() {
   initMouseHandler();
   setKeyboardHandler(iKeyboard);
 
-  elGamma.onchange = () => runShader(SHADER_ID, initShaderArgs());
-  elAlpha.onchange = () => runShader(SHADER_ID, initShaderArgs());
+  elGamma.onchange = () => runShaderWebGL(SHADER_ID, initShaderArgs());
+  elAlpha.onchange = () => runShaderWebGL(SHADER_ID, initShaderArgs());
 
   $('#frame_id').onclick = () => !animationId && drawFrame();
   $('#channel').onclick = () => switchChannel();
@@ -175,9 +169,18 @@ async function initWebGL() {
   $('#save_exr').onclick = () => downloadEXR();
   $('#save_hdr').onclick = () => downloadHDR();
 
+  function getTmpBuffer(shape) {
+    let id = shape.join('x');
+    let buffer = tmpBuffers[id];
+    if (buffer) return id;
+    buffer = ctx.createFrameBuffer(...shape);
+    tmpBuffers[id] = buffer;
+    return id;
+  }
+
   function switchChannel() {
     dispChannelId++;
-    if (dispChannelId > 3)
+    if (dispChannelId >= iChannels.length)
       dispChannelId = -1;
     $('#channel').textContent = dispChannelId < 0 ? 'img' : 'ch' + dispChannelId;
     drawFrame();
@@ -188,8 +191,9 @@ async function initWebGL() {
     let f32 = null;
 
     if (dispChannelId < 0) {
-      shader_ctx.runShader(initShaderArgs(), 3);
-      f32 = iChannels[3].download();
+      let tmpid = getTmpBuffer([CW, CH, 4]);
+      shader_ctx.runShader(initShaderArgs(), tmpBuffers[tmpid]);
+      f32 = tmpBuffers[tmpid].download();
     } else {
       f32 = iChannels[dispChannelId].download();
     }
@@ -240,8 +244,8 @@ async function initWebGL() {
     saveBlobAsFile(blob, genImageName() + '.hdr');
   }
 
-  function runShader(name, args, out = null) {
-    let iResolution = out ? [out.width, out.height] : [canvas.width, canvas.height];
+  function runShaderWebGL(name, args, out = null) {
+    let iResolution = out ? [out.width, out.height] : [CW, CH];
     shaders[name].draw({ ...args, iResolution }, out); // calls WebGL
     iFrame++;
   }

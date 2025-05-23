@@ -286,6 +286,7 @@ export class GpuFrameBuffer {
     this.width = width;
     this.height = height;
     this.channels = channels;
+    this.shape = [width, height, channels];
     this.source = source;
     this.webgl = webgl;
     this.fmt = null;

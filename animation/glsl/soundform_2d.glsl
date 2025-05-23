@@ -1,6 +1,9 @@
 uniform sampler2D iChannel4;
 
-#define CH_CONFIG iChannel4
+#define CH_EXR_DATA     iChannel0
+#define CH_3D_MESH      iChannel1
+#define CH_BVH_TREE     iChannel2
+#define CH_CONFIG       iChannel4
 #define ID_ZOOM 0
 #define ID_ROTATION 1
 
@@ -11,10 +14,10 @@ const int BVH_DEPTH = 12; // quad-tree spans at most 4096x4096 points
 const float R0 = 0.003;
 const float SIGMA = 3.0; // gaussian
 const float MOUSE_ZOOM = 0.1;
-const float INIT_ZOOM = 0.4;
+const float INIT_ZOOM = 1.0;
 const bool INK_STYLE = true;
 const float BRIGHTNESS = 2e-5/R0/R0; // gaussians
-const int MAX_SAMPLES = 25;
+const int MAX_SAMPLES = 15;
 
 #define KEY_V 86
 #define KEY_W 87
@@ -64,16 +67,15 @@ mat2 rot2(float phi) {
     return mat2(c,s,-s,c);
 }
 
-/// Buffer A
+/// CH_3D_MESH ////////////////////////////////////////////////////////////////
 
 void mainImage1(out vec4 o, in vec2 p) {
-    vec2 uv = p/vec2(textureSize(iChannel1, 0));
-    o = texture(iChannel0, uv);
-    o.xy = o.yx;
+    vec2 uv = p/vec2(textureSize(CH_3D_MESH, 0));
+    o = texture(CH_EXR_DATA, uv); // interpolate the exr data
+    o.xy *= rot2(texelFetch(CH_CONFIG, ivec2(ID_ROTATION,0), 0).x);
     o.w = R0; // sphere radius
     o *= pow(0.997, p.y); // time
     o /= 1.25 - o.w; // basic perspective projection
-    //o.xz *= rot2(texelFetch(CH_CONFIG, ivec2(ID_ROTATION,0), 0).x);
     o /= 1.25 - o.z;
     o.z = 0.5 + 0.5*sin(uv.y*PI*3.0); // o.z is now unused
 }
@@ -83,18 +85,18 @@ void mainImage1(out vec4 o, in vec2 p) {
 // Updates the quad-tree of bounding boxes
 // in about log2(width,height) steps. This
 // works so long as points that are nearby
-// in the iChannel1 mesh are also nearby
+// in the CH_3D_MESH mesh are also nearby
 // in the 3d space.
 
 vec4 bboxInit(ivec2 pp) {
     vec4 b = vec4(1,1,-1,-1)*INF;
-    ivec2 wh = textureSize(iChannel1, 0);
+    ivec2 wh = textureSize(CH_3D_MESH, 0);
     
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 2; j++) {
             ivec2 qq = pp*2 + NB4[i] + NB4[j];
             qq.x = qq.x % wh.x;
-            vec4 r = texelFetch(iChannel1, qq, 0);
+            vec4 r = texelFetch(CH_3D_MESH, qq, 0);
             //if (r.w <= 0.) continue;
             b.xy = min(b.xy, r.xy - r.w);
             b.zw = max(b.zw, r.xy + r.w);
@@ -111,7 +113,7 @@ vec4 bboxJoin(ivec2 pp, int d, ivec4[BVH_DEPTH] qt) {
     for (int i = 0; i < 4; i++) {
          ivec2 pp2 = pp*2 + NB4[i];
          pp2 = qtLookup(pp2, d+1, qt);
-         vec4 r = texelFetch(iChannel2, pp2, 0);
+         vec4 r = texelFetch(CH_BVH_TREE, pp2, 0);
          b.xy = min(b.xy, r.xy);
          b.zw = max(b.zw, r.zw);
     }
@@ -126,7 +128,7 @@ void mainImage2( out vec4 o, in vec2 p ) {
     int d = BVH_DEPTH - 1 - iPass % BVH_DEPTH;
     ivec2 qq = qtReverse(pp, d, qt);
     
-    o = texelFetch(iChannel2, pp, 0);
+    o = texelFetch(CH_BVH_TREE, pp, 0);
     if (qq.x < 0) return;
     
     o = d < BVH_DEPTH-1 ?
@@ -142,7 +144,7 @@ float sdBox( in vec2 p, vec2 a, vec2 b ) {
 }
 
 float sdBBox(vec2 uv, ivec2 pp) {
-    vec4 bb = texelFetch(iChannel2, pp, 0);
+    vec4 bb = texelFetch(CH_BVH_TREE, pp, 0);
     return sdBox(uv, bb.xy, bb.zw);
 }
 
@@ -156,7 +158,7 @@ vec3 raymarch(vec2 uv) {
     vec3 rgb = vec3(0);
     vec2 rand = hash22(uv*iResolution.xy + iTime);
     int lookups = 0;
-    ivec2 wh = textureSize(iChannel1, 0);
+    ivec2 wh = textureSize(CH_3D_MESH, 0);
     ivec4[BVH_DEPTH] qt = qtInit(wh);
     ivec3[STACK_SIZE] deque; // deque size has a huge perf impact, but why?
     int head = 0, tail = 0;
@@ -200,10 +202,10 @@ vec3 raymarch(vec2 uv) {
                     continue;
 
                 lookups += 2;
-                vec4 s1 = texelFetch(iChannel1, pp2, 0);
-                vec4 s2 = texelFetch(iChannel1, pp2 + ivec2(0,1), 0);
-                //vec4 s3 = texelFetch(iChannel1, (pp2 + ivec2(1,0)) % wh, 0);
-                //vec4 s4 = texelFetch(iChannel1, (pp2 + ivec2(1,1)) % wh, 0);
+                vec4 s1 = texelFetch(CH_3D_MESH, pp2, 0);
+                vec4 s2 = texelFetch(CH_3D_MESH, pp2 + ivec2(0,1), 0);
+                //vec4 s3 = texelFetch(CH_3D_MESH, (pp2 + ivec2(1,0)) % wh, 0);
+                //vec4 s4 = texelFetch(CH_3D_MESH, (pp2 + ivec2(1,1)) % wh, 0);
                 vec4 s = mix(s1, s2, rand.x);
                 //vec4 s = mix(mix(s1, s2, rand.x), mix(s3, s4, rand.x), rand.y);
                 float r = length(s.xy - uv);
@@ -242,6 +244,8 @@ void mainImage3(out vec4 o, in vec2 p) {
     o.a = min(avg.a + 1., float(MAX_SAMPLES));
 }
 
+/// CH_CONFIG /////////////////////////////////////////////////////////////////
+
 bool isKeyPressed(int i) {
     return texelFetch(iKeyboard, ivec2(i,0), 0).x > 0.;
 }
@@ -260,9 +264,9 @@ void mainImage4(out vec4 o, vec2 p) {
 
     if (int(p.x) == ID_ROTATION) {
         if (isKeyPressed(KEY_A))
-            o.x -= 0.05;
+            o.x -= PI*0.01;
         if (isKeyPressed(KEY_D))
-            o.x += 0.05;
+            o.x += PI*0.01;
         if (iFrame == 0)
             o.x = 0.;
     }
@@ -297,6 +301,7 @@ void mainImage(out vec4 o, in vec2 p) {
         o = mix(o, logo(p), logo(p).a);
         if (INK_STYLE) o = exp(-o);
         if (isKeyPressed(KEY_V)) o *= vignette(p);
+        o.a = 1.0;
         return;
   }
 }

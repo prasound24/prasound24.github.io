@@ -48,6 +48,7 @@ p {
 #extras {
   display: flex;
   flex-direction: row;
+  display: none;
 }
 
 #config {
