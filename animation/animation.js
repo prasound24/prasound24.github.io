@@ -73,8 +73,8 @@ function resizeCanvas() {
   canvas.height = Math.min(h, w);
 }
 
-async function createLogoTexture(webgl) {
-  let img = await base.createLogoTexture();
+async function createLogoBuffer(webgl, text, em) {
+  let img = await base.createLogoTexture(text, em);
   return webgl.createFrameBufferFromRGBA(img);
 }
 
@@ -110,7 +110,9 @@ async function initWebGL() {
   let ctx = new GpuContext(canvas);
   ctx.init();
 
-  let iLogo = await createLogoTexture(ctx);
+  let iLogo = await createLogoBuffer(ctx);
+  let dt = new Date(), dmy = dt.getDay() + '.' + dt.getMonth() + '.' + dt.getFullYear();
+  let iLogoL = await createLogoBuffer(ctx, dmy, 15);
   let iKeyboard = ctx.createFrameBuffer(256, 1, 1);
   let iChannels = [0, 1, 2, 3].map(i => ctx.createFrameBuffer(CW, CH, 4));
   let tmpBuffers = {};
@@ -259,7 +261,7 @@ async function initWebGL() {
     let iTime = time_msec / 1000;
     let iGamma = [+elGamma.value, +elAlpha.value];
     return {
-      iTime, iMouse, iFrame, iLogo, iKeyboard, iPass: 0,
+      iTime, iMouse, iFrame, iLogo, iLogoL, iKeyboard, iPass: 0,
       iGamma, iChannelId: -1, iKeyPressed,
     };
   }

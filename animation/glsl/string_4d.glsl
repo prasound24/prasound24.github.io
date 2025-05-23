@@ -8,7 +8,6 @@ const float INF = 1e6;
 const int N = 1280; // must be less than iChannel0 width
 const int GS = int(sqrt(float(N))); // group size
 const int NG = (N + GS - 1) / GS; // number of groups
-const float MASS = 15.0;
 const float ZOOM = 2.0;
 const int NBOX = 32;
 
@@ -46,13 +45,13 @@ vec4 initPos(ivec2 pp) {
     float y = cos(phi);
 
     float K = float(SYMMETRY);
-    float z = 1.0;
-    float w = 0.;
+    float z = 0.7;
+    float w = 0.0;
 
-    for (float s = 1.; s <= 30.; s += 1.) {
+    for (float s = 1.; s <= 5.; s += 1.) {
         vec2 rand = hash22(vec2(s, iTime)) - 0.5;
         if (pp.y > 0) rand += 0.01*(hash22(vec2(s, iTime + float(pp.y))) - 0.5);
-        z += rand.x/s/s*cos(phi*K*s + rand.y*PI*2.0);
+        z += rand.x/s*cos(phi*K*s);
     }
 
     vec3 xyz = vec3(vec2(x, y) * cos(z), sin(z));
@@ -87,26 +86,25 @@ void updateString(out vec4 o, in vec2 p) {
         return;
     }
 
-    // https://web.media.mit.edu/~crtaylor/calculator.html
-    //const float fdx[3] = float[](1., -2., 1.);
-    //const float fdt[3] = float[](1., -2., 1.);
-    //const float fdx[5] = float[](-1. / 12., 16. / 12., -30. / 12., 16. / 12., -1. / 12.);
-    //const float fdt[5] = float[](11. / 12., -20. / 12., 6. / 12., 4. / 12., -1. / 12.);
-    //vec4 sum = vec4(0);
-    //for(int i = 1; i < fdt.length(); i++) sum += fdt[i] * texString(pp + dt * (i - 1));
-    //vec4 T = vec4(0);
-    //for(int i = 0; i < fdx.length(); i++) T += fdx[i] * texString(pp + dx * (i - fdx.length() / 2)); // Hooke's law
-
     // All four are in one plane tangent to the unit sphere at c.
     vec4 c = texString(pp); // length(cc) = 1
-    vec4 l = texString(pp - dx), ll = l / dot(l, c);
-    vec4 r = texString(pp + dx), rr = r / dot(r, c);
-    vec4 d = texString(pp + dt), dd = d / dot(d, c);
+    vec4 l = texString(pp - dx);
+    vec4 r = texString(pp + dx);
+    vec4 ll = texString(pp - dx*2);
+    vec4 rr = texString(pp + dx*2);
+    vec4 d = texString(pp + dt);
 
-    vec4 ds = ((ll - c) + (rr - c)) / MASS - (dd - c);
-    //vec4 ds = (-sum + T / MASS) / fdt[0] - cc;
-    // ds -= c * dot(c, ds); // make it tangent to the unit sphere
-    o = normalize(c + ds); // F=ma
+    l /= dot(l, c);
+    r /= dot(r, c);
+    d /= dot(d, c);
+    ll /= dot(ll, c);
+    rr /= dot(rr, c);
+
+    vec4 ds = c - d;
+    // https://web.media.mit.edu/~crtaylor/calculator.html
+    ds += 0.5*(l + r - c*2.);
+    ds -= 0.1*(ll + rr - (l + r)*4. + c*6.);
+    o = normalize(c + ds);
 }
 
 vec2 xy2uv(vec2 p) {
@@ -359,7 +357,7 @@ void updateImg(out vec4 o, vec2 p) {
     o.rgb += e.z*(a + b*RGB_GLOW);
     //o.rgb += RGB_BBOX * flameRGB(e.a/32.);
 
-    if (!INK_STYLE) o = sqrt(o);
+    //if (!INK_STYLE) o = sqrt(o);
     addLogo(o, p);
     addVignette(o, p);
     o.rgb *= o.a;

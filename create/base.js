@@ -413,7 +413,7 @@ export function initWaveformDrawer(canvas) {
   return { draw, clear };
 }
 
-export async function createLogoTexture(webgl, text = 'prasound.com') {
+export async function createLogoTexture(text = 'prasound.com', em = 25) {
   const font = new FontFace("DancingScript", "url(/create/DancingScript-Regular.ttf)");
   document.fonts.add(font);
   await font.load();
@@ -421,7 +421,6 @@ export async function createLogoTexture(webgl, text = 'prasound.com') {
 
   let canvas = document.createElement('canvas');
   let ctx2d = canvas.getContext('2d');
-  let em = 25;
   let ch = em; // tm.actualBoundingBoxAscent - tm.actualBoundingBoxDescent;
   let cw = em * 20; // tm.width;
   canvas.height = ch;

@@ -7,7 +7,7 @@ uniform sampler2D iChannel4;
 
 #define ID_SCALE        0
 #define ID_ROTATION     1
-#define ID_POSITION       2
+#define ID_POSITION     2
 
 const float INF = 1e6;
 const int MAX_LOOKUPS = 4096; // max lookups in the quad tree
@@ -19,7 +19,7 @@ const float MOUSE_ZOOM = 0.1;
 const float INIT_ZOOM = 1.0;
 const bool INK_STYLE = true;
 const float BRIGHTNESS = 2e-5/R0/R0; // gaussians
-const int MAX_SAMPLES = 15;
+const int MAX_SAMPLES = 1000;
 
 #define KEY_V 86
 #define KEY_W 87
@@ -180,6 +180,8 @@ vec3 raymarch(vec2 uv) {
     ivec4[BVH_DEPTH] qt = qtInit(wh);
     ivec3[STACK_SIZE] deque; // deque size has a huge perf impact, but why?
     int head = 0, tail = 0;
+
+    // TODO: The initial 4 bboxes can be precomputed in a separate texture.
     
     while (head <= tail) {
         if (lookups >= MAX_LOOKUPS)
@@ -220,7 +222,7 @@ vec3 raymarch(vec2 uv) {
                     float r2 = dot2((s.xy - uv)/s.w);
                     if (r2 < 1.0) {
                         float temp = exp(-r2*SIGMA*SIGMA);
-                        float hue = 0.5 + 0.5*sin(float(pp2.y)/float(wh.y-1)*PI*3.0);
+                        float hue = 0.5 + 0.5*sin(float(pp2.y)/float(wh.y-1)*PI*2.0);
                         vec3 col = mix(vec3(1.0, 0.8, 0.2), vec3(0.8, 0.2, 1.0), hue);
                         if (INK_STYLE) col = 1.0 - col;
                         rgb += temp*col;
@@ -303,14 +305,13 @@ float vignette(vec2 p) {
     return pow(v, 0.125);
 }
 
-vec4 logo(vec2 p) {
-    vec2 ls = vec2(textureSize(iLogo, 0));
-    vec2 bl = vec2(iResolution.x,0) + vec2(-ls.x-ls.y, ls.y);
-    vec2 p2 = p - bl;
-    p2.y = ls.y - 1. - p2.y;
-    if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.)
-      return texelFetch(iLogo, ivec2(p2), 0);
-    return vec4(0);
+void setLogo(inout vec4 o, vec2 p, sampler2D iLogo, vec2 pos, mat2 whm) {
+    vec2 wh = vec2(textureSize(iLogo, 0));
+    p -= pos + wh*whm;
+    p.y = wh.y - 1. - p.y; // iLogo is Y-flipped
+    if (!sdBox(p, vec2(0), wh)) return;
+    vec4 col = texture(iLogo, p/wh);
+    o = mix(o, col, col.a);
 }
 
 void mainImage(out vec4 o, in vec2 p) {
@@ -322,7 +323,8 @@ void mainImage(out vec4 o, in vec2 p) {
     case 4: mainImage4(o, p); return;
     case -1:
         o = texture(iChannel3, p/r);
-        o = mix(o, logo(p), logo(p).a);
+        setLogo(o, p, iLogo, vec2(r.x, 0), mat2(-1, -1, 0, 1));
+        setLogo(o, p, iLogoL, vec2(0), mat2(0, 0, 0, 0.5));
         if (INK_STYLE) o = exp(-o);
         if (isKeyPressed(KEY_V)) o *= vignette(p);
         o.a = 1.0;

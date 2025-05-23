@@ -10,6 +10,7 @@ uniform float iTime; // seconds
 uniform vec4 iMouse;
 uniform sampler2D iKeyboard; // 256x1x1
 uniform sampler2D iLogo;
+uniform sampler2D iLogoL;
 uniform sampler2D iChannel0;
 uniform sampler2D iChannel1;
 uniform sampler2D iChannel2;
