@@ -1,14 +1,26 @@
+uniform sampler2D iChannel4;
+
+#define CH_CONFIG iChannel4
+#define ID_ZOOM 0
+#define ID_ROTATION 1
+
 const float INF = 1e6;
 const int MAX_LOOKUPS = 4096; // max lookups in the quad tree
 const int STACK_SIZE = 32; // deque (stack) size
-const int BVH_DEPTH = 16; // quad-tree spans at most 4096x4096 points
+const int BVH_DEPTH = 12; // quad-tree spans at most 4096x4096 points
 const float R0 = 0.003;
 const float SIGMA = 3.0; // gaussian
 const float MOUSE_ZOOM = 0.1;
 const float INIT_ZOOM = 0.4;
 const bool INK_STYLE = true;
 const float BRIGHTNESS = 2e-5/R0/R0; // gaussians
-const int MAX_SAMPLES = 1000;
+const int MAX_SAMPLES = 25;
+
+#define KEY_V 86
+#define KEY_W 87
+#define KEY_A 65
+#define KEY_D 68
+#define KEY_S 83
 
 const ivec2[] NB4 = ivec2[](
     ivec2(0,0), ivec2(0,1), ivec2(1,0), ivec2(1,1));
@@ -26,7 +38,7 @@ ivec4[BVH_DEPTH] qtInit(ivec2 iResolution) {
     ivec2 box = ivec2(0);
     
     for (int i = 0; i < BVH_DEPTH; i++) {
-        qt[i].xy = box*(i%2 == 0 ? ivec2(1,0) : ivec2(0,1));
+        qt[i].xy = box*ivec2(1 - i%2, i%2);
         box = max(box, qt[i].xy + qt[i].zw);
     }
     
@@ -54,38 +66,35 @@ mat2 rot2(float phi) {
 
 /// Buffer A
 
-void mainImage0(out vec4 o, in vec2 p) {
-    vec2 uv = p/iChannelResolution0.xy;
-    //o = texelFetch(iChannel1, ivec2(p), 0);
-    o = texture(iChannel1, uv);
+void mainImage1(out vec4 o, in vec2 p) {
+    vec2 uv = p/vec2(textureSize(iChannel1, 0));
+    o = texture(iChannel0, uv);
     o.xy = o.yx;
     o.w = R0; // sphere radius
     o *= pow(0.997, p.y); // time
     o /= 1.25 - o.w; // basic perspective projection
+    //o.xz *= rot2(texelFetch(CH_CONFIG, ivec2(ID_ROTATION,0), 0).x);
     o /= 1.25 - o.z;
     o.z = 0.5 + 0.5*sin(uv.y*PI*3.0); // o.z is now unused
 }
 
 /// Buffer C /////////////////////////////////////////////////////////////////////
-//
-// iChannel0 = Buffer A
-// iChannel2 = Buffer C
 
 // Updates the quad-tree of bounding boxes
 // in about log2(width,height) steps. This
 // works so long as points that are nearby
-// in the iChannel0 mesh are also nearby
+// in the iChannel1 mesh are also nearby
 // in the 3d space.
 
 vec4 bboxInit(ivec2 pp) {
     vec4 b = vec4(1,1,-1,-1)*INF;
-    ivec2 wh = textureSize(iChannel0, 0);
+    ivec2 wh = textureSize(iChannel1, 0);
     
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 2; j++) {
             ivec2 qq = pp*2 + NB4[i] + NB4[j];
             qq.x = qq.x % wh.x;
-            vec4 r = texelFetch(iChannel0, qq, 0);
+            vec4 r = texelFetch(iChannel1, qq, 0);
             //if (r.w <= 0.) continue;
             b.xy = min(b.xy, r.xy - r.w);
             b.zw = max(b.zw, r.xy + r.w);
@@ -114,7 +123,7 @@ vec4 bboxJoin(ivec2 pp, int d, ivec4[BVH_DEPTH] qt) {
 void mainImage2( out vec4 o, in vec2 p ) {
     ivec2 pp = ivec2(p);
     ivec4[BVH_DEPTH] qt = qtInit(ivec2(iResolution));
-    int d = BVH_DEPTH - 1 - iFrame % BVH_DEPTH;
+    int d = BVH_DEPTH - 1 - iPass % BVH_DEPTH;
     ivec2 qq = qtReverse(pp, d, qt);
     
     o = texelFetch(iChannel2, pp, 0);
@@ -147,7 +156,7 @@ vec3 raymarch(vec2 uv) {
     vec3 rgb = vec3(0);
     vec2 rand = hash22(uv*iResolution.xy + iTime);
     int lookups = 0;
-    ivec2 wh = textureSize(iChannel0, 0);
+    ivec2 wh = textureSize(iChannel1, 0);
     ivec4[BVH_DEPTH] qt = qtInit(wh);
     ivec3[STACK_SIZE] deque; // deque size has a huge perf impact, but why?
     int head = 0, tail = 0;
@@ -191,10 +200,10 @@ vec3 raymarch(vec2 uv) {
                     continue;
 
                 lookups += 2;
-                vec4 s1 = texelFetch(iChannel0, pp2, 0);
-                vec4 s2 = texelFetch(iChannel0, pp2 + ivec2(0,1), 0);
-                //vec4 s3 = texelFetch(iChannel0, (pp2 + ivec2(1,0)) % wh, 0);
-                //vec4 s4 = texelFetch(iChannel0, (pp2 + ivec2(1,1)) % wh, 0);
+                vec4 s1 = texelFetch(iChannel1, pp2, 0);
+                vec4 s2 = texelFetch(iChannel1, pp2 + ivec2(0,1), 0);
+                //vec4 s3 = texelFetch(iChannel1, (pp2 + ivec2(1,0)) % wh, 0);
+                //vec4 s4 = texelFetch(iChannel1, (pp2 + ivec2(1,1)) % wh, 0);
                 vec4 s = mix(s1, s2, rand.x);
                 //vec4 s = mix(mix(s1, s2, rand.x), mix(s3, s4, rand.x), rand.y);
                 float r = length(s.xy - uv);
@@ -220,7 +229,7 @@ void mainImage3(out vec4 o, in vec2 p) {
     
     vec2 uv = p2/r; // 0..1
     uv = (uv - 0.5)*r/r.yy;
-    uv *= INIT_ZOOM; // DEBUG
+    uv *= texelFetch(CH_CONFIG, ivec2(ID_ZOOM,0), 0).x;
     
     o.rgb = raymarch(uv);
     o *= BRIGHTNESS;
@@ -233,15 +242,61 @@ void mainImage3(out vec4 o, in vec2 p) {
     o.a = min(avg.a + 1., float(MAX_SAMPLES));
 }
 
+bool isKeyPressed(int i) {
+    return texelFetch(iKeyboard, ivec2(i,0), 0).x > 0.;
+}
+
+void mainImage4(out vec4 o, vec2 p) {
+    o = texelFetch(CH_CONFIG, ivec2(p), 0);
+    
+    if (int(p.x) == ID_ZOOM) {
+        if (isKeyPressed(KEY_W))
+            o.x /= 1.05;
+        if (isKeyPressed(KEY_S))
+            o.x *= 1.05;
+        if (iFrame == 0)
+            o.x = INIT_ZOOM;
+    }
+
+    if (int(p.x) == ID_ROTATION) {
+        if (isKeyPressed(KEY_A))
+            o.x -= 0.05;
+        if (isKeyPressed(KEY_D))
+            o.x += 0.05;
+        if (iFrame == 0)
+            o.x = 0.;
+    }
+}
+
+float vignette(vec2 p) {
+	vec2 uv = p/iResolution.xy;
+    uv.xy *= 1. - uv.yx;
+    float v = uv.x*uv.y*15.0;
+    return pow(v, 0.125);
+}
+
+vec4 logo(vec2 p) {
+    vec2 ls = vec2(textureSize(iLogo, 0));
+    vec2 bl = vec2(iResolution.x,0) + vec2(-ls.x-ls.y, ls.y);
+    vec2 p2 = p - bl;
+    p2.y = ls.y - 1. - p2.y;
+    if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.)
+      return texelFetch(iLogo, ivec2(p2), 0);
+    return vec4(0);
+}
+
 void mainImage(out vec4 o, in vec2 p) {
   vec2 r = iResolution;
   switch (iChannelId) {
-    case 0: mainImage0(o, p); return;
+    case 1: mainImage1(o, p); return;
     case 2: mainImage2(o, p); return;
     case 3: mainImage3(o, p); return;
+    case 4: mainImage4(o, p); return;
     case -1:
-        o = texture(iChannel3, p/r); 
+        o = texture(iChannel3, p/r);
+        o = mix(o, logo(p), logo(p).a);
         if (INK_STYLE) o = exp(-o);
+        if (isKeyPressed(KEY_V)) o *= vignette(p);
         return;
   }
 }

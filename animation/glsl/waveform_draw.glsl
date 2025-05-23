@@ -15,7 +15,7 @@ vec3 fire_rgb(float t) {
 
 float soundFetch(float i) {
   if (i < 0. || i >= float(iSoundLen)) return 0.;
-  ivec2 res = ivec2(iChannelResolution2);
+  ivec2 res = textureSize(iChannel2, 0);
   int y = int(i) / res.x;
   int x = int(i) % res.x;
   return texelFetch(iChannel2, ivec2(x,y), 0).r;

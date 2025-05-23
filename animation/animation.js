@@ -8,7 +8,6 @@ const { $, check, dcheck, DB, fetchText } = utils;
 
 let url_args = new URLSearchParams(location.search);
 
-const DB_PATH_CONFIG = 'user_samples/_last/config';
 const LANDSCAPE = window.innerWidth > window.innerHeight;
 const [CW, CH] = parseImgSize(url_args.get('i') || '720p');
 const SHADER_ID = url_args.get('s') || 'string_4d';
@@ -74,19 +73,6 @@ function resizeCanvas() {
   canvas.height = Math.min(h, w);
 }
 
-async function fetchWaveData(ctx) {
-  showStatus('Loading wave data...');
-  let conf = await DB.get(DB_PATH_CONFIG);
-  let blob = await DB.get(base.DB_PATH_WAVE_DATA);
-  if (!blob) return ctx.createFrameBuffer(1, 1, 1);
-  let buffer = await blob.arrayBuffer();
-  let fp32array = new Float32Array(buffer);
-  let n = conf.numSteps, m = fp32array.length / n;
-  dcheck(m % 1 == 0);
-  console.debug('Wave data:', m, 'x', n);
-  return ctx.createFrameBuffer(m, n, 1, fp32array);
-}
-
 async function createLogoTexture(webgl) {
   let img = await base.createLogoTexture();
   return webgl.createFrameBufferFromRGBA(img);
@@ -125,11 +111,9 @@ async function initWebGL() {
   ctx.init();
 
   let iLogo = await createLogoTexture(ctx);
-  let iChannelImage = await fetchWaveData(ctx);
-  let iChannelSound = ctx.createFrameBuffer(CW, CH, 1);
+  let iKeyboard = ctx.createFrameBuffer(256, 1, 1);
   let iChannels = [0, 1, 2, 3].map(i => ctx.createFrameBuffer(CW, CH, 4));
-  let buffers = iChannels.map(ch => ctx.createFrameBuffer(ch.width, ch.height, ch.channels));
-  let iSoundMax = 0, iSoundLen = 0;
+  let tmpBuffers = {};
   let iMouse = [0, 0, 0, 0];
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
@@ -140,43 +124,33 @@ async function initWebGL() {
   await initShader(ctx, SHADER_ID);
   let shader = await loadShaderConfig();
   if (shader.initChannels)
-    await shader.initChannels(iChannels);
+    await shader.initChannels(iChannels, ctx);
 
   let shader_ctx = {
-    runShader(args, id = -1) {
-      args = {
-        ...args,
-        iFrame,
-        iChannel0: iChannels[0],
-        iChannel1: iChannels[1],
-        iChannel2: iChannels[2],
-        iChannel3: iChannels[3],
-        iChannelResolution0: [iChannels[0].width, iChannels[0].height],
-        iChannelResolution1: [iChannels[1].width, iChannels[1].height],
-        iChannelResolution2: [iChannels[2].width, iChannels[2].height],
-        iChannelResolution3: [iChannels[3].width, iChannels[3].height],
-      };
+    runShader(args, chid = -1) {
+      args.iFrame = iFrame;
 
-      let buf = buffers[id] || null;
-      runShader(SHADER_ID, args, buf);
-      if (buf) {
-        let ch = iChannels[id];
-        iChannels[id] = buf;
-        buffers[id] = ch;
+      for (let i = 0; i < iChannels.length; i++)
+        args['iChannel' + i] = iChannels[i];
+
+      let ch = iChannels[chid]; // null if the output is the canvas
+      let shape = ch && ch.width + 'x' + ch.height + 'x' + ch.channels;
+      let buffer = tmpBuffers[shape];
+
+      if (ch && !buffer) {
+        buffer = ctx.createFrameBuffer(ch.width, ch.height, ch.channels);
+        tmpBuffers[shape] = buffer;
       }
+
+      runShader(SHADER_ID, args, buffer);
+
+      if (!ch) return;
+      iChannels[chid] = buffer;
+      tmpBuffers[shape] = ch;
     },
   };
 
-  if (sound) {
-    iSoundMax = sound.reduce((s, x) => Math.max(s, Math.abs(x)), 0);
-    iSoundLen = sound.length;
-    iChannelSound.upload(sound);
-  }
-
-  if (canvas.requestFullscreen)
-    $('#fullscreen').onclick = () => canvas.requestFullscreen();
-  else
-    $('#fullscreen').style.display = 'none';
+  setFullscreenHandler();
 
   $('#fps').onclick = () => {
     if (animationId) {
@@ -190,6 +164,7 @@ async function initWebGL() {
   };
 
   initMouseHandler();
+  setKeyboardHandler(iKeyboard);
 
   elGamma.onchange = () => runShader(SHADER_ID, initShaderArgs());
   elAlpha.onchange = () => runShader(SHADER_ID, initShaderArgs());
@@ -275,8 +250,8 @@ async function initWebGL() {
     let iTime = time_msec / 1000;
     let iGamma = [+elGamma.value, +elAlpha.value];
     return {
-      iTime, iMouse, iFrame, iLogo, iSoundMax, iSoundLen, iPass: 0,
-      iChannelSound, iChannelImage, iGamma, iChannelId: -1,
+      iTime, iMouse, iFrame, iLogo, iKeyboard, iPass: 0,
+      iGamma, iChannelId: -1,
     };
   }
 
@@ -286,29 +261,6 @@ async function initWebGL() {
       $('#preview').style.display = 'none';
       canvas.style.display = '';
     }
-
-    //let iSound = sound[iFrame % sound.length];
-    //runShader('string_wave', { ...args, iSound }, bufferA);
-    //if (k == 1) {
-    //  runShader('string_draw', { ...args, iSound }, bufferB);
-    //  bufferB.draw();
-    //}
-
-    //runShader('fireball', args, bufferB);
-    //runShader('fluid_ch0', args, bufferA);
-    //if (k == 1) runShader('fluid_img', args);
-
-    //runShader('fireball', args, bufferB);
-    //runShader('sphere', args);
-
-    //runShader('fireball', args, bufferB);
-    //runShader('disk', args);
-
-    //let iSound = sound[iFrame % sound.length];
-    //runShader('fireball', args, bufferC);
-    //runShader('drum', { ...args, iSound }, bufferA);
-    //runShader('minmax', { ...args, iSound }, bufferB);
-    //if (k == 1) runShader('drum_img', args);
 
     if (dispChannelId < 0) {
       let args = initShaderArgs(time_msec);
@@ -349,7 +301,7 @@ async function initWebGL() {
         (x + 0.5) / canvas.offsetWidth * canvas.width,
         (1 - (y + 0.5) / canvas.offsetHeight) * canvas.height];
     };
-  
+
     canvas.onmousemove = (e) => {
       iMouse[0] = iMouse[2];
       iMouse[1] = iMouse[3];
@@ -377,12 +329,32 @@ async function initWebGL() {
       iMouse[0] = iMouse[2];
       iMouse[1] = iMouse[3];
     };
-    canvas.onmouseout =
-      canvas.onmouseleave = () => {
-        iMouse[0] = 0;
-        iMouse[1] = 0;
-        iMouse[2] = 0;
-        iMouse[3] = 0;
-      };
+    canvas.onmouseout = canvas.onmouseleave = () => iMouse.fill(0);
   }
+}
+
+function setKeyboardHandler(iKeyboard) {
+  let keyboard = new Int32Array(iKeyboard.width);
+
+  let update = (e) => {
+    let ch = e.key.toUpperCase();
+    if (ch.length != 1) return;
+    let i = ch.charCodeAt(0);
+    if (i >= iKeyboard.width) return;
+    let v = e.type == 'keydown' ? 1 : 0;
+    if (v == keyboard[i]) return;
+    keyboard[i] = v;
+    iKeyboard.setPixel([v], i, 0);
+    //console.debug('key', ch, i, '=', v);
+  };
+
+  document.onkeydown = update;
+  document.onkeyup = update;
+}
+
+function setFullscreenHandler() {
+  if (canvas.requestFullscreen)
+    $('#fullscreen').onclick = () => canvas.requestFullscreen();
+  else
+    $('#fullscreen').style.display = 'none';
 }

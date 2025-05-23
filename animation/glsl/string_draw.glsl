@@ -6,7 +6,7 @@ vec3 fire_rgb(float t) {
 }
 
 vec3 sdf(vec2 q) {
-  float dx = 1. / iChannelResolution0.x;
+  float dx = 1. / vec2(textureSize(iChannel0, 0)).x;
   float d0 = dx * PI / 2.;
   if(length(q) > 1. + d0)
     return vec3(0.);
