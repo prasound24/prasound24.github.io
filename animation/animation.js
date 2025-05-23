@@ -115,6 +115,7 @@ async function initWebGL() {
   let iChannels = [0, 1, 2, 3].map(i => ctx.createFrameBuffer(CW, CH, 4));
   let tmpBuffers = {};
   let iMouse = [0, 0, 0, 0];
+  let iKeyPressed = 0;
   let animationId = 0, iFrame = 0;
   let stats = { frames: 0, time: 0 };
   let frames = 0;
@@ -158,7 +159,11 @@ async function initWebGL() {
   };
 
   initMouseHandler();
-  setKeyboardHandler(iKeyboard);
+  setKeyboardHandler(iKeyboard, (_, key) => {
+    iKeyPressed = key;
+    if (!animationId)
+      drawFrame();
+  });
 
   elGamma.onchange = () => runShaderWebGL(SHADER_ID, initShaderArgs());
   elAlpha.onchange = () => runShaderWebGL(SHADER_ID, initShaderArgs());
@@ -255,7 +260,7 @@ async function initWebGL() {
     let iGamma = [+elGamma.value, +elAlpha.value];
     return {
       iTime, iMouse, iFrame, iLogo, iKeyboard, iPass: 0,
-      iGamma, iChannelId: -1,
+      iGamma, iChannelId: -1, iKeyPressed,
     };
   }
 
@@ -270,6 +275,7 @@ async function initWebGL() {
       let args = initShaderArgs(time_msec);
       shader.drawFrame(shader_ctx, args);
       frames++;
+      iKeyPressed = 0;
     } else {
       //let args = initShaderArgs();
       //args.iChannelId = dispChannelId;
@@ -337,19 +343,16 @@ async function initWebGL() {
   }
 }
 
-function setKeyboardHandler(iKeyboard) {
-  let keyboard = new Int32Array(iKeyboard.width);
-
+function setKeyboardHandler(iKeyboard, drawFrame) {
   let update = (e) => {
     let ch = e.key.toUpperCase();
     if (ch.length != 1) return;
     let i = ch.charCodeAt(0);
     if (i >= iKeyboard.width) return;
     let v = e.type == 'keydown' ? 1 : 0;
-    if (v == keyboard[i]) return;
-    keyboard[i] = v;
     iKeyboard.setPixel([v], i, 0);
     //console.debug('key', ch, i, '=', v);
+    drawFrame(v, i);
   };
 
   document.onkeydown = update;

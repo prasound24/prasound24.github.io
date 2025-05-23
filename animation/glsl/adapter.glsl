@@ -1,6 +1,7 @@
 in vec2 vTex; // supplied by webgl2.js/VSHADER_DEFAULT
 
 uniform int iPass;
+uniform int iKeyPressed;
 uniform vec2 iGamma; // (2.2, 1.0)
 uniform int iChannelId; // the output channel, -1 = the canvas
 uniform vec2 iResolution; // the output frame buffer size in pixels

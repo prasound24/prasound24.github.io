@@ -5,10 +5,10 @@
 const float INF = 1e6;
 
 // Simulation consts
-const int N = 1200; // must be less than iChannel0 width
+const int N = 1280; // must be less than iChannel0 width
 const int GS = int(sqrt(float(N))); // group size
 const int NG = (N + GS - 1) / GS; // number of groups
-const float MASS = 25.0;
+const float MASS = 15.0;
 const float ZOOM = 2.0;
 const int NBOX = 32;
 
