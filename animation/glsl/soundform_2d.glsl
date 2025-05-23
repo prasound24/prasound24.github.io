@@ -326,7 +326,7 @@ void mainImage(out vec4 o, in vec2 p) {
         setLogo(o, p, iLogo, vec2(r.x, 0), mat2(-1, -1, 0, 1));
         setLogo(o, p, iLogoL, vec2(0), mat2(0, 0, 0, 0.5));
         if (INK_STYLE) o = exp(-o);
-        if (isKeyPressed(KEY_V)) o *= vignette(p);
+        if (!isKeyPressed(KEY_V)) o *= vignette(p);
         o.a = 1.0;
         return;
   }
