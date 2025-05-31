@@ -8,6 +8,7 @@ uniform sampler2D iChannel4;
 #define ID_SCALE        0
 #define ID_ROTATION     1
 #define ID_POSITION     2
+#define ID_BRIGHTNESS   3
 
 const float INF = 1e6;
 const int MAX_LOOKUPS = 4096; // max lookups in the quad tree
@@ -30,6 +31,8 @@ const int MAX_SAMPLES = 1000;
 #define KEY_E 69
 #define KEY_R 82
 #define KEY_F 70
+#define KEY_T 84
+#define KEY_G 71
 
 const ivec2[] NB4 = ivec2[](
     ivec2(0,0), ivec2(0,1), ivec2(1,0), ivec2(1,1));
@@ -180,6 +183,7 @@ vec3 raymarch(vec2 uv) {
     ivec4[BVH_DEPTH] qt = qtInit(wh);
     ivec3[STACK_SIZE] deque; // deque size has a huge perf impact, but why?
     int head = 0, tail = 0;
+    float fogmin = 1e-6;
 
     // TODO: The initial 4 bboxes can be precomputed in a separate texture.
     
@@ -220,12 +224,15 @@ vec3 raymarch(vec2 uv) {
                     vec4 s = mix(s1, s2, rand.x);
                     //vec4 s = mix(mix(s1, s2, rand.x), mix(s3, s4, rand.x), rand.y);
                     float r2 = dot2((s.xy - uv)/s.w);
+
                     if (r2 < 1.0) {
                         float temp = exp(-r2*SIGMA*SIGMA);
                         float hue = 0.5 - 0.5*sin(float(pp2.y)/float(wh.y-1)*PI*2.0);
                         vec3 col = mix(vec3(1.0, 0.8, 0.2), vec3(0.8, 0.2, 1.0), hue);
                         if (INK_STYLE) col = 1.0 - col;
-                        rgb += temp*col;
+                        float fog = exp(0.2*s.z);
+                        fogmin = max(fogmin, fog);
+                        rgb += temp*col*fog;
                     }
                 }
             }
@@ -233,7 +240,7 @@ vec3 raymarch(vec2 uv) {
     }
     
     //return vec3(0.2,0.5,1)*float(lookups)/1e3;
-    return rgb;
+    return rgb/fogmin;
 }
 
 void mainImage3(out vec4 o, in vec2 p) {
@@ -248,7 +255,8 @@ void mainImage3(out vec4 o, in vec2 p) {
     uv *= texelFetch(CH_CONFIG, ivec2(ID_SCALE,0), 0).x;
     uv += texelFetch(CH_CONFIG, ivec2(ID_POSITION,0), 0).xy;
     
-    o.rgb = raymarch(uv)*BRIGHTNESS;
+    vec4 cfg = texelFetch(CH_CONFIG, ivec2(ID_BRIGHTNESS,0), 0);
+    o.rgb = raymarch(uv)*BRIGHTNESS*cfg.x;
     
     vec4 avg = texture(iChannel3, p/r);
     if (length(iMouse.xy - iMouse.zw) > 0. || iKeyPressed > 0)
@@ -295,6 +303,15 @@ void mainImage4(out vec4 o, vec2 p) {
             o.y -= 0.01;
         if (iFrame == 0)
             o = vec4(0);
+    }
+
+    if (int(p.x) == ID_BRIGHTNESS) {
+        if (isKeyPressed(KEY_T))
+            o.x *= 1.1;
+        if (isKeyPressed(KEY_G))
+            o.x /= 1.1;
+        if (iFrame == 0)
+            o = vec4(1);
     }
 }
 
