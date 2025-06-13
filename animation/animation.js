@@ -3,6 +3,7 @@ import * as base from '../create/base.js';
 import { GpuContext } from '../webgl2.js';
 import { createEXR } from '../lib/exr.js';
 import { createRGBE } from '../lib/rgbe.js';
+import { exportPLY } from '../lib/ply.js';
 
 const { $, check, dcheck, DB, fetchText } = utils;
 
@@ -175,6 +176,7 @@ async function initWebGL() {
   $('#save_png').onclick = () => downloadPNG();
   $('#save_exr').onclick = () => downloadEXR();
   $('#save_hdr').onclick = () => downloadHDR();
+  $('#save_ply').onclick = () => downloadPLY();
 
   function getTmpBuffer(shape) {
     let id = shape.join('x');
@@ -249,6 +251,33 @@ async function initWebGL() {
     let rgba = downloadRGBA();
     let blob = createRGBE(CW, CH, rgba);
     saveBlobAsFile(blob, genImageName() + '.hdr');
+  }
+
+  function downloadPLY() {
+    let xyzw = downloadRGBA();
+    let rgba = xyzw.slice();
+
+    for (let y = 0; y < CH; y++) {
+      for (let x = 0; x < CW; x++) {
+        let i = y * CW + x;
+        
+        //let s = Math.exp(-y / CH * 2.5);
+        let s = 1 - y / CH * 2;
+        xyzw[i * 4 + 0] *= s;
+        xyzw[i * 4 + 1] *= s;
+        xyzw[i * 4 + 2] *= s;
+        xyzw[i * 4 + 3] = 1 / CH; // size
+
+        let c = 20 * (1 - Math.abs(s));
+        rgba[i * 4 + 0] = 1.0 * c;
+        rgba[i * 4 + 1] = 0.5 * c;
+        rgba[i * 4 + 2] = 0.2 * c;
+        rgba[i * 4 + 3] = 0.2; // opacity
+      }
+    }
+
+    let blob = exportPLY(CW, CH, xyzw, rgba);
+    saveBlobAsFile(blob, genImageName() + '.ply');
   }
 
   function runShaderWebGL(name, args, out = null) {
