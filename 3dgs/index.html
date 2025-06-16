@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>Prasound Art Prints</title>
+  <link rel="icon" type="image/png" href="/img/favicon.png" />
+  <link rel="stylesheet" href="/common.css" />
+  <link rel="stylesheet" href="3dgs.css" />
+</head>
+
+<body>
+  <h1 style="margin-bottom:0; display:flex">
+    <a href="/">Pra<span>sound</span></a>
+  </h1>
+
+  <div class="wave_spanner">
+    <img src="/img/formula_div.png">
+    <img src="/img/formula.png">
+  </div>
+
+  <p id="error_info"></p>
+
+  <canvas id="webgl" width="1280" height="720"></canvas>
+
+  <div id="footer">
+    <div class="wave_spanner"></div>
+    <p>&#xa9; 2025 Prasound, Inc.
+    <p><img src="/img/email.svg">
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/lib/three.module.js",
+        "@sparkjsdev/spark": "/lib/spark.module.js"
+      }
+    }
+  </script>
+
+  <script type="module" src="3dgs.js"></script>
+</body>
+
+</html>
