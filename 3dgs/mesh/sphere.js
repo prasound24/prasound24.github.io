@@ -1,7 +1,7 @@
 const PHI = (Math.sqrt(5) - 1) / 2;
 
-export function createMesh(imgw, imgh) {
-    let n = imgw * imgh;
+export function createMesh(CW, CH) {
+    let n = CW * CH;
     let xyzw = new Float32Array(n * 4);
     let rgba = new Float32Array(n * 4);
 
@@ -13,12 +13,13 @@ export function createMesh(imgw, imgh) {
         xyzw[i * 4 + 0] = Math.cos(t) * r;
         xyzw[i * 4 + 1] = Math.sin(t) * r;
         xyzw[i * 4 + 2] = z;
-        xyzw[i * 4 + 3] = 0.5 / imgh; // scale
+        xyzw[i * 4 + 3] = 0.7 / CH; // scale
 
-        rgba[i * 4 + 0] = 1.0;
+        let a = i % 50 == 0 ? 1.0 : 0.5;
+        rgba[i * 4 + 0] = 0.2 + 0.8 * i / n;
         rgba[i * 4 + 1] = 0.5;
-        rgba[i * 4 + 2] = 0.2;
-        rgba[i * 4 + 3] = 0.5; // opacity
+        rgba[i * 4 + 2] = 1.0 - 0.8 * i / n;
+        rgba[i * 4 + 3] = a; // opacity
     }
 
     return { xyzw, rgba };
