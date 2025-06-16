@@ -9,7 +9,7 @@ const { $, check, dcheck, DB, fetchText } = utils;
 
 let url_args = new URLSearchParams(location.search);
 
-const LANDSCAPE = window.innerWidth > window.innerHeight;
+const LANDSCAPE = true; // window.innerWidth > window.innerHeight;
 const [CW, CH] = parseImgSize(url_args.get('i') || '720p');
 const SHADER_ID = url_args.get('s') || 'string_4d';
 const SAMPLE_RATE = 48000;
@@ -84,6 +84,10 @@ async function initShader(ctx, filename) {
   let adapter = await fetchText('./glsl/adapter.glsl');
   let user_shader = await fetchText('./glsl/' + filename + '.glsl');
   let fshader = adapter.replace('//#include ${USER_SHADER}', user_shader);
+
+  fshader = fshader.replace('const int IMG_W = 0;', 'const int IMG_W = ' + canvas.width + ';');
+  fshader = fshader.replace('const int IMG_H = 0;', 'const int IMG_H = ' + canvas.height + ';');
+
   shaders[filename] = ctx.createTransformProgram({ fshader });
 }
 
@@ -217,7 +221,7 @@ async function initWebGL() {
   }
 
   function saveBlobAsFile(blob, name) {
-    console.log('Downloading the image:', (blob.size / 2 ** 20).toFixed(1), 'MB', blob.type);
+    console.log('Downloading', name + ':', (blob.size / 2 ** 20).toFixed(1), 'MB', blob.type);
     let a = document.createElement('a');
     a.download = name;
     a.href = URL.createObjectURL(blob);
@@ -260,18 +264,18 @@ async function initWebGL() {
     for (let y = 0; y < CH; y++) {
       for (let x = 0; x < CW; x++) {
         let i = y * CW + x;
-        
-        //let s = Math.exp(-y / CH * 2.5);
-        let s = 1 - y / CH * 2;
+        let t = 1 - y / CH;
+        let s = t + t*t*2; // Math.exp((t - 1)*5);
+        let c = 30*(0.5 - Math.abs(0.5 - t)); // *Math.exp(-t*3.0);
+
         xyzw[i * 4 + 0] *= s;
         xyzw[i * 4 + 1] *= s;
         xyzw[i * 4 + 2] *= s;
-        xyzw[i * 4 + 3] = 1 / CH; // size
-
-        let c = 20 * (1 - Math.abs(s));
-        rgba[i * 4 + 0] = 1.0 * c;
-        rgba[i * 4 + 1] = 0.5 * c;
-        rgba[i * 4 + 2] = 0.2 * c;
+        xyzw[i * 4 + 3] = s / CH * 2; // size
+        
+        rgba[i * 4 + 0] = c * 0.2;
+        rgba[i * 4 + 1] = c * 0.5;
+        rgba[i * 4 + 2] = c * 1.0;
         rgba[i * 4 + 3] = 0.2; // opacity
       }
     }

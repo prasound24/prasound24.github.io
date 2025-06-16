@@ -18,6 +18,9 @@ uniform sampler2D iChannel3;
 
 const float PI = radians(180.);
 
+const int IMG_W = 0;
+const int IMG_H = 0;
+
 //#include ${USER_SHADER}
 
 void main() {
