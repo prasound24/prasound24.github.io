@@ -86,7 +86,7 @@ renderer.setAnimationLoop((time) => {
     resizeCanvas();
     orbit.update();
     renderer.render(scene, camera);
-    scene.rotation.y -= 0.002;
+    //scene.rotation.y -= 0.002;
 });
 
 function interpolateY(res, src, w, h, a = 0) {
