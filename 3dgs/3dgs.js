@@ -1,31 +1,33 @@
 import * as THREE from "three";
-import { SplatMesh, PackedSplats, transcodeSpz } from "@sparkjsdev/spark";
+import { SparkRenderer, SplatMesh, PackedSplats, transcodeSpz } from "@sparkjsdev/spark";
 import { OrbitControls } from "/lib/OrbitControls.js";
 
-import { $, mix, check } from '../lib/utils.js'
+import { $, mix, clamp, check } from '../lib/utils.js'
 import { exportPLY } from "../lib/ply.js";
 
+const stats = { numSplats: 0 };
 const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.001, 1000);
 camera.position.set(1, 1, 1);
 const renderer = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true });
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 
+//const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
+//scene.add(camera);
+//camera.add(spark);
+
 const orbit = new OrbitControls(camera, canvas);
 orbit.target.set(0, 0, 0);
 orbit.minDistance = 0;
-orbit.maxDistance = 5;
+orbit.maxDistance = 10;
 
 const worker = new Worker('./worker.js', { type: 'module' });
-const [CW, CH, SM] = [640, 360, 4];
+const [CW, CH, SM] = [640, 360, 5];
 const { xyzw, rgba } = await generateSplats('string');
 
 //const params = new URLSearchParams(location.search);
 //const url = params.get('s') || 'mesh/1m.spz';
-
-//const blob = exportPLY(CW, CH * NMUL, xyzw, rgba);
-//const fileBytes = await blob.bytes();
 
 const tmp_xyzw = xyzw.slice();
 const tmp_rgba = rgba.slice();
@@ -33,42 +35,37 @@ const tmp_rgba = rgba.slice();
 for (let i = 0; i < SM; i++) {
     interpolateY(tmp_xyzw, xyzw, CW, CH, i / SM);
     interpolateY(tmp_rgba, rgba, CW, CH, i / SM);
-    let mesh = appendMesh(tmp_xyzw, tmp_rgba);
+    let mesh = await appendMesh(tmp_xyzw, tmp_rgba);
     mesh.recolor = new THREE.Color(9, 3, 1);
     mesh.opacity = 1 / SM;
-    console.log('Added mesh', i + 1, 'out of', SM);
 }
 
-console.log('Total:', (CW * CH * SM / 1e6).toFixed(1), 'M splats');
-
-function appendMesh(xyzw, rgba) {
-    const packedArray = packSplats(xyzw, rgba);
-    const packedSplats = new PackedSplats({ packedArray });
+async function appendMesh(xyzw, rgba) {
+    const packedSplats = new PackedSplats({
+        packedArray: packSplats(xyzw, rgba),
+        //fileBytes: await exportPLY(CW, CH, xyzw, rgba).bytes(),
+    });
     const mesh = new SplatMesh({ packedSplats });
     mesh.quaternion.set(1, 0, 0, 0);
     mesh.position.set(0, 0, 0);
     scene.add(mesh);
+    stats.numSplats += rgba.length / 4;
     return mesh;
 }
 
-/* let fog = generateSplatsFn((pos, col, x, y, w, h) => {
-    let t = x / w;
-    let phi = t * Math.PI * 2;
-    col[0] = t;
-    col[1] = 0.5;
-    col[2] = 1 - t;
-    pos[0] = Math.cos(phi);
-    pos[1] = Math.cos(phi*60)/60;
-    pos[2] = Math.sin(phi);
-    pos[3] = 0.01;
-}, 2500);
+let sph = await generateSplats('sphere');
+let sphMesh = await appendMesh(sph.xyzw, sph.rgba);
+sphMesh.scale.set(2, 2, 2);
 
-let fogm = appendMesh(fog.xyzw, fog.rgba);
-fogm.recolor = new THREE.Color(9, 3, 1);
-fogm.opacity = 0.3; */
+//let fog = generateSplatsFn((pos, col, i, n) => {
+//    pos[3] = 0.33;
+//}, 1);
+//appendMesh(fog.xyzw, fog.rgba);
 
 window.scene = scene;
 window.THREE = THREE;
+
+console.log('Added:', (stats.numSplats/ 1e6).toFixed(1), 'M splats');
 
 function resizeCanvas() {
     const width = window.innerWidth;
@@ -147,22 +144,19 @@ async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
     });
 }
 
-function generateSplatsFn(fn, cw = 1, ch = 1) {
-    let xyzw = new Float32Array(cw * ch * 4);
-    let rgba = new Float32Array(cw * ch * 4);
+function generateSplatsFn(fn, n = 1) {
+    let xyzw = new Float32Array(n * 4);
+    let rgba = new Float32Array(n * 4);
 
     let pos = new Float32Array(4);
     let col = new Float32Array(4);
 
-    for (let y = 0; y < ch; y++) {
-        for (let x = 0; x < cw; x++) {
-            pos.fill(0);
-            col.fill(1);
-            fn(pos, col, x, y, cw, ch);
-            let i = x + cw * y;
-            xyzw.set(pos, i * 4);
-            rgba.set(col, i * 4);
-        }
+    for (let i = 0; i < n; i++) {
+        pos.fill(0);
+        col.fill(1);
+        fn(pos, col, i, n);
+        xyzw.set(pos, i * 4);
+        rgba.set(col, i * 4);
     }
 
     return { xyzw, rgba };
@@ -170,42 +164,42 @@ function generateSplatsFn(fn, cw = 1, ch = 1) {
 
 // https://sparkjs.dev/docs/packed-splats
 function packSplats(xyzw, rgba) {
-    let n = rgba.length / 4;
-    let data = new Uint8ClampedArray(n * 16);
+    let n = xyzw.length / 4;
+    let m = Math.ceil(n / 2048) * 2048;
     let sbig = 0;
 
-    for (let i = 0; i < n; i++) {
-        data[i * 16 + 0] = rgba[i * 4 + 0] * 255; //  R
-        data[i * 16 + 1] = rgba[i * 4 + 1] * 255; //  G
-        data[i * 16 + 2] = rgba[i * 4 + 2] * 255; //  B
-        data[i * 16 + 3] = rgba[i * 4 + 3] * 255; //  A
-
-        let s = xyzw[i * 4 + 3];
-        let logs = s > 0 ? Math.log(s) / 9 * 0.5 + 0.5 : 0;
-
-        if (s > 0.01) sbig++;
-
-        data[i * 16 + 12] = logs * 255; //  X scale
-        data[i * 16 + 13] = logs * 255; //  Y scale
-        data[i * 16 + 14] = logs * 255; //  Z scale
-    }
-
-    if (sbig > 100) throw new Error('Too many big splats: ' + sbig);
-
-    let data16 = new Int16Array(data.buffer);
-    let xyzw32 = new Int32Array(xyzw.buffer);
+    let uint32 = new Int32Array(xyzw.buffer);
+    let bytes = new Uint8ClampedArray(m * 16);
+    let data = new DataView(bytes.buffer);
 
     for (let i = 0; i < n; i++) {
-        data16[i * 8 + 2] = float16bits(xyzw32[i * 4 + 0]);
-        data16[i * 8 + 3] = float16bits(xyzw32[i * 4 + 1]);
-        data16[i * 8 + 4] = float16bits(xyzw32[i * 4 + 2]);
+        bytes[i * 16 + 0] = rgba[i * 4 + 0] * 255; //  R
+        bytes[i * 16 + 1] = rgba[i * 4 + 1] * 255; //  G
+        bytes[i * 16 + 2] = rgba[i * 4 + 2] * 255; //  B
+        bytes[i * 16 + 3] = rgba[i * 4 + 3] * 255; //  A
+
+        data.setInt16(i * 16 + 4, float16(uint32[i * 4 + 0]), true); // X
+        data.setInt16(i * 16 + 6, float16(uint32[i * 4 + 1]), true); // Y
+        data.setInt16(i * 16 + 8, float16(uint32[i * 4 + 2]), true); // Z
+
+        let s = xyzw[i * 4 + 3]; // W
+        let logs = (Math.log(s) / 9 + 1) / 2 * 255;
+        logs = clamp(Math.round(logs), 1, 255);
+        if (s <= 0) logs = 0;
+
+        if (s > 0.01 && sbig++ > 100)
+            throw new Error('Too many big splats: ' + sbig);
+
+        bytes[i * 16 + 12] = logs; //  X scale
+        bytes[i * 16 + 13] = logs; //  Y scale
+        bytes[i * 16 + 14] = logs; //  Z scale
     }
 
     return new Uint32Array(data.buffer);
 }
 
-function float16bits(float32bits) {
-    let b = float32bits + 0x00001000;
+function float16(float32) {
+    let b = float32 + 0x00001000;
     let e = (b & 0x7F800000) >> 23;
     let m = b & 0x007FFFFF;
     return (b & 0x80000000) >> 16 | (e > 143) * 0x7FFF |

@@ -13,13 +13,12 @@ export function createMesh(CW, CH) {
         xyzw[i * 4 + 0] = Math.cos(t) * r;
         xyzw[i * 4 + 1] = Math.sin(t) * r;
         xyzw[i * 4 + 2] = z;
-        xyzw[i * 4 + 3] = 0.7 / CH; // scale
+        xyzw[i * 4 + 3] = 1 / Math.hypot(CW, CH); // scale
 
-        let a = i % 50 == 0 ? 1.0 : 0.5;
-        rgba[i * 4 + 0] = 0.2 + 0.8 * i / n;
+        rgba[i * 4 + 0] = i / n;
         rgba[i * 4 + 1] = 0.5;
-        rgba[i * 4 + 2] = 1.0 - 0.8 * i / n;
-        rgba[i * 4 + 3] = a; // opacity
+        rgba[i * 4 + 2] = 1.0 - i / n;
+        rgba[i * 4 + 3] = 1.0; // opacity
     }
 
     return { xyzw, rgba };
