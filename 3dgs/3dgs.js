@@ -8,14 +8,14 @@ import { exportPLY } from "../lib/ply.js";
 const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 3);
+camera.position.set(1, 1, 1);
 const renderer = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true });
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 
 const orbit = new OrbitControls(camera, canvas);
 orbit.target.set(0, 0, 0);
-orbit.minDistance = 0.1;
-orbit.maxDistance = 10;
+orbit.minDistance = 0;
+orbit.maxDistance = 3;
 
 const worker = new Worker('./worker.js', { type: 'module' });
 const [CW, CH, SM] = [640, 360, 4];
@@ -38,8 +38,8 @@ for (let i = 0; i < SM; i++) {
     const mesh = new SplatMesh({ packedSplats });
     mesh.quaternion.set(1, 0, 0, 0);
     mesh.position.set(0, 0, 0);
-    mesh.recolor = new THREE.Color(4, 2, 1);
-    mesh.opacity = 0.5;
+    mesh.recolor = new THREE.Color(9, 3, 1);
+    mesh.opacity = 1/SM;
     scene.add(mesh);
     console.log('Added mesh', i + 1, 'out of', SM);
 }
@@ -68,6 +68,7 @@ renderer.setAnimationLoop((time) => {
     resizeCanvas();
     orbit.update();
     renderer.render(scene, camera);
+    scene.rotation.y -= 0.0005;
 });
 
 function interpolateY(res, src, w, h, a = 0) {
