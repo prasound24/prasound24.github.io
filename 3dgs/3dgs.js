@@ -7,7 +7,7 @@ import { exportPLY } from "../lib/ply.js";
 
 const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(1, 1, 1);
 const renderer = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true });
 renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -19,7 +19,7 @@ orbit.maxDistance = 3;
 
 const worker = new Worker('./worker.js', { type: 'module' });
 const [CW, CH, SM] = [640, 360, 4];
-const { xyzw, rgba } = await generateSplats();
+const { xyzw, rgba } = await generateSplats('string');
 
 //const params = new URLSearchParams(location.search);
 //const url = params.get('s') || 'mesh/1m.spz';
@@ -33,18 +33,26 @@ const tmp_rgba = rgba.slice();
 for (let i = 0; i < SM; i++) {
     interpolateY(tmp_xyzw, xyzw, CW, CH, i / SM);
     interpolateY(tmp_rgba, rgba, CW, CH, i / SM);
-    const packedArray = packSplats(tmp_xyzw, tmp_rgba);
-    const packedSplats = new PackedSplats({ packedArray });
-    const mesh = new SplatMesh({ packedSplats });
-    mesh.quaternion.set(1, 0, 0, 0);
-    mesh.position.set(0, 0, 0);
+    let mesh = appendMesh(tmp_xyzw, tmp_rgba);
     mesh.recolor = new THREE.Color(9, 3, 1);
-    mesh.opacity = 1/SM;
-    scene.add(mesh);
+    mesh.opacity = 1 / SM;
     console.log('Added mesh', i + 1, 'out of', SM);
 }
 
 console.log('Total:', (CW * CH * SM / 1e6).toFixed(1), 'M splats');
+
+function appendMesh(xyzw, rgba) {
+    const packedArray = packSplats(xyzw, rgba);
+    const packedSplats = new PackedSplats({ packedArray });
+    const mesh = new SplatMesh({ packedSplats });
+    mesh.quaternion.set(1, 0, 0, 0);
+    mesh.position.set(0, 0, 0);
+    scene.add(mesh);
+    return mesh;
+}
+
+//let fog = await generateSplats('sphere');
+//let mfog = appendMesh(fog.xyzw, fog.rgba);
 
 window.scene = scene;
 window.THREE = THREE;
@@ -68,7 +76,7 @@ renderer.setAnimationLoop((time) => {
     resizeCanvas();
     orbit.update();
     renderer.render(scene, camera);
-    scene.rotation.y -= 0.0005;
+    scene.rotation.y -= 0.003;
 });
 
 function interpolateY(res, src, w, h, a = 0) {
@@ -109,10 +117,10 @@ async function downloadSpz() {
     URL.revokeObjectURL(url);
 }
 
-async function generateSplats(cw = CW, ch = CH) {
+async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
     return new Promise((resolve, reject) => {
         let ts = Date.now();
-        worker.postMessage({ type: 'mesh', cw, ch });
+        worker.postMessage({ type: 'mesh', name, cw, ch });
         worker.onmessage = (e) => {
             let { xyzw, rgba } = e.data;
             xyzw = new Float32Array(xyzw);
@@ -130,6 +138,7 @@ async function generateSplats(cw = CW, ch = CH) {
 function packSplats(xyzw, rgba) {
     let n = rgba.length / 4;
     let data = new Uint8ClampedArray(n * 16);
+    let sbig = 0;
 
     for (let i = 0; i < n; i++) {
         data[i * 16 + 0] = rgba[i * 4 + 0] * 255; //  R
@@ -140,13 +149,17 @@ function packSplats(xyzw, rgba) {
         let s = xyzw[i * 4 + 3];
         let logs = s > 0 ? Math.log(s) / 9 * 0.5 + 0.5 : 0;
 
-        if (s < 0 || s > 0.01)
-            throw new Error('Invalid splat size: ' + s);
+        if (s > 0.01) sbig++;
 
         data[i * 16 + 12] = logs * 255; //  X scale
         data[i * 16 + 13] = logs * 255; //  Y scale
         data[i * 16 + 14] = logs * 255; //  Z scale
     }
+
+    if (sbig > 4) throw new Error('Too many big splats: ' + sbig);
+
+    if (!xyzw.buffer)
+        xyzw = new Float32Array(xyzw);
 
     let data16 = new Int16Array(data.buffer);
     let xyzw32 = new Int32Array(xyzw.buffer);

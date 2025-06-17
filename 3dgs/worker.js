@@ -1,10 +1,17 @@
-import { createMesh } from './mesh/string.js';
+const meshes = {};
 
-self.onmessage = (e) => {
-    let { type, txid, cw, ch } = e.data;
+self.onmessage = async (e) => {
+    let { type, name, txid, cw, ch } = e.data;
+
     if (type != 'mesh')
         throw new Error('Invalid command: ' + type);
-    let { xyzw, rgba } = createMesh(cw, ch);
+
+    if (!/^\w+$/.test(name))
+        throw new Error('Invalid mesh: ' + name);
+
+    meshes[name] = meshes[name] ||
+        await import('./mesh/' + name + '.js');
+    let { xyzw, rgba } = meshes[name].createMesh(cw, ch);
     postMessage({ txid, xyzw, rgba },
         [xyzw.buffer, rgba.buffer]);
 };

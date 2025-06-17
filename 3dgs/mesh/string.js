@@ -80,14 +80,13 @@ function moveStr(tmp, xyzw, w, h, x, y) {
 function genMesh(xyzw, rgba, str4, CW, CH, x, y) {
     let i = y * CW + x;
     let t = y / CH;
-    let s = t * t;
+    let s = t * t / (1.5 + str4[i * 4 + 3]);
     let c = 10 * (0.5 - Math.abs(0.5 - t));
-    let w = 1 / (1.5 + str4[i * 4 + 3]);
 
-    xyzw[i * 4 + 0] = s * w * str4[i * 4 + 0];
-    xyzw[i * 4 + 2] = s * w * str4[i * 4 + 1];
-    xyzw[i * 4 + 1] = s * w * str4[i * 4 + 2];
-    xyzw[i * 4 + 3] = t / Math.hypot(CW, CH); // size
+    xyzw[i * 4 + 0] = s * str4[i * 4 + 0];
+    xyzw[i * 4 + 2] = s * str4[i * 4 + 1];
+    xyzw[i * 4 + 1] = s * str4[i * 4 + 2];
+    xyzw[i * 4 + 3] = s / CH; // size
 
     rgba[i * 4 + 0] = c;
     rgba[i * 4 + 1] = c;
