@@ -22,31 +22,43 @@ function initStr(xyzw, w, h, x, y) {
         pw += amp * Math.sin(arg);
     }
 
-    let cosz = Math.cos(pz);
-    px *= cosz;
-    py *= cosz;
+    px *= Math.cos(pz);
+    py *= Math.cos(pz);
     pz = Math.sin(pz);
 
     let i = y * w + x;
-    let cosw = Math.cos(pw);
-    xyzw[i * 4 + 0] = px * cosw;
-    xyzw[i * 4 + 1] = pz * cosw;
-    xyzw[i * 4 + 2] = py * cosw;
+    xyzw[i * 4 + 0] = px * Math.cos(pw);
+    xyzw[i * 4 + 1] = py * Math.cos(pw);
+    xyzw[i * 4 + 2] = pz * Math.cos(pw);
     xyzw[i * 4 + 3] = Math.sin(pw);
 }
 
-let tex = (str, w, h, x, y) => { let i = (y * w + (x + w) % w) * 4; return str.slice(i, i + 4); }
-let dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2] + u[3] * v[3];
-let mul = (v, f) => { v[0] *= f; v[1] *= f; v[2] *= f; v[3] *= f; }
-let len = (v) => Math.sqrt(dot(v, v));
+const vec4 = () => new Float32Array(4);
+const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2] + u[3] * v[3];
+const mul = (v, f) => { v[0] *= f; v[1] *= f; v[2] *= f; v[3] *= f; }
+const len = (v) => Math.sqrt(dot(v, v));
 
-function moveStr(xyzw, w, h, x, y) {
-    let c = tex(xyzw, w, h, x, y);
-    let l = tex(xyzw, w, h, x - 1, y);
-    let r = tex(xyzw, w, h, x + 1, y);
-    let ll = tex(xyzw, w, h, x - 2, y);
-    let rr = tex(xyzw, w, h, x + 2, y);
-    let d = tex(xyzw, w, h, x, y - 1);
+function tex(res, rgba, w, h, x, y) {
+    x = (x + w) % w;
+    let i = y * w + x;
+    res[0] = rgba[i * 4 + 0];
+    res[1] = rgba[i * 4 + 1];
+    res[2] = rgba[i * 4 + 2];
+    res[3] = rgba[i * 4 + 3];
+}
+
+function moveStr(tmp, xyzw, w, h, x, y) {
+    if (tmp.length == 0)
+        for (let i = 0; i < 6; i++)
+            tmp[i] = vec4();
+    let [c, l, r, ll, rr, d] = tmp;
+
+    tex(c, xyzw, w, h, x, y);
+    tex(l, xyzw, w, h, x - 1, y);
+    tex(r, xyzw, w, h, x + 1, y);
+    tex(ll, xyzw, w, h, x - 2, y);
+    tex(rr, xyzw, w, h, x + 2, y);
+    tex(d, xyzw, w, h, x, y - 1);
 
     mul(l, 1.0 / dot(l, c));
     mul(r, 1.0 / dot(r, c));
@@ -65,43 +77,46 @@ function moveStr(xyzw, w, h, x, y) {
     return c;
 }
 
-function genMesh(xyzw, rgba, CW, CH, x, y) {
+function genMesh(xyzw, rgba, str4, CW, CH, x, y) {
     let i = y * CW + x;
     let t = y / CH;
-    let s = t * t * 3; // Math.exp((t - 1)*5);
-    let c = 10 * (0.5 - Math.abs(0.5 - t)); // *Math.exp(-t*3.0);
+    let s = t * t * 3;
+    let c = 10 * (0.5 - Math.abs(0.5 - t));
 
-    // s = 1; // DEBUG
+    xyzw[i * 4 + 0] = s * str4[i * 4 + 0];
+    xyzw[i * 4 + 2] = s * str4[i * 4 + 1];
+    xyzw[i * 4 + 1] = s * str4[i * 4 + 2];
+    xyzw[i * 4 + 3] = s / CW; // size
 
-    xyzw[i * 4 + 0] *= s;
-    xyzw[i * 4 + 1] *= s;
-    xyzw[i * 4 + 2] *= s;
-    xyzw[i * 4 + 3] = s / CH; // size
-
-    rgba[i * 4 + 0] = c * 1.0;
-    rgba[i * 4 + 1] = c * 0.5;
-    rgba[i * 4 + 2] = c * 0.2;
-    rgba[i * 4 + 3] = 0.5; // opacity
+    rgba[i * 4 + 0] = c;
+    rgba[i * 4 + 1] = c;
+    rgba[i * 4 + 2] = c;
+    rgba[i * 4 + 3] = 1; // opacity
 }
 
 export function createMesh(w, h) {
+    let str4 = new Float32Array(w * h * 4);
+
+    for (let y = 0; y < 2; y++)
+        for (let x = 0; x < w; x++)
+            initStr(str4, w, h, x, y);
+
+    let tmp = [];
+
+    for (let y = 2; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            let c = moveStr(tmp, str4, w, h, x, y - 1);
+            let i = y * w + x;
+            str4.set(c, i * 4);
+        }
+    }
+
     let xyzw = new Float32Array(w * h * 4);
     let rgba = new Float32Array(w * h * 4);
 
     for (let y = 0; y < h; y++)
         for (let x = 0; x < w; x++)
-            initStr(xyzw, w, h, x, y);
-
-    for (let y = 2; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-            let c = moveStr(xyzw, w, h, x, y - 1);
-            xyzw.set(c, (y * w + x) * 4);
-        }
-    }
-
-    for (let y = 0; y < h; y++)
-        for (let x = 0; x < w; x++)
-            genMesh(xyzw, rgba, w, h, x, y);
+            genMesh(xyzw, rgba, str4, w, h, x, y);
 
     return { xyzw, rgba };
 }

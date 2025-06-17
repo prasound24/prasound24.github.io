@@ -63,6 +63,7 @@ p {
 
 
 h1 {
+  user-select: none;
   font-family: Pacifico;
   font-size: 2rem;
   font-weight: 900;
@@ -196,6 +197,7 @@ button[disabled]:hover {
 }
 
 #footer {
+  user-select: none;
   padding: 1rem 0;
   text-align: center;
   color: #555;
