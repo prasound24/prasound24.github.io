@@ -53,9 +53,9 @@ async function appendMesh(xyzw, rgba) {
     return mesh;
 }
 
-let sph = await generateSplats('sphere');
-let sphMesh = await appendMesh(sph.xyzw, sph.rgba);
-sphMesh.scale.set(2, 2, 2);
+//let sph = await generateSplats('sphere');
+//let sphMesh = await appendMesh(sph.xyzw, sph.rgba);
+//sphMesh.scale.set(2, 2, 2);
 
 //let fog = generateSplatsFn((pos, col, i, n) => {
 //    pos[3] = 0.33;
