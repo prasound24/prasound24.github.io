@@ -15,7 +15,7 @@ renderer.setSize(window.innerWidth, window.innerHeight, false);
 const orbit = new OrbitControls(camera, canvas);
 orbit.target.set(0, 0, 0);
 orbit.minDistance = 0;
-orbit.maxDistance = 3;
+orbit.maxDistance = 5;
 
 const worker = new Worker('./worker.js', { type: 'module' });
 const [CW, CH, SM] = [640, 360, 4];
@@ -51,8 +51,21 @@ function appendMesh(xyzw, rgba) {
     return mesh;
 }
 
-//let fog = await generateSplats('sphere');
-//let mfog = appendMesh(fog.xyzw, fog.rgba);
+/* let fog = generateSplatsFn((pos, col, x, y, w, h) => {
+    let t = x / w;
+    let phi = t * Math.PI * 2;
+    col[0] = t;
+    col[1] = 0.5;
+    col[2] = 1 - t;
+    pos[0] = Math.cos(phi);
+    pos[1] = Math.cos(phi*60)/60;
+    pos[2] = Math.sin(phi);
+    pos[3] = 0.01;
+}, 2500);
+
+let fogm = appendMesh(fog.xyzw, fog.rgba);
+fogm.recolor = new THREE.Color(9, 3, 1);
+fogm.opacity = 0.3; */
 
 window.scene = scene;
 window.THREE = THREE;
@@ -76,7 +89,7 @@ renderer.setAnimationLoop((time) => {
     resizeCanvas();
     orbit.update();
     renderer.render(scene, camera);
-    scene.rotation.y -= 0.003;
+    scene.rotation.y -= 0.002;
 });
 
 function interpolateY(res, src, w, h, a = 0) {
@@ -134,6 +147,27 @@ async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
     });
 }
 
+function generateSplatsFn(fn, cw = 1, ch = 1) {
+    let xyzw = new Float32Array(cw * ch * 4);
+    let rgba = new Float32Array(cw * ch * 4);
+
+    let pos = new Float32Array(4);
+    let col = new Float32Array(4);
+
+    for (let y = 0; y < ch; y++) {
+        for (let x = 0; x < cw; x++) {
+            pos.fill(0);
+            col.fill(1);
+            fn(pos, col, x, y, cw, ch);
+            let i = x + cw * y;
+            xyzw.set(pos, i * 4);
+            rgba.set(col, i * 4);
+        }
+    }
+
+    return { xyzw, rgba };
+}
+
 // https://sparkjs.dev/docs/packed-splats
 function packSplats(xyzw, rgba) {
     let n = rgba.length / 4;
@@ -156,10 +190,7 @@ function packSplats(xyzw, rgba) {
         data[i * 16 + 14] = logs * 255; //  Z scale
     }
 
-    if (sbig > 4) throw new Error('Too many big splats: ' + sbig);
-
-    if (!xyzw.buffer)
-        xyzw = new Float32Array(xyzw);
+    if (sbig > 100) throw new Error('Too many big splats: ' + sbig);
 
     let data16 = new Int16Array(data.buffer);
     let xyzw32 = new Int32Array(xyzw.buffer);
