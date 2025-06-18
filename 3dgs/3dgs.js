@@ -10,10 +10,11 @@ const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.001, 1000);
 camera.position.set(1, 1, 1);
-const renderer = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true });
+const renderer = new THREE.WebGLRenderer({ canvas });
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 
-//const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
+const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
+scene.add(spark);
 //scene.add(camera);
 //camera.add(spark);
 
@@ -29,18 +30,24 @@ const { xyzw, rgba } = await generateSplats('string');
 //const params = new URLSearchParams(location.search);
 //const url = params.get('s') || 'mesh/1m.spz';
 
-const tmp_xyzw = xyzw.slice();
-const tmp_rgba = rgba.slice();
-
-for (let i = 0; i < SM; i++) {
-    interpolateY(tmp_xyzw, xyzw, CW, CH, i / SM);
-    interpolateY(tmp_rgba, rgba, CW, CH, i / SM);
-    let mesh = await appendMesh(tmp_xyzw, tmp_rgba);
-    mesh.recolor = new THREE.Color(9, 3, 1);
+enumerateMeshes((tmp_xyzw, tmp_rgba) => {
+    let mesh = appendMesh(tmp_xyzw, tmp_rgba);
+    mesh.recolor = new THREE.Color(3, 3, 3);
     mesh.opacity = 1 / SM;
+});
+
+function enumerateMeshes(callback) {
+    const tmp_xyzw = xyzw.slice();
+    const tmp_rgba = rgba.slice();
+
+    for (let i = 0; i < SM; i++) {
+        interpolateY(tmp_xyzw, xyzw, CW, CH, i / SM);
+        interpolateY(tmp_rgba, rgba, CW, CH, i / SM);
+        callback(tmp_xyzw, tmp_rgba, i);
+    }
 }
 
-async function appendMesh(xyzw, rgba) {
+function appendMesh(xyzw, rgba) {
     const packedSplats = new PackedSplats({
         packedArray: packSplats(xyzw, rgba),
         //fileBytes: await exportPLY(CW, CH, xyzw, rgba).bytes(),
@@ -64,8 +71,9 @@ async function appendMesh(xyzw, rgba) {
 
 window.scene = scene;
 window.THREE = THREE;
+window.downloadMesh = downloadMesh;
 
-console.log('Added:', (stats.numSplats/ 1e6).toFixed(1), 'M splats');
+console.log('Added:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
 
 function resizeCanvas() {
     const width = window.innerWidth;
@@ -104,27 +112,49 @@ function interpolateY(res, src, w, h, a = 0) {
     }
 }
 
-async function downloadSpz() {
-    const blob = exportPLY(CW, CH * NMUL, xyzw, rgba);
-    const fileBytes = await blob.bytes();
-
-    check(fileBytes.length > 0);
-
-    let transcode = await transcodeSpz({
-        inputs: [{ fileBytes, pathOrUrl: 'mesh.ply' }],
-        maxSh: 3,
-        fractionalBits: 12,
-        opacityThreshold: 0
+async function downloadMesh(type = 'ply') {
+    let merged_xyzw = new Float32Array(xyzw.length * SM);
+    let merged_rgba = new Float32Array(rgba.length * SM);
+    enumerateMeshes((x, r, i) => {
+        merged_xyzw.set(x, i * x.length);
+        merged_rgba.set(r, i * r.length);
+        console.log('Generated mesh', i + 1, 'out of', SM);
     });
 
-    let spz = new Blob([transcode.fileBytes],
-        { type: "application/octet-stream" });
-    let url = URL.createObjectURL(spz);
-    let a = document.createElement('a');
-    a.download = 'mesh.spz';
-    a.href = url;
-    a.click();
-    URL.revokeObjectURL(url);
+    console.log('Creating a .ply file...');
+    const ply = exportPLY(CW * SM, CH, merged_xyzw, merged_rgba);
+    console.log('.ply file size:', (ply.size / 1e6).toFixed(1), 'MB');
+    check(ply.size > 0);
+
+    if (type == 'ply') {
+        let file = new File([ply], 'soundform.ply');
+        console.log(URL.createObjectURL(file));
+        return;
+    }
+
+    if (type == 'spz') {
+        console.log('Creating a .spz file... (slow)');
+        let res = await transcodeSpz({
+            inputs: [{
+                fileBytes: await ply.bytes(),
+                pathOrUrl: 'soundform.ply',
+            }],
+            maxSh: 0,
+            fractionalBits: 16,
+            opacityThreshold: 0.0001,
+        });
+
+        let spz = new Blob([res.fileBytes],
+            { type: "application/octet-stream" });
+        let file = new File([spz], 'soundform.spz');
+        let url = URL.createObjectURL(file);
+        console.log(url);
+        //let a = document.createElement('a');
+        //a.download = 'soundform.spz';
+        //a.href = url;
+        //a.click();
+        //URL.revokeObjectURL(url);
+    }
 }
 
 async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
