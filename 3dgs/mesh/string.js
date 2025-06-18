@@ -87,9 +87,9 @@ function genMesh(xyzw, rgba, str4, CW, CH, x, y) {
     xyzw[i * 4 + 1] = s * str4[i * 4 + 2];
     xyzw[i * 4 + 3] = s / CH; // size
 
-    rgba[i * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.0 + 0.4));
-    rgba[i * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.1 + 0.4));
-    rgba[i * 4 + 2] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.2 + 0.4));
+    rgba[i * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.0*0.1 + 0.4));
+    rgba[i * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.1*0.1 + 0.4));
+    rgba[i * 4 + 2] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.2*0.1 + 0.4));
     rgba[i * 4 + 3] = 1; // opacity
 }
 

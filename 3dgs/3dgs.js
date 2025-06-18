@@ -13,7 +13,7 @@ camera.position.set(1, 1, 1);
 const renderer = new THREE.WebGLRenderer({ canvas });
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 
-const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
+const spark = new SparkRenderer({ renderer });
 scene.add(spark);
 //scene.add(camera);
 //camera.add(spark);
@@ -24,7 +24,7 @@ orbit.minDistance = 0;
 orbit.maxDistance = 10;
 
 const worker = new Worker('./worker.js', { type: 'module' });
-const [CW, CH, SM] = [640, 360, 5];
+const [CW, CH, SM] = [640, 360, 12];
 const { xyzw, rgba } = await generateSplats('string');
 
 //const params = new URLSearchParams(location.search);
@@ -32,8 +32,8 @@ const { xyzw, rgba } = await generateSplats('string');
 
 enumerateMeshes((tmp_xyzw, tmp_rgba) => {
     let mesh = appendMesh(tmp_xyzw, tmp_rgba);
-    mesh.recolor = new THREE.Color(3, 3, 3);
-    mesh.opacity = 1 / SM;
+    //mesh.recolor = new THREE.Color(3,3,3);
+    //mesh.opacity = 0.5; // 1 / SM;
 });
 
 function enumerateMeshes(callback) {
