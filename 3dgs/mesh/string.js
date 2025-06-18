@@ -76,16 +76,16 @@ function moveStr(tmp, xyzw, w, h, x, y) {
 function genMesh(xyzw, rgba, str4, CW, CH, x, y) {
     let i = y * CW + x;
     let t = y / CH;
-    let s = t / (1.5 + str4[i * 4 + 3]);
+    let s = t / (1.25 + str4[i * 4 + 3]);
 
     xyzw[i * 4 + 0] = s * str4[i * 4 + 0];
     xyzw[i * 4 + 2] = s * str4[i * 4 + 1];
     xyzw[i * 4 + 1] = s * str4[i * 4 + 2];
-    xyzw[i * 4 + 3] = s / CH; // size
+    xyzw[i * 4 + 3] = s / CH * 3; // size
 
-    rgba[i * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.0 + 0.4));
-    rgba[i * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.1 + 0.4));
-    rgba[i * 4 + 2] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.2 + 0.4));
+    rgba[i * 4 + 0] = 0.6 + 0.4 * Math.cos(Math.PI * 2 * (t + 0.0 + 0.4));
+    rgba[i * 4 + 1] = 0.6 + 0.4 * Math.cos(Math.PI * 2 * (t + 0.1 + 0.4));
+    rgba[i * 4 + 2] = 0.6 + 0.4 * Math.cos(Math.PI * 2 * (t + 0.2 + 0.4));
     rgba[i * 4 + 3] = 1; // opacity
 }
 

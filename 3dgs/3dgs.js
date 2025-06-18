@@ -23,15 +23,15 @@ orbit.target.set(0, 0, 0);
 orbit.minDistance = 0;
 orbit.maxDistance = 10;
 
-const [CW, CH, SM] = [640, 360, 4];
+const urlparams = new URLSearchParams(location.search);
+const [CW, CH, SM] = (urlparams.get('n') || '640x360x4').split('x').map(x => +x);
+const sid = parseFloat('0.' + (urlparams.get('sid') || '')) || Math.random();
 const worker = new Worker('./worker.js', { type: 'module' });
-const params = new URLSearchParams(location.search);
-const sid = parseFloat('0.' + (params.get('sid') || '')) || Math.random();
 const { xyzw, rgba } = await generateSplats('string');
 
 enumerateMeshes((tmp_xyzw, tmp_rgba) => {
     let mesh = appendMesh(tmp_xyzw, tmp_rgba);
-    mesh.recolor = new THREE.Color(3, 3, 3);
+    //mesh.recolor = new THREE.Color(3, 3, 3);
     mesh.opacity = 0.5; // 1 / SM;
 });
 
@@ -40,8 +40,8 @@ function enumerateMeshes(callback) {
     const tmp_rgba = rgba.slice();
 
     for (let i = 0; i < SM; i++) {
-        interpolateY(tmp_xyzw, xyzw, CW, CH, i / SM);
-        interpolateY(tmp_rgba, rgba, CW, CH, i / SM);
+        interpolateY(tmp_xyzw, xyzw, CW, CH, (i + 0.5) / SM);
+        interpolateY(tmp_rgba, rgba, CW, CH, (i + 0.5) / SM);
         callback(tmp_xyzw, tmp_rgba, i);
     }
 }
@@ -102,8 +102,9 @@ function interpolateY(res, src, w, h, a = 0) {
 
     for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
-            let i = x + w * y;
-            let j = x + w * Math.min(y + 1, h - 1);
+            let t = Math.floor(y / (h - 1) * (h - 2));
+            let i = x + w * t;
+            let j = x + w * (t + 1);
 
             for (let k = 0; k < 4; k++)
                 res[i * 4 + k] = mix(src[i * 4 + k], src[j * 4 + k], a);
@@ -216,13 +217,15 @@ function packSplats(xyzw, rgba) {
         logs = clamp(Math.round(logs), 1, 255);
         if (s <= 0) logs = 0;
 
-        if (s > 0.01 && sbig++ > 100)
-            throw new Error('Too many big splats: ' + sbig);
+        if (s > 0.03) sbig++;
 
         bytes[i * 16 + 12] = logs; //  X scale
         bytes[i * 16 + 13] = logs; //  Y scale
         bytes[i * 16 + 14] = logs; //  Z scale
     }
+
+    if (sbig > 1000)
+        throw new Error('Too many big splats: ' + sbig);
 
     return new Uint32Array(data.buffer);
 }
