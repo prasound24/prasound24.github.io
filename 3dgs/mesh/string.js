@@ -1,10 +1,6 @@
-//const RAND = Math.random() - 0.5;
-const RAND = -0.32154151497492545;
-console.debug('RAND:', RAND);
-
 const fract = (x) => x - Math.floor(x);
 
-function initStr(xyzw, w, h, x, y) {
+function initStr(xyzw, w, h, x, y, sid = 0) {
     let num = 3;
     let phi = Math.PI * 2 * x / w;
 
@@ -14,7 +10,7 @@ function initStr(xyzw, w, h, x, y) {
     let pw = 0;
 
     for (let s = 1; s <= 3; s += 1) {
-        let rnd = fract(Math.sin(RAND * s * Math.PI * 2)) - 0.5;
+        let rnd = fract(Math.sin((sid - 0.5) * s * Math.PI * 2)) - 0.5;
         let arg = phi * num * s;
         arg += 0.01 * rnd;
         let amp = 10 * rnd * Math.exp(-s);
@@ -87,18 +83,18 @@ function genMesh(xyzw, rgba, str4, CW, CH, x, y) {
     xyzw[i * 4 + 1] = s * str4[i * 4 + 2];
     xyzw[i * 4 + 3] = s / CH; // size
 
-    rgba[i * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.0*0.1 + 0.4));
-    rgba[i * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.1*0.1 + 0.4));
-    rgba[i * 4 + 2] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.2*0.1 + 0.4));
+    rgba[i * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.0 + 0.4));
+    rgba[i * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.1 + 0.4));
+    rgba[i * 4 + 2] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + 0.2 + 0.4));
     rgba[i * 4 + 3] = 1; // opacity
 }
 
-export function createMesh(w, h) {
+export function createMesh(w, h, { sid } = {}) {
     let str4 = new Float32Array(w * h * 4);
 
     for (let y = 0; y < 2; y++)
         for (let x = 0; x < w; x++)
-            initStr(str4, w, h, x, y);
+            initStr(str4, w, h, x, y, sid);
 
     let tmp = [];
 

@@ -23,17 +23,16 @@ orbit.target.set(0, 0, 0);
 orbit.minDistance = 0;
 orbit.maxDistance = 10;
 
+const [CW, CH, SM] = [640, 360, 4];
 const worker = new Worker('./worker.js', { type: 'module' });
-const [CW, CH, SM] = [640, 360, 12];
+const params = new URLSearchParams(location.search);
+const sid = parseFloat('0.' + (params.get('sid') || '')) || Math.random();
 const { xyzw, rgba } = await generateSplats('string');
-
-//const params = new URLSearchParams(location.search);
-//const url = params.get('s') || 'mesh/1m.spz';
 
 enumerateMeshes((tmp_xyzw, tmp_rgba) => {
     let mesh = appendMesh(tmp_xyzw, tmp_rgba);
-    //mesh.recolor = new THREE.Color(3,3,3);
-    //mesh.opacity = 0.5; // 1 / SM;
+    mesh.recolor = new THREE.Color(3, 3, 3);
+    mesh.opacity = 0.5; // 1 / SM;
 });
 
 function enumerateMeshes(callback) {
@@ -73,7 +72,7 @@ window.scene = scene;
 window.THREE = THREE;
 window.downloadMesh = downloadMesh;
 
-console.log('Added:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
+console.log('Total:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
 
 function resizeCanvas() {
     const width = window.innerWidth;
@@ -160,7 +159,7 @@ async function downloadMesh(type = 'ply') {
 async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
     return new Promise((resolve, reject) => {
         let ts = Date.now();
-        worker.postMessage({ type: 'mesh', name, cw, ch });
+        worker.postMessage({ type: 'mesh', name, cw, ch, args: { sid } });
         worker.onmessage = (e) => {
             let { xyzw, rgba } = e.data;
             xyzw = new Float32Array(xyzw);
@@ -168,7 +167,7 @@ async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
             check(xyzw.length == cw * ch * 4);
             check(rgba.length == cw * ch * 4);
             console.debug('generateSplats:', Date.now() - ts, 'ms',
-                (rgba.length / 4e6).toFixed(1), 'M splats');
+                (rgba.length / 4e6).toFixed(1), 'M splats, SID:', sid);
             resolve({ xyzw, rgba });
         };
     });
