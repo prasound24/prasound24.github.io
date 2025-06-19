@@ -85,10 +85,6 @@ img {
   outline: none;
 }
 
-body:not(.debug) .debug {
-  display: none !important;
-}
-
 button#save_hdr {
   display: none;
 }

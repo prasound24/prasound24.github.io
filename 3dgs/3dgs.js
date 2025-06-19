@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { SparkRenderer, SplatMesh, PackedSplats, transcodeSpz } from "@sparkjsdev/spark";
 import { OrbitControls } from "/lib/OrbitControls.js";
 
-import { $, mix, clamp, check } from '../lib/utils.js'
+import { $, mix, clamp, check, fract } from '../lib/utils.js'
 import { exportPLY } from "../lib/ply.js";
 
 const stats = { numSplats: 0 };
@@ -13,7 +13,7 @@ camera.position.set(1, 1, 1);
 const renderer = new THREE.WebGLRenderer({ canvas });
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 
-const spark = new SparkRenderer({ renderer });
+const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
 scene.add(spark);
 //scene.add(camera);
 //camera.add(spark);
@@ -24,15 +24,30 @@ orbit.minDistance = 0;
 orbit.maxDistance = 10;
 
 const urlparams = new URLSearchParams(location.search);
-const [CW, CH, SM] = (urlparams.get('n') || '640x360x4').split('x').map(x => +x);
+const [CW, CH, SM = 1] = (urlparams.get('n') || '640x360x3').split('x').map(x => +x);
 const sid = parseFloat('0.' + (urlparams.get('sid') || '')) || Math.random();
 const worker = new Worker('./worker.js', { type: 'module' });
 const { xyzw, rgba } = await generateSplats('string');
 
+//const { xyzw, rgba } = await generateSplatsFn((pos, col, i, j, w, h) => {
+//    let f = (i, j) => [((i + 0.5) / w) ** 2, (j + 0.5) / h];
+//    let [x, y] = f(i, j);
+//    let [x2, y2] = f(i > 0 ? i - 1 : 1, j);
+//
+//    pos[0] = x * 2 - 1;
+//    pos[1] = y * 2 - 1;
+//    pos[3] = 0.2 / w * Math.exp(-2*Math.hypot((x - x2) * w, (y - y2) * h));
+//
+//    col[0] = x;
+//    col[1] = 1;
+//    col[2] = y;
+//    col[3] = 1;
+//});
+
 enumerateMeshes((tmp_xyzw, tmp_rgba) => {
     let mesh = appendMesh(tmp_xyzw, tmp_rgba);
     //mesh.recolor = new THREE.Color(3, 3, 3);
-    mesh.opacity = 0.5; // 1 / SM;
+    //mesh.opacity = 0.5; // 1 / SM;
 });
 
 function enumerateMeshes(callback) {
@@ -99,15 +114,20 @@ renderer.setAnimationLoop((time) => {
 function interpolateY(res, src, w, h, a = 0) {
     check(res.length == w * h * 4);
     check(src.length == w * h * 4);
+    check(a >= 0 && a <= 1);
 
     for (let y = 0; y < h; y++) {
+        let t = (y + a) / h * (h - 1);
+        let s = fract(t);
+        check(t >= 0 && t <= h - 1);
+
         for (let x = 0; x < w; x++) {
-            let t = Math.floor(y / (h - 1) * (h - 2));
-            let i = x + w * t;
-            let j = x + w * (t + 1);
+            let i4 = 4 * (x + w * Math.floor(t));
+            let j4 = 4 * (x + w * Math.ceil(t));
+            let r4 = 4 * (x + w * y);
 
             for (let k = 0; k < 4; k++)
-                res[i * 4 + k] = mix(src[i * 4 + k], src[j * 4 + k], a);
+                res[r4 + k] = mix(src[i4 + k], src[j4 + k], s);
         }
     }
 }
@@ -174,17 +194,18 @@ async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
     });
 }
 
-function generateSplatsFn(fn, n = 1) {
-    let xyzw = new Float32Array(n * 4);
-    let rgba = new Float32Array(n * 4);
+function generateSplatsFn(fn) {
+    let w = CW, h = CH;
+    let xyzw = new Float32Array(w * h * 4);
+    let rgba = new Float32Array(w * h * 4);
 
     let pos = new Float32Array(4);
     let col = new Float32Array(4);
 
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < w * h; i++) {
         pos.fill(0);
         col.fill(1);
-        fn(pos, col, i, n);
+        fn(pos, col, i / w | 0, i % w, w, h);
         xyzw.set(pos, i * 4);
         rgba.set(col, i * 4);
     }

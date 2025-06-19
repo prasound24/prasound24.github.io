@@ -321,10 +321,6 @@ button.small_btn:hover {
   padding: 1em;
 }
 
-body:not(.debug) .setting2.debug {
-  display: none;
-}
-
 .setting2:first-child {
   display: none;
 }

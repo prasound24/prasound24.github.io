@@ -36,6 +36,10 @@ body {
   font-style: normal;
 }
 
+body:not(.debug) .debug {
+  display: none !important;
+}
+
 .wide {
   width: 100%;
   height: auto;
