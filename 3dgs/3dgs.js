@@ -20,8 +20,8 @@ camera.position.set(1, 1, 1);
 const renderer = new THREE.WebGLRenderer({ canvas });
 renderer.setSize(wsize(0), wsize(1), false);
 
-const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
-scene.add(spark);
+//const spark = new SparkRenderer({ renderer, maxStdDev: 2 });
+//scene.add(spark);
 //scene.add(camera);
 //camera.add(spark);
 
@@ -35,20 +35,19 @@ const sid = parseFloat('0.' + (urlparams.get('sid') || '')) || Math.random();
 const worker = new Worker('./worker.js', { type: 'module' });
 const { xyzw, rgba } = await generateSplats('string');
 
-//const { xyzw, rgba } = await generateSplatsFn((pos, col, i, j, w, h) => {
-//    let f = (i, j) => [((i + 0.5) / w) ** 2, (j + 0.5) / h];
-//    let [x, y] = f(i, j);
-//    let [x2, y2] = f(i > 0 ? i - 1 : 1, j);
-//
-//    pos[0] = x * 2 - 1;
-//    pos[1] = y * 2 - 1;
-//    pos[3] = 0.2 / w * Math.exp(-2*Math.hypot((x - x2) * w, (y - y2) * h));
-//
-//    col[0] = x;
-//    col[1] = 1;
-//    col[2] = y;
-//    col[3] = 1;
-//});
+const fog = await generateSplatsFn((pos, col) => {
+    let r = Math.random() ** 0.5 * 2;
+    let a = Math.random() * Math.PI * 2;
+    let b = Math.random() * Math.PI * 0.5;
+
+    pos[0] = r * Math.cos(a) * Math.cos(b);
+    pos[2] = r * Math.sin(a) * Math.cos(b);
+    pos[1] = r * Math.sin(b);
+    pos[3] = 0.3;
+
+    col[3] = 0.02;
+}, 1000, 1);
+appendMesh(fog.xyzw, fog.rgba);
 
 enumerateMeshes((tmp_xyzw, tmp_rgba) => {
     let mesh = appendMesh(tmp_xyzw, tmp_rgba);
@@ -113,7 +112,8 @@ renderer.setAnimationLoop((time) => {
     resizeCanvas();
     orbit.update();
     renderer.render(scene, camera);
-    if (isiframe) scene.rotation.y -= 0.002;
+    if (isiframe)
+        scene.rotation.y -= 0.003;
 });
 
 function interpolateY(res, src, w, h, a = 0) {
@@ -199,8 +199,7 @@ async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
     });
 }
 
-function generateSplatsFn(fn) {
-    let w = CW, h = CH;
+function generateSplatsFn(fn, w = CW, h = CH) {
     let xyzw = new Float32Array(w * h * 4);
     let rgba = new Float32Array(w * h * 4);
 
