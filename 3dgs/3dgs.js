@@ -138,16 +138,18 @@ function interpolateY(res, src, w, h, a = 0) {
 }
 
 async function downloadMesh(type = 'ply') {
-    let merged_xyzw = new Float32Array(xyzw.length * SM);
-    let merged_rgba = new Float32Array(rgba.length * SM);
+    let merged_xyzw = new Float32Array(xyzw.length * SM + fog.xyzw.length);
+    let merged_rgba = new Float32Array(rgba.length * SM + fog.rgba.length);
     enumerateMeshes((x, r, i) => {
         merged_xyzw.set(x, i * x.length);
         merged_rgba.set(r, i * r.length);
         console.log('Generated mesh', i + 1, 'out of', SM);
     });
+    merged_xyzw.set(fog.xyzw, SM * xyzw.length);
+    merged_rgba.set(fog.rgba, SM * rgba.length);
 
     console.log('Creating a .ply file...');
-    const ply = exportPLY(CW * SM, CH, merged_xyzw, merged_rgba);
+    const ply = exportPLY(merged_xyzw.length / 4, 1, merged_xyzw, merged_rgba);
     console.log('.ply file size:', (ply.size / 1e6).toFixed(1), 'MB');
     check(ply.size > 0);
 

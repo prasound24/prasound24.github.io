@@ -23,7 +23,8 @@
 }
 
 .stage {
-  margin-top: 2em;;
+  margin-top: 2em;
+  ;
 }
 
 .stage img {
@@ -40,13 +41,17 @@
   align-items: center;
 }
 
-.stage div > * {
+.stage div>* {
   flex: 1;
 }
 
 @media(orientation:portrait) {
   .stage .landscapes {
     flex-direction: column;
+  }
+
+  .stage .landscapes a {
+    width: 100%;
   }
 }
 

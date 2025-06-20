@@ -76,7 +76,8 @@ function moveStr(tmp, xyzw, w, h, x, y) {
 let rand = () => Math.random();
 //let dd = [rand(), rand(), rand()];
 //let dd = [0.2, 0.3, 0.6];
-let dd = [0.55,0.34,0.22];
+//let dd = [0.55,0.34,0.22];
+let dd = [0.95,0.88,0.75]; // yellow-blue
 console.debug('Color palette:',
     'dd:', dd.map(x => x.toFixed(2)).join(','));
 
@@ -99,7 +100,7 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j) {
     xyzw[p * 4 + 0] = x;
     xyzw[p * 4 + 2] = y;
     xyzw[p * 4 + 1] = z;
-    xyzw[p * 4 + 3] = r / CH * 2; // size
+    xyzw[p * 4 + 3] = r / CH; // size
 
     rgba[p * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[0]));
     rgba[p * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[1]));
