@@ -1,7 +1,7 @@
 const fract = (x) => x - Math.floor(x);
 
 function initStr(xyzw, w, h, x, y, sid = 0) {
-    let num = 2 + Math.floor(sid * 4);
+    let num = 3;
     let phi = Math.PI * 2 * x / w;
 
     let px = Math.cos(phi);
@@ -9,11 +9,11 @@ function initStr(xyzw, w, h, x, y, sid = 0) {
     let pz = 0;
     let pw = 0;
 
-    for (let s = 1; s <= 10; s += 1) {
+    for (let s = 1; s <= 3; s += 1) {
         let rnd = fract(Math.sin((sid - 0.5) * s * Math.PI * 2)) - 0.5;
         let arg = phi * num * s;
         arg += 0.01 * rnd;
-        let amp = 5 * rnd / s**2;
+        let amp = 10 * rnd * Math.exp(-s);
         pz += amp * Math.cos(arg);
         pw += amp * Math.sin(arg);
     }
@@ -74,8 +74,9 @@ function moveStr(tmp, xyzw, w, h, x, y) {
 }
 
 let rand = () => Math.random();
-let dd = [rand(), rand(), rand()];
+//let dd = [rand(), rand(), rand()];
 //let dd = [0.2, 0.3, 0.6];
+let dd = [0.55,0.34,0.22];
 console.debug('Color palette:',
     'dd:', dd.map(x => x.toFixed(2)).join(','));
 
@@ -98,12 +99,12 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j) {
     xyzw[p * 4 + 0] = x;
     xyzw[p * 4 + 2] = y;
     xyzw[p * 4 + 1] = z;
-    xyzw[p * 4 + 3] = r / CH; // size
+    xyzw[p * 4 + 3] = r / CH * 2; // size
 
-    rgba[p * 4 + 0] = 0.55 + 0.45 * Math.cos(Math.PI * 2 * (t + dd[0]));
-    rgba[p * 4 + 1] = 0.55 + 0.45 * Math.cos(Math.PI * 2 * (t + dd[1]));
-    rgba[p * 4 + 2] = 0.55 + 0.45 * Math.cos(Math.PI * 2 * (t + dd[2]));
-    rgba[p * 4 + 3] = 1; // opacity
+    rgba[p * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[0]));
+    rgba[p * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[1]));
+    rgba[p * 4 + 2] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[2]));
+    rgba[p * 4 + 3] = 0.5; // opacity
 }
 
 export function createMesh(w, h, { sid } = {}) {
