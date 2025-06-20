@@ -1,13 +1,27 @@
 .stage {
-  margin-top: 2em;;
+  margin-top: 2em;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 }
 
-.stage.grid > a {
-  width: 25%;
+.stage.grid>a {
+  width: 33.3%;
+  aspect-ratio: inherit;
+}
+
+@media(orientation:portrait) {
+  .stage {
+    flex-direction: column;
+  }
+
+  .stage.grid>a {
+    width: 100%;
+  }
 }
 
 .stage img {
-  width: 100%
+  width: 100%;
 }
 
 .stage a img {
@@ -20,6 +34,6 @@
   align-items: center;
 }
 
-.stage div > * {
+.stage div>* {
   flex: 1;
 }
