@@ -1,3 +1,7 @@
+const urlparams = new URLSearchParams(location.search);
+const isiframe = urlparams.get('iframe') == '1';
+document.body.classList.toggle('iframe', isiframe);
+
 import * as THREE from "three";
 import { SparkRenderer, SplatMesh, PackedSplats, transcodeSpz } from "@sparkjsdev/spark";
 import { OrbitControls } from "/lib/OrbitControls.js";
@@ -5,13 +9,16 @@ import { OrbitControls } from "/lib/OrbitControls.js";
 import { $, mix, clamp, check, fract } from '../lib/utils.js'
 import { exportPLY } from "../lib/ply.js";
 
+const imgSize = (urlparams.get('i') || '0x0').split('x').map(x => +x);
+const wsize = (i) => imgSize[i] || (i == 0 ? window.innerWidth : window.innerHeight);
+
 const stats = { numSplats: 0 };
 const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.001, 1000);
+const camera = new THREE.PerspectiveCamera(60, wsize(0) / wsize(1), 0.001, 1000);
 camera.position.set(1, 1, 1);
 const renderer = new THREE.WebGLRenderer({ canvas });
-renderer.setSize(window.innerWidth, window.innerHeight, false);
+renderer.setSize(wsize(0), wsize(1), false);
 
 const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
 scene.add(spark);
@@ -23,7 +30,6 @@ orbit.target.set(0, 0, 0);
 orbit.minDistance = 0;
 orbit.maxDistance = 10;
 
-const urlparams = new URLSearchParams(location.search);
 const [CW, CH, SM = 1] = (urlparams.get('n') || '640x360x3').split('x').map(x => +x);
 const sid = parseFloat('0.' + (urlparams.get('sid') || '')) || Math.random();
 const worker = new Worker('./worker.js', { type: 'module' });
@@ -90,12 +96,11 @@ window.downloadMesh = downloadMesh;
 console.log('Total:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
 
 function resizeCanvas() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const w = wsize(0), h = wsize(1);
 
-    if (width != canvas.width || height != canvas.height) {
-        renderer.setSize(width, height, false);
-        camera.aspect = width / height;
+    if (w != canvas.width || h != canvas.height) {
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
         camera.updateProjectionMatrix();
     }
 }
@@ -108,7 +113,7 @@ renderer.setAnimationLoop((time) => {
     resizeCanvas();
     orbit.update();
     renderer.render(scene, camera);
-    //scene.rotation.y -= 0.002;
+    if (isiframe) scene.rotation.y -= 0.002;
 });
 
 function interpolateY(res, src, w, h, a = 0) {

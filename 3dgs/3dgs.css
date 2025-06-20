@@ -13,3 +13,6 @@
   width: 100%;
 }
 
+body.iframe > *:not(canvas) {
+  display: none !important;
+}

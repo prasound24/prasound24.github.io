@@ -73,3 +73,8 @@
   font-size: 0.8rem;
   margin: 0 1em;
 }
+
+iframe {
+  aspect-ratio: 16/9;
+  width: 100%;
+}
