@@ -60,9 +60,11 @@ addInterpolatedMeshes(gsm0);
 
 function addInterpolatedMeshes(gsm0) {
     enumerateMeshes(gsm0, (gsm) => {
-        let mesh = appendMesh(gsm);
-        //mesh.recolor = new THREE.Color(3, 3, 3);
-        //mesh.opacity = 0.5; // 1 / SM;
+        for (let chunk of splitMeshIntoChunks(gsm)) {
+            let mesh = appendMesh(chunk);
+            //mesh.recolor = new THREE.Color(2, 2, 2);
+            //mesh.opacity = 0.5; // 1 / SM;
+        }
     });
 }
 
