@@ -19,4 +19,16 @@
   background: none;
 }
 
+#spark {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  margin: 1em;
+  font-size: 0.75rem;
+  opacity: 0.25;
+}
+
+#spark a {
+  color: inherit;
+}
 
