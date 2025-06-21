@@ -7,6 +7,16 @@
   top: 0;
 }
 
-body.iframe > *:not(canvas) {
-  display: none !important;
+#controls {
+  position: fixed;
+  bottom: 0.5em;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
+
+#audio {
+  background: none;
+}
+
+

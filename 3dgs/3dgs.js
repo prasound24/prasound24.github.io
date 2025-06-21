@@ -1,18 +1,22 @@
 const urlparams = new URLSearchParams(location.search);
-const isiframe = urlparams.get('iframe') == '1';
-document.body.classList.toggle('iframe', isiframe);
+const isEmbedded = urlparams.get('iframe') == '1';
 
 import * as THREE from "three";
-import { SparkRenderer, SplatMesh, PackedSplats, transcodeSpz } from "@sparkjsdev/spark";
+import { SparkRenderer, SplatMesh, PackedSplats } from "@sparkjsdev/spark";
 import { OrbitControls } from "/lib/OrbitControls.js";
 
-import { $, mix, clamp, check, fract } from '../lib/utils.js'
+import { $, mix, clamp, check, fract, selectAudioFile, decodeAudioFile2 } from '../lib/utils.js'
 import { exportPLY } from "../lib/ply.js";
+
+if (!isEmbedded) {
+    $('h1').style.display = '';
+    $('.wave_spanner').style.display = '';
+}
 
 const imgSize = (urlparams.get('i') || '0x0').split('x').map(x => +x);
 const wsize = (i) => imgSize[i] || (i == 0 ? window.innerWidth : window.innerHeight);
 
-const stats = { numSplats: 0 };
+const stats = { numSplats: 0, frameId: 0, fps: 0 };
 const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, wsize(0) / wsize(1), 0.001, 1000);
@@ -20,8 +24,8 @@ camera.position.set(1, 1, 1);
 const renderer = new THREE.WebGLRenderer({ canvas });
 renderer.setSize(wsize(0), wsize(1), false);
 
-//const spark = new SparkRenderer({ renderer, maxStdDev: 2 });
-//scene.add(spark);
+const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
+scene.add(spark);
 //scene.add(camera);
 //camera.add(spark);
 
@@ -30,53 +34,81 @@ orbit.target.set(0, 0, 0);
 orbit.minDistance = 0;
 orbit.maxDistance = 10;
 
-const [CW, CH, SM = 1] = (urlparams.get('n') || '640x360x3').split('x').map(x => +x);
+let audio = { channels: [] };
+$('#audio').onclick = initAudioMesh;
+
+const [CW, CH, SM = 1] = (urlparams.get('n') || '640x450x4').split('x').map(x => +x);
 const sid = parseFloat('0.' + (urlparams.get('sid') || '')) || Math.random();
 const worker = new Worker('./worker.js', { type: 'module' });
-const { xyzw, rgba } = await generateSplats('string');
 
-const fog = await generateSplatsFn((pos, col) => {
-    let r = Math.random() ** 0.5 * 2;
-    let a = Math.random() * Math.PI * 2;
-    let b = Math.random() * Math.PI * 0.5;
+let gsm0 = await generateSplats('string');
+addInterpolatedMeshes(gsm0);
 
-    pos[0] = r * Math.cos(a) * Math.cos(b);
-    pos[2] = r * Math.sin(a) * Math.cos(b);
-    pos[1] = r * Math.sin(b);
-    pos[3] = 0.3;
+//const fog = await generateSplatsFn((pos, col) => {
+//    let r = Math.random() ** 0.5 * 1.5;
+//    let a = Math.random() * Math.PI * 2;
+//    let b = Math.random() * Math.PI - Math.PI * 0.5;
+//
+//    pos[0] = r * Math.cos(a) * Math.cos(b);
+//    pos[2] = r * Math.sin(a) * Math.cos(b);
+//    pos[1] = r * Math.sin(b);
+//    pos[3] = 0.3;
+//
+//    col[3] = 0.008;
+//}, 1000, 1);
+//appendMesh(fog.xyzw, fog.rgba);
 
-    col[3] = 0.02;
-}, 1000, 1);
-appendMesh(fog.xyzw, fog.rgba);
+function addInterpolatedMeshes(gsm0) {
+    enumerateMeshes(gsm0, (gsm) => {
+        let mesh = appendMesh(gsm);
+        //mesh.recolor = new THREE.Color(3, 3, 3);
+        //mesh.opacity = 0.5; // 1 / SM;
+    });
+}
 
-enumerateMeshes((tmp_xyzw, tmp_rgba) => {
-    let mesh = appendMesh(tmp_xyzw, tmp_rgba);
-    //mesh.recolor = new THREE.Color(3, 3, 3);
-    //mesh.opacity = 0.5; // 1 / SM;
-});
+function splitMeshIntoChunks(gsm, chunk = CW * 512) {
+    let chunks = [];
+    let n = gsm.rgba.length / 4;
 
-function enumerateMeshes(callback) {
-    const tmp_xyzw = xyzw.slice();
-    const tmp_rgba = rgba.slice();
+    for (let i = 0; i < n; i += chunk) {
+        let xyzw = gsm.xyzw.slice(i * 4, (i + chunk) * 4);
+        let rgba = gsm.rgba.slice(i * 4, (i + chunk) * 4);
+        chunks.push({ xyzw, rgba });
+    }
+
+    return chunks;
+}
+
+function enumerateMeshes(gsm0, callback) {
+    const gsm = {};
+
+    gsm.xyzw = gsm0.xyzw.slice();
+    gsm.rgba = gsm0.rgba.slice();
 
     for (let i = 0; i < SM; i++) {
-        interpolateY(tmp_xyzw, xyzw, CW, CH, (i + 0.5) / SM);
-        interpolateY(tmp_rgba, rgba, CW, CH, (i + 0.5) / SM);
-        callback(tmp_xyzw, tmp_rgba, i);
+        interpolateY(gsm.xyzw, gsm0.xyzw, CW, CH, (i + 0.5) / SM);
+        interpolateY(gsm.rgba, gsm0.rgba, CW, CH, (i + 0.5) / SM);
+        callback(gsm, i);
     }
 }
 
-function appendMesh(xyzw, rgba) {
+function appendMesh(gsm) {
     const packedSplats = new PackedSplats({
-        packedArray: packSplats(xyzw, rgba),
+        packedArray: packSplats(gsm),
         //fileBytes: await exportPLY(CW, CH, xyzw, rgba).bytes(),
     });
     const mesh = new SplatMesh({ packedSplats });
     mesh.quaternion.set(1, 0, 0, 0);
     mesh.position.set(0, 0, 0);
     scene.add(mesh);
-    stats.numSplats += rgba.length / 4;
+    stats.numSplats += gsm.rgba.length / 4;
     return mesh;
+}
+
+function clearScene() {
+    scene.children.map(m => scene.remove(m));
+    scene.add(spark);
+    stats.numSplats = 0;
 }
 
 //let sph = await generateSplats('sphere');
@@ -89,7 +121,6 @@ function appendMesh(xyzw, rgba) {
 //appendMesh(fog.xyzw, fog.rgba);
 
 window.scene = scene;
-window.THREE = THREE;
 window.downloadMesh = downloadMesh;
 
 console.log('Total:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
@@ -108,12 +139,24 @@ window.addEventListener('resize', () => {
     setTimeout(resizeCanvas, 50);
 });
 
+let prev = { frame: 0, time: 0 };
+
 renderer.setAnimationLoop((time) => {
     resizeCanvas();
     orbit.update();
     renderer.render(scene, camera);
-    if (isiframe)
+
+    if (isEmbedded)
         scene.rotation.y -= 0.003;
+
+    stats.frameId++;
+    if (time > prev.time + 1000) {
+        stats.fps = (stats.frameId - prev.frame) / (time - prev.time) * 1000;
+        prev.frame = stats.frameId;
+        prev.time = time;
+        if (stats.frameId > 1)
+            document.title = stats.fps.toFixed(0) + ' fps';
+    }
 });
 
 function interpolateY(res, src, w, h, a = 0) {
@@ -137,57 +180,31 @@ function interpolateY(res, src, w, h, a = 0) {
     }
 }
 
-async function downloadMesh(type = 'ply') {
-    let merged_xyzw = new Float32Array(xyzw.length * SM + fog.xyzw.length);
-    let merged_rgba = new Float32Array(rgba.length * SM + fog.rgba.length);
-    enumerateMeshes((x, r, i) => {
-        merged_xyzw.set(x, i * x.length);
-        merged_rgba.set(r, i * r.length);
+async function downloadMesh() {
+    let size = xyzw.length, gsm2 = {};
+
+    gsm2.xyzw = new Float32Array(size * SM);
+    gsm2.rgba = new Float32Array(size * SM);
+
+    enumerateMeshes(gsm0, (gsm, i) => {
+        gsm2.xyzw.set(gsm.xyzw, i * size);
+        gsm2.rgba.set(gsm.rgba, i * size);
         console.log('Generated mesh', i + 1, 'out of', SM);
     });
-    merged_xyzw.set(fog.xyzw, SM * xyzw.length);
-    merged_rgba.set(fog.rgba, SM * rgba.length);
 
     console.log('Creating a .ply file...');
-    const ply = exportPLY(merged_xyzw.length / 4, 1, merged_xyzw, merged_rgba);
+    const ply = exportPLY(gsm2.xyzw.length / 4, 1, gsm2.xyzw, gsm2.rgba);
     console.log('.ply file size:', (ply.size / 1e6).toFixed(1), 'MB');
     check(ply.size > 0);
 
-    if (type == 'ply') {
-        let file = new File([ply], 'soundform.ply');
-        console.log(URL.createObjectURL(file));
-        return;
-    }
-
-    if (type == 'spz') {
-        console.log('Creating a .spz file... (slow)');
-        let res = await transcodeSpz({
-            inputs: [{
-                fileBytes: await ply.bytes(),
-                pathOrUrl: 'soundform.ply',
-            }],
-            maxSh: 0,
-            fractionalBits: 16,
-            opacityThreshold: 0.0001,
-        });
-
-        let spz = new Blob([res.fileBytes],
-            { type: "application/octet-stream" });
-        let file = new File([spz], 'soundform.spz');
-        let url = URL.createObjectURL(file);
-        console.log(url);
-        //let a = document.createElement('a');
-        //a.download = 'soundform.spz';
-        //a.href = url;
-        //a.click();
-        //URL.revokeObjectURL(url);
-    }
+    let file = new File([ply], 'soundform.ply');
+    console.log(URL.createObjectURL(file));
 }
 
 async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
     return new Promise((resolve, reject) => {
         let ts = Date.now();
-        worker.postMessage({ type: 'mesh', name, cw, ch, args: { sid } });
+        worker.postMessage({ type: 'mesh', name, cw, ch, args: { sid, audio } });
         worker.onmessage = (e) => {
             let { xyzw, rgba } = e.data;
             xyzw = new Float32Array(xyzw);
@@ -220,7 +237,7 @@ function generateSplatsFn(fn, w = CW, h = CH) {
 }
 
 // https://sparkjs.dev/docs/packed-splats
-function packSplats(xyzw, rgba) {
+function packSplats({ xyzw, rgba }) {
     let n = xyzw.length / 4;
     let m = Math.ceil(n / 2048) * 2048;
     let sbig = 0;
@@ -264,4 +281,17 @@ function float16(float32) {
     return (b & 0x80000000) >> 16 | (e > 143) * 0x7FFF |
         (e > 112) * ((((e - 112) << 10) & 0x7C00) | m >> 13) |
         ((e < 113) & (e > 101)) * ((((0x007FF000 + m) >> (125 - e)) + 1) >> 1);
+}
+
+async function initAudioMesh() {
+    let blob = await selectAudioFile();
+    if (!blob) return;
+    audio.channels = await decodeAudioFile2(blob);
+    console.log('Opened ' + blob.name + ':',
+        audio.channels.map(ch => ch.length).join(','), 'samples');
+    clearScene();
+    gsm0 = await generateSplats('audio');
+    let chunks = splitMeshIntoChunks(gsm0);
+    console.debug('Mesh split into', chunks.length, 'chunks');
+    chunks.map(gsm => appendMesh(gsm));
 }
