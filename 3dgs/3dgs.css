@@ -32,3 +32,10 @@
   color: inherit;
 }
 
+#fps {
+  position: fixed !important;
+  right: 0 !important;
+  top: 0 !important;
+  left: inherit !important;
+}
+

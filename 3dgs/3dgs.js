@@ -2,6 +2,7 @@ const urlparams = new URLSearchParams(location.search);
 const isEmbedded = urlparams.get('iframe') == '1';
 
 import * as THREE from "three";
+import Stats from '/lib/stats.module.js';
 import { SparkRenderer, SplatMesh, PackedSplats } from "@sparkjsdev/spark";
 import { OrbitControls } from "/lib/OrbitControls.js";
 
@@ -16,7 +17,7 @@ if (!isEmbedded) {
 const imgSize = (urlparams.get('i') || '0x0').split('x').map(x => +x);
 const wsize = (i) => imgSize[i] || (i == 0 ? window.innerWidth : window.innerHeight);
 
-const stats = { numSplats: 0, frameId: 0, fps: 0 };
+const stats = { numSplats: 0 };
 const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, wsize(0) / wsize(1), 0.001, 1000);
@@ -33,6 +34,10 @@ const orbit = new OrbitControls(camera, canvas);
 orbit.target.set(0, 0, 0);
 orbit.minDistance = 0;
 orbit.maxDistance = 10;
+
+const statsUI = new Stats();
+statsUI.domElement.id = 'fps';
+document.body.appendChild(statsUI.domElement);
 
 let audio = { channels: [] };
 $('#audio').onclick = initAudioMesh;
@@ -141,24 +146,14 @@ window.addEventListener('resize', () => {
     setTimeout(resizeCanvas, 50);
 });
 
-let prev = { frame: 0, time: 0 };
-
 renderer.setAnimationLoop((time) => {
     resizeCanvas();
     orbit.update();
+    statsUI.update();
     renderer.render(scene, camera);
 
     if (isEmbedded)
         scene.rotation.y -= 0.003;
-
-    stats.frameId++;
-    if (time > prev.time + 1000) {
-        stats.fps = (stats.frameId - prev.frame) / (time - prev.time) * 1000;
-        prev.frame = stats.frameId;
-        prev.time = time;
-        if (stats.frameId > 1)
-            document.title = stats.fps.toFixed(0) + ' fps';
-    }
 });
 
 function interpolateY(res, src, w, h, a = 0) {
