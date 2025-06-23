@@ -104,7 +104,7 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j) {
     rgba[p * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[0]));
     rgba[p * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[1]));
     rgba[p * 4 + 2] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[2]));
-    rgba[p * 4 + 3] = 0.5; // opacity
+    rgba[p * 4 + 3] = 1.0; // opacity
 }
 
 export function createMesh(w, h, { sid } = {}) {

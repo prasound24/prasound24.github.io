@@ -2,9 +2,12 @@ const urlparams = new URLSearchParams(location.search);
 const isEmbedded = urlparams.get('iframe') == '1';
 
 import * as THREE from "three";
-import Stats from '/lib/stats.module.js';
+import Stats from 'three/addons/libs/stats.module.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { SparkRenderer, SplatMesh, PackedSplats } from "@sparkjsdev/spark";
-import { OrbitControls } from "/lib/OrbitControls.js";
 
 import { $, mix, clamp, check, fract, selectAudioFile, decodeAudioFile2 } from '../lib/utils.js'
 import { exportPLY } from "../lib/ply.js";
@@ -25,10 +28,44 @@ camera.position.set(1, 1, 1);
 const renderer = new THREE.WebGLRenderer({ canvas });
 renderer.setSize(wsize(0), wsize(1), false);
 
-const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
+const spark = new SparkRenderer({ renderer, maxStdDev: 3.5 });
 scene.add(spark);
 //scene.add(camera);
 //camera.add(spark);
+
+const composer = new EffectComposer(renderer);
+const shaderPass = new ShaderPass({
+    uniforms: {
+        tDiffuse: { value: null },
+    },
+    vertexShader: `
+        out vec2 vUv;
+
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }`,
+    fragmentShader: `
+        uniform float amount;
+        uniform sampler2D tDiffuse;
+        in vec2 vUv;
+
+        float vignette() {
+            vec2 uv = vUv;
+            uv.xy *= 1. - uv.yx;
+            float v = uv.x * uv.y * 15.0;
+            return pow(v, 0.125);
+        }
+
+        void main() {
+          vec4 o = texture(tDiffuse, vUv);
+          o = tanh(o*o)*vignette();
+          o.a = 1.0;
+          gl_FragColor = o;
+        }`,
+});
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(shaderPass);
 
 const orbit = new OrbitControls(camera, canvas);
 orbit.target.set(0, 0, 0);
@@ -37,7 +74,8 @@ orbit.maxDistance = 10;
 
 const statsUI = new Stats();
 statsUI.domElement.id = 'fps';
-document.body.appendChild(statsUI.domElement);
+if (!isEmbedded)
+    document.body.appendChild(statsUI.domElement);
 
 let audio = { channels: [] };
 $('#audio').onclick = initAudioMesh;
@@ -50,18 +88,21 @@ let gsm0 = await generateSplats('string');
 addInterpolatedMeshes(gsm0);
 
 //const fog = await generateSplatsFn((pos, col) => {
-//    let r = Math.random() ** 0.5 * 1.5;
+//    let r = Math.random() ** 0.5 * 2;
 //    let a = Math.random() * Math.PI * 2;
-//    let b = Math.random() * Math.PI - Math.PI * 0.5;
+//    let b = Math.random() * Math.PI / 2;
 //
 //    pos[0] = r * Math.cos(a) * Math.cos(b);
 //    pos[2] = r * Math.sin(a) * Math.cos(b);
 //    pos[1] = r * Math.sin(b);
-//    pos[3] = 0.3;
+//    pos[3] = 0.2;
 //
-//    col[3] = 0.008;
+//    col[0] = 0.02;
+//    col[1] = 0.02;
+//    col[2] = 0.02;
+//    col[3] = 0.01;
 //}, 1000, 1);
-//appendMesh(fog.xyzw, fog.rgba);
+//appendMesh(fog);
 
 function addInterpolatedMeshes(gsm0) {
     enumerateMeshes(gsm0, (gsm) => {
@@ -147,13 +188,13 @@ window.addEventListener('resize', () => {
 });
 
 renderer.setAnimationLoop((time) => {
+    if (isEmbedded)
+        scene.rotation.y = time / 1000 * 0.1;
     resizeCanvas();
     orbit.update();
     statsUI.update();
-    renderer.render(scene, camera);
-
-    if (isEmbedded)
-        scene.rotation.y -= 0.003;
+    //renderer.render(scene, camera);
+    composer.render();
 });
 
 function interpolateY(res, src, w, h, a = 0) {
