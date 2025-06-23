@@ -7,15 +7,17 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { SparkRenderer, SplatMesh, PackedSplats } from "@sparkjsdev/spark";
+import { SparkRenderer, SplatMesh, PackedSplats, dyno } from "@sparkjsdev/spark";
 
-import { $, mix, clamp, check, fract, selectAudioFile, decodeAudioFile2 } from '../lib/utils.js'
+import { $, mix, clamp, check, fract, selectAudioFile, decodeAudioFile2, DEBUG } from '../lib/utils.js'
 import { exportPLY } from "../lib/ply.js";
 
 if (!isEmbedded) {
     $('h1').style.display = '';
     $('.wave_spanner').style.display = '';
 }
+
+document.body.classList.toggle('debug', DEBUG);
 
 const imgSize = (urlparams.get('i') || '0x0').split('x').map(x => +x);
 const wsize = (i) => imgSize[i] || (i == 0 ? window.innerWidth : window.innerHeight);
@@ -32,6 +34,40 @@ const spark = new SparkRenderer({ renderer, maxStdDev: 3.5 });
 scene.add(spark);
 //scene.add(camera);
 //camera.add(spark);
+
+import { basicSetup } from "/lib/codemirror/codemirror.js";
+import { EditorView } from "/lib/codemirror/@codemirror_view.js";
+import * as langGLSL from "/lib/codemirror/codemirror-lang-glsl.js";
+
+const editor = new EditorView({
+    doc: dyno.unindent(`
+        void mainObjectModifier(inout Gsplat gs, float time) {
+            // gs.rgba, gs.center, gs.scales, gs.index
+        }`),
+    parent: $('#codemirror'),
+    extensions: [basicSetup, langGLSL.glsl()],
+});
+
+const animateT = dyno.dynoFloat(0);
+const objectModifier = dyno.dynoBlock(
+    { gsplat: dyno.Gsplat },
+    { gsplat: dyno.Gsplat },
+    ({ gsplat }) => {
+        const d = new dyno.Dyno({
+            inTypes: { gsplat: dyno.Gsplat, time: "float" },
+            outTypes: { gsplat: dyno.Gsplat },
+            globals: () => [
+                dyno.unindent(editor.state.doc.toString())
+            ],
+            statements: ({ inputs, outputs }) => dyno.unindentLines(`
+                ${outputs.gsplat} = ${inputs.gsplat};
+                mainObjectModifier(${outputs.gsplat}, ${inputs.time});
+            `),
+        });
+        gsplat = d.apply({ gsplat, time: animateT }).gsplat;
+        return { gsplat };
+    },
+);
 
 const composer = new EffectComposer(renderer);
 const shaderPass = new ShaderPass({
@@ -146,9 +182,12 @@ function appendMesh(gsm) {
         //fileBytes: await exportPLY(CW, CH, xyzw, rgba).bytes(),
     });
     const mesh = new SplatMesh({ packedSplats });
-    mesh.quaternion.set(1, 0, 0, 0);
-    mesh.position.set(0, 0, 0);
+    mesh.soundform = true;
+    mesh.objectModifier = objectModifier;
+    //mesh.quaternion.set(1, 0, 0, 0);
+    //mesh.position.set(0, 0, 0);
     scene.add(mesh);
+    mesh.updateGenerator();
     stats.numSplats += gsm.rgba.length / 4;
     return mesh;
 }
@@ -168,8 +207,8 @@ function clearScene() {
 //}, 1);
 //appendMesh(fog.xyzw, fog.rgba);
 
-window.scene = scene;
-window.downloadMesh = downloadMesh;
+//window.scene = scene;
+//window.downloadMesh = downloadMesh;
 
 console.log('Total:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
 
@@ -190,11 +229,19 @@ window.addEventListener('resize', () => {
 renderer.setAnimationLoop((time) => {
     if (isEmbedded)
         scene.rotation.y = time / 1000 * 0.1;
+
+    animateT.value = time / 1000;
+    scene.children.map(m => m.soundform && m.updateVersion());
     resizeCanvas();
     orbit.update();
     statsUI.update();
     //renderer.render(scene, camera);
     composer.render();
+});
+
+editor.dom.addEventListener('focusout', (e) => {
+    console.log('Updating SplatMesh GLSL...');
+    scene.children.map(m => m.soundform && m.updateGenerator());
 });
 
 function interpolateY(res, src, w, h, a = 0) {
