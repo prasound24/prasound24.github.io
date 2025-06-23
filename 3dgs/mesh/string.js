@@ -80,7 +80,7 @@ dd = [0.2, 0.3, 0.6]; // yellow-blue
 console.debug('Color palette:',
     'dd:', dd.map(x => x.toFixed(2)).join(','));
 
-function genMesh(xyzw, rgba, str4, CW, CH, i, j) {
+function genMesh(xyzw, rgba, str4, CW, CH, i, j, radius = 1) {
     let p = j * CW + i;
     let q = (j > 0 ? j - 1 : 1) * CW + i;
 
@@ -94,7 +94,7 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j) {
     let y0 = s * str4[q * 4 + 1];
     let z0 = s * str4[q * 4 + 2];
 
-    let r = 3 * s; // / Math.exp(0.03 * CH * Math.hypot(x - x0, y - y0, z - z0));
+    let r = radius * s; // / Math.exp(0.03 * CH * Math.hypot(x - x0, y - y0, z - z0));
 
     xyzw[p * 4 + 0] = x;
     xyzw[p * 4 + 2] = y;
@@ -107,7 +107,7 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j) {
     rgba[p * 4 + 3] = 1.0; // opacity
 }
 
-export function createMesh(w, h, { sid } = {}) {
+export function createMesh(w, h, { sid, r } = {}) {
     let str4 = new Float32Array(w * h * 4);
 
     for (let y = 0; y < 2; y++)
@@ -129,7 +129,7 @@ export function createMesh(w, h, { sid } = {}) {
 
     for (let y = 0; y < h; y++)
         for (let x = 0; x < w; x++)
-            genMesh(xyzw, rgba, str4, w, h, x, y);
+            genMesh(xyzw, rgba, str4, w, h, x, y, r);
 
     return { xyzw, rgba };
 }

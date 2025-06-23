@@ -17,8 +17,10 @@ if (!isEmbedded) {
     $('.wave_spanner').style.display = '';
 }
 
-document.body.classList.toggle('debug', DEBUG);
+document.body.classList.toggle('debug', DEBUG && !isEmbedded);
 
+const sphRadius = +urlparams.get('r') || 3.0;
+const camDist = +urlparams.get('cam') || 1.0;
 const imgSize = (urlparams.get('i') || '0x0').split('x').map(x => +x);
 const wsize = (i) => imgSize[i] || (i == 0 ? window.innerWidth : window.innerHeight);
 
@@ -26,7 +28,7 @@ const stats = { numSplats: 0 };
 const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, wsize(0) / wsize(1), 0.001, 1000);
-camera.position.set(1, 1, 1);
+camera.position.set(camDist, camDist, camDist);
 const renderer = new THREE.WebGLRenderer({ canvas });
 renderer.setSize(wsize(0), wsize(1), false);
 
@@ -231,7 +233,7 @@ window.addEventListener('resize', () => {
 
 renderer.setAnimationLoop((time) => {
     if (isEmbedded)
-        scene.rotation.y = time / 1000 * 0.1;
+        scene.rotation.y = -time / 1000 * 0.1;
 
     animateT.value = time / 1000;
     scene.children.map(m => m.soundform && m.updateVersion());
@@ -292,7 +294,7 @@ async function downloadMesh() {
 async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
     return new Promise((resolve, reject) => {
         let ts = Date.now();
-        worker.postMessage({ type: 'mesh', name, cw, ch, args: { sid, audio } });
+        worker.postMessage({ type: 'mesh', name, cw, ch, args: { sid, audio, r: sphRadius } });
         worker.onmessage = (e) => {
             let { xyzw, rgba } = e.data;
             xyzw = new Float32Array(xyzw);
