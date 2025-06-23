@@ -211,6 +211,7 @@ function clearScene() {
 
 //window.scene = scene;
 //window.downloadMesh = downloadMesh;
+$('#download').onclick = () => downloadMesh();
 
 console.log('Total:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
 
@@ -268,7 +269,7 @@ function interpolateY(res, src, w, h, a = 0) {
 }
 
 async function downloadMesh() {
-    let size = xyzw.length, gsm2 = {};
+    let size = gsm0.xyzw.length, gsm2 = {};
 
     gsm2.xyzw = new Float32Array(size * SM);
     gsm2.rgba = new Float32Array(size * SM);
@@ -355,7 +356,7 @@ function packSplats({ xyzw, rgba }) {
         bytes[i * 16 + 14] = logs; //  Z scale
     }
 
-    if (sbig > 1000)
+    if (sbig > 1500)
         throw new Error('Too many big splats: ' + sbig);
 
     return new Uint32Array(data.buffer);

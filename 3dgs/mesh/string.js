@@ -74,9 +74,9 @@ function moveStr(tmp, xyzw, w, h, x, y) {
 }
 
 let rand = () => Math.random();
-//let dd = [rand(), rand(), rand()];
-//let dd = [0.2, 0.3, 0.6]; // yellow-blue
-let dd = [0.55,0.34,0.22]; // red-blue
+let dd = [rand(), rand(), rand()];
+dd = [0.2, 0.3, 0.6]; // yellow-blue
+//dd = [0.55,0.34,0.22]; // red-blue
 console.debug('Color palette:',
     'dd:', dd.map(x => x.toFixed(2)).join(','));
 
