@@ -42,7 +42,7 @@ import * as langGLSL from "/lib/codemirror/codemirror-lang-glsl.js";
 const editor = new EditorView({
     doc: dyno.unindent(`
         void mainObjectModifier(inout Gsplat gs, float time) {
-            // gs.rgba, gs.center, gs.scales, gs.index
+          // gs.rgba, gs.center, gs.scales, gs.index
         }`),
     parent: $('#codemirror'),
     extensions: [basicSetup, langGLSL.glsl()],
@@ -116,9 +116,11 @@ if (!isEmbedded)
 let audio = { channels: [] };
 $('#audio').onclick = initAudioMesh;
 
-const [CW, CH, SM = 1] = (urlparams.get('n') || '640x450x4').split('x').map(x => +x);
+const [CW, CH, SM = 1] = (urlparams.get('n') || '640x450x3').split('x').map(x => +x);
 const sid = parseFloat('0.' + (urlparams.get('sid') || '')) || Math.random();
 const worker = new Worker('./worker.js', { type: 'module' });
+
+console.log('Mesh size:', CW + 'x' + CH, 'with', SM, 'steps');
 
 let gsm0 = await generateSplats('string');
 addInterpolatedMeshes(gsm0);

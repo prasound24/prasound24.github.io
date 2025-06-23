@@ -1,7 +1,7 @@
 const fract = (x) => x - Math.floor(x);
 
 function initStr(xyzw, w, h, x, y, sid = 0) {
-    let num = 3;
+    let num = 2 + (sid * 4 | 0);
     let phi = Math.PI * 2 * x / w;
 
     let px = Math.cos(phi);
@@ -94,7 +94,7 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j) {
     let y0 = s * str4[q * 4 + 1];
     let z0 = s * str4[q * 4 + 2];
 
-    let r = 3 * s / Math.exp(0.03 * CH * Math.hypot(x - x0, y - y0, z - z0));
+    let r = 3 * s; // / Math.exp(0.03 * CH * Math.hypot(x - x0, y - y0, z - z0));
 
     xyzw[p * 4 + 0] = x;
     xyzw[p * 4 + 2] = y;
