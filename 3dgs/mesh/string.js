@@ -47,6 +47,7 @@ function moveStr(tmp, xyzw, w, h, x, y) {
     if (tmp.length == 0)
         for (let i = 0; i < 6; i++)
             tmp[i] = vec4();
+
     let [c, l, r, ll, rr, d] = tmp;
 
     tex(c, xyzw, w, h, x, y);
@@ -62,10 +63,13 @@ function moveStr(tmp, xyzw, w, h, x, y) {
     mul(ll, 1.0 / dot(ll, c));
     mul(rr, 1.0 / dot(rr, c));
 
+    let dx2 = (1 / w) ** 2;
+    let dt2 = (1 / h) ** 2;
+
     for (let i = 0; i < 4; i++) {
         let ds = c[i] - d[i];
-        ds += 0.5 * (l[i] + r[i] - c[i] * 2);
-        ds -= 0.1 * (ll[i] + rr[i] - (l[i] + r[i]) * 4 + c[i] * 6);
+        ds += (0.25 * dt2 / dx2) * (l[i] + r[i] - c[i] * 2);
+        //ds -= (5e-8 * dt2 / dx2 / dx2) * (ll[i] + rr[i] - (l[i] + r[i]) * 4 + c[i] * 6);
         c[i] += ds;
     }
 
@@ -75,8 +79,8 @@ function moveStr(tmp, xyzw, w, h, x, y) {
 
 let rand = () => Math.random();
 let dd = [rand(), rand(), rand()];
-dd = [0.2, 0.3, 0.6]; // yellow-blue
-//dd = [0.55,0.34,0.22]; // red-blue
+//dd = [0.2, 0.3, 0.6]; // yellow-blue
+dd = [0.55,0.34,0.22]; // red-blue
 console.debug('Color palette:',
     'dd:', dd.map(x => x.toFixed(2)).join(','));
 

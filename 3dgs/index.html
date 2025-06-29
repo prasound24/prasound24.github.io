@@ -23,8 +23,8 @@
 
   <div id="controls">
     <span id="spark">3DGS powered by <a href="https://sparkjs.dev">Spark</a></span>
-    <button id="audio" class="debug"><img src="/img/ico/mic.png"></button>
-    <button id="download" class="debug"><img src="/img/ico/file.png"></button>
+    <button id="audio" title="Upload audio" class="debug"><img src="/img/ico/mic.png"></button>
+    <button id="download" title="Download .PLY" class="debug"><img src="/img/ico/file.png"></button>
   </div>
 
   <script type="importmap">
@@ -32,7 +32,10 @@
       "imports": {
         "three": "/lib/three/three.module.js",
         "three/addons/": "/lib/three/examples/jsm/",
-        "@sparkjsdev/spark": "/lib/spark.module.js"
+        "@sparkjsdev/spark": "/lib/spark.module.js",
+        "@codemirror/view": "/lib/codemirror/@codemirror_view.js",
+        "@codemirror/language": "/lib/codemirror/chunk-MED5PSS5.js",
+        "@lezer/highlight": "/lib/codemirror/chunk-MED5PSS5.js"
       }
     }
   </script>

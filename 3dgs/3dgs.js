@@ -19,7 +19,7 @@ if (!isEmbedded) {
 
 document.body.classList.toggle('debug', DEBUG && !isEmbedded);
 
-const sphRadius = +urlparams.get('r') || 3.0;
+const sphRadius = +urlparams.get('r') || 1.0;
 const camDist = +urlparams.get('cam') || 1.0;
 const imgSize = (urlparams.get('i') || '0x0').split('x').map(x => +x);
 const wsize = (i) => imgSize[i] || (i == 0 ? window.innerWidth : window.innerHeight);
@@ -29,10 +29,10 @@ const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, wsize(0) / wsize(1), 0.001, 1000);
 camera.position.set(camDist, camDist, camDist);
-const renderer = new THREE.WebGLRenderer({ canvas });
+const renderer = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true });
 renderer.setSize(wsize(0), wsize(1), false);
 
-const spark = new SparkRenderer({ renderer, maxStdDev: 3.5 });
+const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
 scene.add(spark);
 //scene.add(camera);
 //camera.add(spark);
@@ -40,14 +40,15 @@ scene.add(spark);
 import { basicSetup } from "/lib/codemirror/codemirror.js";
 import { EditorView } from "/lib/codemirror/@codemirror_view.js";
 import * as langGLSL from "/lib/codemirror/codemirror-lang-glsl.js";
+import * as darkTheme from "/lib/codemirror/codemirror-theme-one-dark.js";
 
 const editor = new EditorView({
     doc: dyno.unindent(`
         void mainObjectModifier(inout Gsplat gs, float time) {
-          // gs.rgba, gs.center, gs.scales, gs.index
+          // gs.rgba, gs.center, gs.scales, gs.quaternion, gs.index
         }`),
     parent: $('#codemirror'),
-    extensions: [basicSetup, langGLSL.glsl()],
+    extensions: [basicSetup, langGLSL.glsl(), darkTheme.oneDark],
 });
 
 const animateT = dyno.dynoFloat(0);
@@ -105,10 +106,10 @@ const shaderPass = new ShaderPass({
 composer.addPass(new RenderPass(scene, camera));
 composer.addPass(shaderPass);
 
-const orbit = new OrbitControls(camera, canvas);
-orbit.target.set(0, 0, 0);
-orbit.minDistance = 0;
-orbit.maxDistance = 10;
+const controls = new OrbitControls(camera, canvas);
+//controls.target.set(0, 0, 0);
+controls.minDistance = 0;
+controls.maxDistance = 10;
 
 const statsUI = new Stats();
 statsUI.domElement.id = 'fps';
@@ -232,13 +233,15 @@ window.addEventListener('resize', () => {
 });
 
 renderer.setAnimationLoop((time) => {
+    if (!controls.enabled)
+        return;
     if (isEmbedded)
         scene.rotation.y = -time / 1000 * 0.1;
 
     animateT.value = time / 1000;
     scene.children.map(m => m.soundform && m.updateVersion());
     resizeCanvas();
-    orbit.update();
+    controls.update();
     statsUI.update();
     //renderer.render(scene, camera);
     composer.render();
@@ -247,6 +250,11 @@ renderer.setAnimationLoop((time) => {
 editor.dom.addEventListener('focusout', (e) => {
     console.log('Updating SplatMesh GLSL...');
     scene.children.map(m => m.soundform && m.updateGenerator());
+});
+
+canvas.addEventListener('dblclick', (e) => {
+    if (e.target == canvas)
+        controls.enabled = !controls.enabled;
 });
 
 function interpolateY(res, src, w, h, a = 0) {

@@ -38,7 +38,3 @@
   top: 0 !important;
   left: inherit !important;
 }
-
-#codemirror .cm-gutters, #codemirror .cm-activeLineGutter {
-  background-color: #555;
-}
