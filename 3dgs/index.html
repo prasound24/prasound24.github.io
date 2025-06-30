@@ -22,10 +22,82 @@
   <code id="codemirror" class="debug"></code>
 
   <div id="controls">
-    <span id="spark">3DGS powered by <a href="https://sparkjs.dev">Spark</a></span>
     <button id="audio" title="Upload audio" class="debug"><img src="/img/ico/mic.png"></button>
     <button id="download" title="Download .PLY" class="debug"><img src="/img/ico/file.png"></button>
   </div>
+
+  <script id="vert-glsl" type="x-shader/x-vertex">
+    out vec2 vUv;
+
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+    }
+  </script>
+
+  <script id="blur-glsl" type="x-shader/x-fragment">
+    uniform sampler2D tDiffuse;
+    uniform  float iTime;
+    in vec2 vUv;
+    
+    float hash( vec2 p ) {
+      return fract(sin(dot(p, vec2(41, 289)))*45758.5453);
+    }
+ 
+    vec4 radialBlur(sampler2D img, vec2 uv) {
+        float SAMPLES = 24.;
+        float decay = 0.97; 
+        float density = 0.5; 
+        float weight = 0.1; 
+        
+        vec2 tuv =  uv - .5;
+        vec2 dTuv = tuv*density/SAMPLES;
+        vec4 col = texture(img, uv);
+        uv += dTuv*(hash(uv + fract(iTime))*2. - 1.);
+        
+        for(float i = 0.; i < SAMPLES; i++){
+            uv -= dTuv;
+            vec4 src = texture(img, uv);
+            col += weight * pow(src, vec4(8));
+            weight *= decay;
+        }
+        
+        col *= 1. - dot(tuv, tuv)*.75;
+        return sqrt(smoothstep(0., 1., col));
+    }
+
+    void main() {
+      gl_FragColor = radialBlur(tDiffuse, vUv);
+    }
+  </script>
+
+  <script id="vignette-glsl" type="x-shader/x-fragment">
+    uniform sampler2D tDiffuse;
+    in vec2 vUv;
+
+    float vignette() {
+        vec2 uv = vUv;
+        uv.xy *= 1. - uv.yx;
+        float v = uv.x * uv.y * 15.0;
+        return pow(v, 0.125);
+    }
+
+    void main() {
+      vec4 o = texture(tDiffuse, vUv);
+      gl_FragColor = o*vignette();
+      gl_FragColor.a = 1.0;
+    }
+  </script>
+
+  <script id="tonemapping-glsl" type="x-shader/x-fragment">
+    uniform sampler2D tDiffuse;
+    in vec2 vUv;
+
+    void main() {
+      vec4 o = texture(tDiffuse, vUv);
+      gl_FragColor = tanh(o*o);
+    }
+  </script>
 
   <script type="importmap">
     {

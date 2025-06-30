@@ -77,14 +77,7 @@ function moveStr(tmp, xyzw, w, h, x, y) {
     return c;
 }
 
-let rand = () => Math.random();
-let dd = [rand(), rand(), rand()];
-//dd = [0.2, 0.3, 0.6]; // yellow-blue
-dd = [0.55,0.34,0.22]; // red-blue
-console.debug('Color palette:',
-    'dd:', dd.map(x => x.toFixed(2)).join(','));
-
-function genMesh(xyzw, rgba, str4, CW, CH, i, j, radius = 1) {
+function genMesh(xyzw, rgba, str4, CW, CH, i, j, dd, radius = 1) {
     let p = j * CW + i;
     let q = (j > 0 ? j - 1 : 1) * CW + i;
 
@@ -111,7 +104,7 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j, radius = 1) {
     rgba[p * 4 + 3] = 1.0; // opacity
 }
 
-export function createMesh(w, h, { sid, r } = {}) {
+export function createMesh(w, h, { sid, r, rgb } = {}) {
     let str4 = new Float32Array(w * h * 4);
 
     for (let y = 0; y < 2; y++)
@@ -133,7 +126,7 @@ export function createMesh(w, h, { sid, r } = {}) {
 
     for (let y = 0; y < h; y++)
         for (let x = 0; x < w; x++)
-            genMesh(xyzw, rgba, str4, w, h, x, y, r);
+            genMesh(xyzw, rgba, str4, w, h, x, y, rgb, r);
 
     return { xyzw, rgba };
 }

@@ -1,5 +1,11 @@
 const urlparams = new URLSearchParams(location.search);
 const isEmbedded = urlparams.get('iframe') == '1';
+const [CW, CH, SM = 1] = (urlparams.get('n') || '200x200x5').split('x').map(x => +x);
+const sid = parseFloat('0.' + (urlparams.get('sid') || '')) || Math.random();
+const sphRadius = +urlparams.get('r') || 1.5;
+const camDist = +urlparams.get('cam') || 1.5;
+const colRGB = (urlparams.get('c') || '0.15,0.27,0.33').split(',').map(x => +x);
+const imgSize = (urlparams.get('i') || '0x0').split('x').map(x => +x);
 
 import * as THREE from "three";
 import Stats from 'three/addons/libs/stats.module.js';
@@ -19,21 +25,23 @@ if (!isEmbedded) {
 
 document.body.classList.toggle('debug', DEBUG && !isEmbedded);
 
-const sphRadius = +urlparams.get('r') || 1.0;
-const camDist = +urlparams.get('cam') || 1.0;
-const imgSize = (urlparams.get('i') || '0x0').split('x').map(x => +x);
-const wsize = (i) => imgSize[i] || (i == 0 ? window.innerWidth : window.innerHeight);
+const img = {
+    get width() { return imgSize[0] || window.innerWidth; },
+    get height() { return imgSize[1] || window.innerHeight; },
+};
+
+console.debug('Color palette:', colRGB.map(x => x.toFixed(2)).join(','));
 
 const stats = { numSplats: 0 };
 const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, wsize(0) / wsize(1), 0.001, 1000);
+const camera = new THREE.PerspectiveCamera(60, img.width / img.height, 0.001, 1000);
 camera.position.set(camDist, camDist, camDist);
 const renderer = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true });
-renderer.setSize(wsize(0), wsize(1), false);
+renderer.setSize(img.width, img.height, false);
 
-const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
-scene.add(spark);
+//const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
+//scene.add(spark);
 //scene.add(camera);
 //camera.add(spark);
 
@@ -73,38 +81,32 @@ const objectModifier = dyno.dynoBlock(
 );
 
 const composer = new EffectComposer(renderer);
-const shaderPass = new ShaderPass({
+const tonemappingPass = new ShaderPass({
     uniforms: {
         tDiffuse: { value: null },
     },
-    vertexShader: `
-        out vec2 vUv;
-
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-        }`,
-    fragmentShader: `
-        uniform float amount;
-        uniform sampler2D tDiffuse;
-        in vec2 vUv;
-
-        float vignette() {
-            vec2 uv = vUv;
-            uv.xy *= 1. - uv.yx;
-            float v = uv.x * uv.y * 15.0;
-            return pow(v, 0.125);
-        }
-
-        void main() {
-          vec4 o = texture(tDiffuse, vUv);
-          o = tanh(o*o)*vignette();
-          o.a = 1.0;
-          gl_FragColor = o;
-        }`,
+    vertexShader: $('#vert-glsl').textContent,
+    fragmentShader: $('#tonemapping-glsl').textContent,
+});
+const blurPass = new ShaderPass({
+    uniforms: {
+        tDiffuse: { value: null },
+        iTime: { value: 0 },
+    },
+    vertexShader: $('#vert-glsl').textContent,
+    fragmentShader: $('#blur-glsl').textContent,
+});
+const vignettePass = new ShaderPass({
+    uniforms: {
+        tDiffuse: { value: null },
+    },
+    vertexShader: $('#vert-glsl').textContent,
+    fragmentShader: $('#vignette-glsl').textContent,
 });
 composer.addPass(new RenderPass(scene, camera));
-composer.addPass(shaderPass);
+composer.addPass(tonemappingPass);
+composer.addPass(blurPass);
+composer.addPass(vignettePass);
 
 const controls = new OrbitControls(camera, canvas);
 //controls.target.set(0, 0, 0);
@@ -119,8 +121,6 @@ if (!isEmbedded)
 let audio = { channels: [] };
 $('#audio').onclick = initAudioMesh;
 
-const [CW, CH, SM = 1] = (urlparams.get('n') || '640x450x3').split('x').map(x => +x);
-const sid = parseFloat('0.' + (urlparams.get('sid') || '')) || Math.random();
 const worker = new Worker('./worker.js', { type: 'module' });
 
 console.log('Mesh size:', CW + 'x' + CH, 'with', SM, 'steps');
@@ -128,21 +128,21 @@ console.log('Mesh size:', CW + 'x' + CH, 'with', SM, 'steps');
 let gsm0 = await generateSplats('string');
 addInterpolatedMeshes(gsm0);
 
-//const fog = await generateSplatsFn((pos, col) => {
-//    let r = Math.random() ** 0.5 * 2;
-//    let a = Math.random() * Math.PI * 2;
-//    let b = Math.random() * Math.PI / 2;
-//
-//    pos[0] = r * Math.cos(a) * Math.cos(b);
-//    pos[2] = r * Math.sin(a) * Math.cos(b);
-//    pos[1] = r * Math.sin(b);
-//    pos[3] = 0.2;
-//
-//    col[0] = 0.02;
-//    col[1] = 0.02;
-//    col[2] = 0.02;
-//    col[3] = 0.01;
-//}, 1000, 1);
+const fog = await generateSplatsFn((pos, col) => {
+    let r = Math.random() ** 0.5 * 2;
+    let a = Math.random() * Math.PI * 2;
+    let b = Math.random() * Math.PI - Math.PI / 2;
+
+    pos[0] = r * Math.cos(a) * Math.cos(b);
+    pos[2] = r * Math.sin(a) * Math.cos(b);
+    pos[1] = r * Math.sin(b);
+    pos[3] = 0.3;
+
+    col[0] = 0.01;
+    col[1] = 0.01;
+    col[2] = 0.01;
+    col[3] = 0.01;
+}, 1500, 1);
 //appendMesh(fog);
 
 function addInterpolatedMeshes(gsm0) {
@@ -219,7 +219,7 @@ $('#download').onclick = () => downloadMesh();
 console.log('Total:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
 
 function resizeCanvas() {
-    const w = wsize(0), h = wsize(1);
+    const w = img.width, h = img.height;
 
     if (w != canvas.width || h != canvas.height) {
         renderer.setSize(w, h, false);
@@ -244,6 +244,7 @@ renderer.setAnimationLoop((time) => {
     controls.update();
     statsUI.update();
     //renderer.render(scene, camera);
+    blurPass.uniforms.iTime.value = time / 1000;
     composer.render();
 });
 
@@ -302,7 +303,7 @@ async function downloadMesh() {
 async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
     return new Promise((resolve, reject) => {
         let ts = Date.now();
-        worker.postMessage({ type: 'mesh', name, cw, ch, args: { sid, audio, r: sphRadius } });
+        worker.postMessage({ type: 'mesh', name, cw, ch, args: { sid, audio, r: sphRadius, rgb: colRGB } });
         worker.onmessage = (e) => {
             let { xyzw, rgba } = e.data;
             xyzw = new Float32Array(xyzw);
