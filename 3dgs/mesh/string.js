@@ -1,21 +1,19 @@
 const fract = (x) => x - Math.floor(x);
 
-function initStr(xyzw, w, h, x, y, sid = 0) {
+function initStr(xyzw, w, h, x, y, amps, sid = 0) {
     let num = 2 + (sid * 4 | 0);
     let phi = Math.PI * 2 * x / w;
 
     let px = Math.cos(phi);
     let py = Math.sin(phi);
     let pz = 0;
-    let pw = 0;
+    let pw = 0.5;
 
-    for (let s = 1; s <= 3; s += 1) {
-        let rnd = fract(Math.sin((sid - 0.5) * s * Math.PI * 2)) - 0.5;
+    for (let s = 0; s < amps.length; s++) {
         let arg = phi * num * s;
-        arg += 0.01 * rnd;
-        let amp = 10 * rnd * Math.exp(-s);
-        pz += amp * Math.cos(arg);
-        pw += amp * Math.sin(arg);
+        arg += 0.02 * Math.exp(-s);
+        pz += amps[s] * Math.cos(arg);
+        pw += amps[s] * Math.sin(arg);
     }
 
     px *= Math.cos(pz);
@@ -79,24 +77,18 @@ function moveStr(tmp, xyzw, w, h, x, y) {
 
 function genMesh(xyzw, rgba, str4, CW, CH, i, j, dd, radius = 1) {
     let p = j * CW + i;
-    let q = (j > 0 ? j - 1 : 1) * CW + i;
-
     let t = j / CH;
-    let s = t / (1.25 + str4[p * 4 + 3]);
+    let w = str4[p * 4 + 3];
+    let s = t / (1.1 + w);
     let x = s * str4[p * 4 + 0];
     let y = s * str4[p * 4 + 1];
     let z = s * str4[p * 4 + 2];
-
-    let x0 = s * str4[q * 4 + 0];
-    let y0 = s * str4[q * 4 + 1];
-    let z0 = s * str4[q * 4 + 2];
-
-    let r = radius * s; // / Math.exp(0.03 * CH * Math.hypot(x - x0, y - y0, z - z0));
+    let r = radius * s;
 
     xyzw[p * 4 + 0] = x;
     xyzw[p * 4 + 2] = y;
     xyzw[p * 4 + 1] = z;
-    xyzw[p * 4 + 3] = r / CH; // size
+    xyzw[p * 4 + 3] = r / Math.hypot(CW, CH); // size
 
     rgba[p * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[0]));
     rgba[p * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[1]));
@@ -106,10 +98,18 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j, dd, radius = 1) {
 
 export function createMesh(w, h, { sid, r, rgb } = {}) {
     let str4 = new Float32Array(w * h * 4);
+    let amps = new Float32Array(4);
+
+    for (let s = 1; s < amps.length; s++) {
+        let rnd = fract(Math.sin((sid - 0.5) * s * Math.PI * 2)) - 0.5;
+        amps[s] = 10 * rnd * Math.exp(-s);
+    }
+
+    console.debug('String amps:', [...amps].map(a => a.toFixed(2)).join(','));
 
     for (let y = 0; y < 2; y++)
         for (let x = 0; x < w; x++)
-            initStr(str4, w, h, x, y, sid);
+            initStr(str4, w, h, x, y, amps, sid);
 
     let tmp = [];
 

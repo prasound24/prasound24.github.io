@@ -1,6 +1,7 @@
 const urlparams = new URLSearchParams(location.search);
 const isEmbedded = urlparams.get('iframe') == '1';
-const [CW, CH, SM = 1] = (urlparams.get('n') || '200x200x5').split('x').map(x => +x);
+const [CW, CH] = (urlparams.get('n') || '200x200').split('x').map(x => +x);
+const SM = +urlparams.get('sm') || 5;
 const sid = parseFloat('0.' + (urlparams.get('sid') || '')) || Math.random();
 const sphRadius = +urlparams.get('r') || 1.5;
 const camDist = +urlparams.get('cam') || 1.5;
@@ -37,13 +38,11 @@ const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, img.width / img.height, 0.001, 1000);
 camera.position.set(camDist, camDist, camDist);
-const renderer = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true });
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, preserveDrawingBuffer: true });
 renderer.setSize(img.width, img.height, false);
 
-//const spark = new SparkRenderer({ renderer, maxStdDev: 3 });
-//scene.add(spark);
-//scene.add(camera);
-//camera.add(spark);
+const spark = new SparkRenderer({ renderer });
+scene.add(spark);
 
 import { basicSetup } from "/lib/codemirror/codemirror.js";
 import { EditorView } from "/lib/codemirror/@codemirror_view.js";
@@ -88,32 +87,34 @@ const tonemappingPass = new ShaderPass({
     vertexShader: $('#vert-glsl').textContent,
     fragmentShader: $('#tonemapping-glsl').textContent,
 });
-const blurPass = new ShaderPass({
+const sunraysPass = new ShaderPass({
     uniforms: {
         tDiffuse: { value: null },
         iTime: { value: 0 },
     },
     vertexShader: $('#vert-glsl').textContent,
-    fragmentShader: $('#blur-glsl').textContent,
+    fragmentShader: $('#sunrays-glsl').textContent,
 });
 const vignettePass = new ShaderPass({
     uniforms: {
         tDiffuse: { value: null },
+        iBgScale: { value: 0.1 },
+        iBgBrightness: { value: 0.0 },
     },
     vertexShader: $('#vert-glsl').textContent,
     fragmentShader: $('#vignette-glsl').textContent,
 });
 composer.addPass(new RenderPass(scene, camera));
-composer.addPass(tonemappingPass);
-composer.addPass(blurPass);
+//composer.addPass(tonemappingPass);
+//composer.addPass(sunraysPass);
 composer.addPass(vignettePass);
 
 const controls = new OrbitControls(camera, canvas);
-//controls.target.set(0, 0, 0);
 controls.minDistance = 0;
 controls.maxDistance = 10;
 
 const statsUI = new Stats();
+statsUI.domElement.classList.add('debug');
 statsUI.domElement.id = 'fps';
 if (!isEmbedded)
     document.body.appendChild(statsUI.domElement);
@@ -122,11 +123,9 @@ let audio = { channels: [] };
 $('#audio').onclick = initAudioMesh;
 
 const worker = new Worker('./worker.js', { type: 'module' });
-
-console.log('Mesh size:', CW + 'x' + CH, 'with', SM, 'steps');
-
 let gsm0 = await generateSplats('string');
 addInterpolatedMeshes(gsm0);
+console.log('Mesh size:', CW + 'x' + CH + 'x' + SM);
 
 const fog = await generateSplatsFn((pos, col) => {
     let r = Math.random() ** 0.5 * 2;
@@ -171,12 +170,22 @@ function splitMeshIntoChunks(gsm, chunk = CW * 512) {
 function enumerateMeshes(gsm0, callback) {
     const gsm = {};
 
-    gsm.xyzw = gsm0.xyzw.slice();
-    gsm.rgba = gsm0.rgba.slice();
+    gsm.xyzw = new Float32Array(CW * CH * 4);
+    gsm.rgba = new Float32Array(CW * CH * 4);
 
     for (let i = 0; i < SM; i++) {
         interpolateY(gsm.xyzw, gsm0.xyzw, CW, CH, (i + 0.5) / SM);
         interpolateY(gsm.rgba, gsm0.rgba, CW, CH, (i + 0.5) / SM);
+        callback(gsm, i);
+    }
+
+    let SMx = SM * 0;
+    gsm.xyzw = new Float32Array(CW * 4);
+    gsm.rgba = new Float32Array(CW * 4);
+
+    for (let i = 0; i < SMx; i++) {
+        interpolateX(gsm.xyzw, gsm0.xyzw, [0, CW], [CH - 1, CH], (i + 0.5) / SMx);
+        interpolateX(gsm.rgba, gsm0.rgba, [0, CW], [CH - 1, CH], (i + 0.5) / SMx);
         callback(gsm, i);
     }
 }
@@ -244,7 +253,7 @@ renderer.setAnimationLoop((time) => {
     controls.update();
     statsUI.update();
     //renderer.render(scene, camera);
-    blurPass.uniforms.iTime.value = time / 1000;
+    sunraysPass.uniforms.iTime.value = time / 1000;
     composer.render();
 });
 
@@ -257,6 +266,24 @@ canvas.addEventListener('dblclick', (e) => {
     if (e.target == canvas)
         controls.enabled = !controls.enabled;
 });
+
+function interpolateX(res, src, [xmin, xmax], [ymin, ymax], a = 0) {
+    let w = xmax - xmin, h = ymax - ymin;
+    check(res.length == w * h * 4);
+    check(src.length >= xmax * ymax * 4);
+    check(a >= 0 && a <= 1);
+
+    for (let y = ymin; y < ymax; y++) {
+        for (let x = xmin; x < xmax; x++) {
+            let r4 = 4 * (w * (y - ymin) + (x - xmin));
+            let i4 = 4 * (w * y + x);
+            let j4 = 4 * (w * y + (x + 1) % w);
+
+            for (let k = 0; k < 4; k++)
+                res[r4 + k] = mix(src[i4 + k], src[j4 + k], a);
+        }
+    }
+}
 
 function interpolateY(res, src, w, h, a = 0) {
     check(res.length == w * h * 4);
@@ -282,8 +309,8 @@ function interpolateY(res, src, w, h, a = 0) {
 async function downloadMesh() {
     let size = gsm0.xyzw.length, gsm2 = {};
 
-    gsm2.xyzw = new Float32Array(size * SM);
-    gsm2.rgba = new Float32Array(size * SM);
+    gsm2.xyzw = new Float32Array(stats.numSplats * 4);
+    gsm2.rgba = new Float32Array(stats.numSplats * 4);
 
     enumerateMeshes(gsm0, (gsm, i) => {
         gsm2.xyzw.set(gsm.xyzw, i * size);

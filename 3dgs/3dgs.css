@@ -38,3 +38,8 @@
   top: 0 !important;
   left: inherit !important;
 }
+
+#codemirror .cm-editor:not(.cm-focused) {
+  opacity: 0.5;
+  background: none;
+}
