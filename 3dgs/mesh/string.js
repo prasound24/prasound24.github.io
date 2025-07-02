@@ -86,8 +86,8 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j, dd, radius = 1) {
     let r = radius * s;
 
     xyzw[p * 4 + 0] = x;
-    xyzw[p * 4 + 2] = y;
-    xyzw[p * 4 + 1] = z;
+    xyzw[p * 4 + 1] = y;
+    xyzw[p * 4 + 2] = z;
     xyzw[p * 4 + 3] = r / Math.hypot(CW, CH); // size
 
     rgba[p * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[0]));
@@ -98,11 +98,11 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j, dd, radius = 1) {
 
 export function createMesh(w, h, { sid, r, rgb } = {}) {
     let str4 = new Float32Array(w * h * 4);
-    let amps = new Float32Array(4);
+    let amps = new Float32Array(5);
 
     for (let s = 1; s < amps.length; s++) {
         let rnd = fract(Math.sin((sid - 0.5) * s * Math.PI * 2)) - 0.5;
-        amps[s] = 10 * rnd * Math.exp(-s);
+        amps[s] = 2 * rnd / s;
     }
 
     console.debug('String amps:', [...amps].map(a => a.toFixed(2)).join(','));

@@ -1,12 +1,13 @@
-const urlparams = new URLSearchParams(location.search);
-const isEmbedded = urlparams.get('iframe') == '1';
-const [CW, CH] = (urlparams.get('n') || '200x200').split('x').map(x => +x);
-const SM = +urlparams.get('sm') || 5;
-const sid = parseFloat('0.' + (urlparams.get('sid') || '')) || Math.random();
-const sphRadius = +urlparams.get('r') || 1.5;
-const camDist = +urlparams.get('cam') || 1.5;
-const colRGB = (urlparams.get('c') || '0.15,0.27,0.33').split(',').map(x => +x);
-const imgSize = (urlparams.get('i') || '0x0').split('x').map(x => +x);
+const uargs = new URLSearchParams(location.search);
+const isEmbedded = uargs.get('iframe') == '1';
+const [CW, CH] = (uargs.get('n') || '200x200').split('x').map(x => +x);
+const SM = +uargs.get('sm') || 5;
+const sid = parseFloat('0.' + (uargs.get('sid') || '')) || Math.random();
+const sphRadius = +uargs.get('r') || 1.5;
+const camDist = +uargs.get('cam') || 1.5;
+const colRGB = (uargs.get('c') || '0.15,0.27,0.33').split(',').map(x => +x || Math.random());
+const imgSize = (uargs.get('i') || '0x0').split('x').map(x => +x);
+const imgBrightness = +uargs.get('b') || 1.0;
 
 import * as THREE from "three";
 import Stats from 'three/addons/libs/stats.module.js';
@@ -44,21 +45,16 @@ renderer.setSize(img.width, img.height, false);
 const spark = new SparkRenderer({ renderer });
 scene.add(spark);
 
-import { basicSetup } from "/lib/codemirror/codemirror.js";
-import { EditorView } from "/lib/codemirror/@codemirror_view.js";
-import * as langGLSL from "/lib/codemirror/codemirror-lang-glsl.js";
-import * as darkTheme from "/lib/codemirror/codemirror-theme-one-dark.js";
+window.scene = scene;
+window.spark = spark;
 
-const editor = new EditorView({
-    doc: dyno.unindent(`
-        void mainObjectModifier(inout Gsplat gs, float time) {
-          // gs.rgba, gs.center, gs.scales, gs.quaternion, gs.index
-        }`),
-    parent: $('#codemirror'),
-    extensions: [basicSetup, langGLSL.glsl(), darkTheme.oneDark],
-});
+const editor = {
+    view: null,
+    text: () => dyno.unindent(editor.view ?
+        editor.view.state.doc.toString() : $('#splat-glsl').textContent),
+};
 
-const animateT = dyno.dynoFloat(0);
+const animateTime = dyno.dynoFloat(0);
 const objectModifier = dyno.dynoBlock(
     { gsplat: dyno.Gsplat },
     { gsplat: dyno.Gsplat },
@@ -67,14 +63,16 @@ const objectModifier = dyno.dynoBlock(
             inTypes: { gsplat: dyno.Gsplat, time: "float" },
             outTypes: { gsplat: dyno.Gsplat },
             globals: () => [
-                dyno.unindent(editor.state.doc.toString())
+                'float time = 0.;',
+                dyno.unindent(editor.text())
             ],
             statements: ({ inputs, outputs }) => dyno.unindentLines(`
+                time = ${inputs.time};
                 ${outputs.gsplat} = ${inputs.gsplat};
-                mainObjectModifier(${outputs.gsplat}, ${inputs.time});
+                mainSplatModifier(${outputs.gsplat});
             `),
         });
-        gsplat = d.apply({ gsplat, time: animateT }).gsplat;
+        gsplat = d.apply({ gsplat, time: animateTime }).gsplat;
         return { gsplat };
     },
 );
@@ -116,8 +114,13 @@ controls.maxDistance = 10;
 const statsUI = new Stats();
 statsUI.domElement.classList.add('debug');
 statsUI.domElement.id = 'fps';
-if (!isEmbedded)
-    document.body.appendChild(statsUI.domElement);
+statsUI.domElement.style = isEmbedded ? 'none' : '';
+document.body.appendChild(statsUI.domElement);
+
+statsUI.domElement.addEventListener('click', (e) => {
+    controls.enabled = !controls.enabled;
+    console.log('controls.enabled:', controls.enabled);
+});
 
 let audio = { channels: [] };
 $('#audio').onclick = initAudioMesh;
@@ -127,28 +130,32 @@ let gsm0 = await generateSplats('string');
 addInterpolatedMeshes(gsm0);
 console.log('Mesh size:', CW + 'x' + CH + 'x' + SM);
 
-const fog = await generateSplatsFn((pos, col) => {
-    let r = Math.random() ** 0.5 * 2;
-    let a = Math.random() * Math.PI * 2;
-    let b = Math.random() * Math.PI - Math.PI / 2;
+async function addFog() {
+    const fog = await generateSplatsFn((pos, col) => {
+        let r = Math.random() ** 0.5 * 2;
+        let a = Math.random() * Math.PI * 2;
+        let b = Math.random() * Math.PI - Math.PI / 2;
 
-    pos[0] = r * Math.cos(a) * Math.cos(b);
-    pos[2] = r * Math.sin(a) * Math.cos(b);
-    pos[1] = r * Math.sin(b);
-    pos[3] = 0.3;
+        pos[0] = r * Math.cos(a) * Math.cos(b);
+        pos[2] = r * Math.sin(a) * Math.cos(b);
+        pos[1] = r * Math.sin(b);
+        pos[3] = 0.3;
 
-    col[0] = 0.01;
-    col[1] = 0.01;
-    col[2] = 0.01;
-    col[3] = 0.01;
-}, 1500, 1);
-//appendMesh(fog);
+        col[0] = 0.01;
+        col[1] = 0.01;
+        col[2] = 0.01;
+        col[3] = 0.01;
+    }, 1500, 1);
+
+    appendMesh(fog);
+}
 
 function addInterpolatedMeshes(gsm0) {
     enumerateMeshes(gsm0, (gsm) => {
         for (let chunk of splitMeshIntoChunks(gsm)) {
             let mesh = appendMesh(chunk);
-            //mesh.recolor = new THREE.Color(2, 2, 2);
+            //mesh.quaternion.set(0,0,0,0);
+            mesh.recolor = new THREE.Color(imgBrightness, imgBrightness, imgBrightness);
             //mesh.opacity = 0.5; // 1 / SM;
         }
     });
@@ -225,7 +232,7 @@ function clearScene() {
 //window.downloadMesh = downloadMesh;
 $('#download').onclick = () => downloadMesh();
 
-console.log('Total:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
+console.log('Scene size:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
 
 function resizeCanvas() {
     const w = img.width, h = img.height;
@@ -237,17 +244,13 @@ function resizeCanvas() {
     }
 }
 
-window.addEventListener('resize', () => {
-    setTimeout(resizeCanvas, 50);
-});
-
 renderer.setAnimationLoop((time) => {
     if (!controls.enabled)
         return;
     if (isEmbedded)
         scene.rotation.y = -time / 1000 * 0.1;
 
-    animateT.value = time / 1000;
+    animateTime.value = time / 1000;
     scene.children.map(m => m.soundform && m.updateVersion());
     resizeCanvas();
     controls.update();
@@ -257,15 +260,35 @@ renderer.setAnimationLoop((time) => {
     composer.render();
 });
 
-editor.dom.addEventListener('focusout', (e) => {
-    console.log('Updating SplatMesh GLSL...');
-    scene.children.map(m => m.soundform && m.updateGenerator());
+window.addEventListener('resize', () => {
+    setTimeout(resizeCanvas, 50);
 });
 
-canvas.addEventListener('dblclick', (e) => {
-    if (e.target == canvas)
-        controls.enabled = !controls.enabled;
-});
+initSceneBackground();
+initCodeMirror();
+
+async function initCodeMirror() {
+    const { basicSetup } = await import("/lib/codemirror/codemirror.js");
+    const { EditorView } = await import("/lib/codemirror/@codemirror_view.js");
+    const { glsl } = await import("/lib/codemirror/codemirror-lang-glsl.js");
+    const { oneDark } = await import("/lib/codemirror/codemirror-theme-one-dark.js");
+
+    editor.view = new EditorView({
+        doc: editor.text(),
+        parent: $('#codemirror'),
+        extensions: [basicSetup, glsl(), oneDark],
+    });
+
+    editor.view.dom.addEventListener('focusin', (e) => {
+        controls.enabled = false;
+    });
+
+    editor.view.dom.addEventListener('focusout', (e) => {
+        console.log('Updating SplatMesh GLSL...');
+        scene.children.map(m => m.soundform && m.updateGenerator());
+        controls.enabled = true;
+    });
+}
 
 function interpolateX(res, src, [xmin, xmax], [ymin, ymax], a = 0) {
     let w = xmax - xmin, h = ymax - ymin;
@@ -420,4 +443,10 @@ async function initAudioMesh() {
     let chunks = splitMeshIntoChunks(gsm0);
     console.debug('Mesh split into', chunks.length, 'chunks');
     chunks.map(gsm => appendMesh(gsm));
+}
+
+async function initSceneBackground() {
+    let loader = new THREE.TextureLoader();
+    let texture = await loader.load('/img/nature2.jpg');
+    scene.background = texture;
 }

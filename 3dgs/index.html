@@ -26,6 +26,15 @@
     <button id="download" title="Download .PLY" class="debug"><img src="/img/ico/file.png"></button>
   </div>
 
+  <script id="splat-glsl" type="x-shader/x-fragment">
+    void mainSplatModifier(inout Gsplat gs) {
+      gs.rgba *= vec4(1);
+      gs.center.yz = gs.center.zy;
+      gs.scales *= vec3(1);
+      gs.quaternion *= vec4(1);
+    }
+  </script>
+
   <script id="vert-glsl" type="x-shader/x-vertex">
     out vec2 vUv;
 

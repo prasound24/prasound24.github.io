@@ -37,6 +37,7 @@
   right: 0 !important;
   top: 0 !important;
   left: inherit !important;
+  opacity: 0.5;
 }
 
 #codemirror .cm-editor:not(.cm-focused) {
