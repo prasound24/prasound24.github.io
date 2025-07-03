@@ -1,19 +1,23 @@
 const fract = (x) => x - Math.floor(x);
 
-function initStr(xyzw, w, h, x, y, amps, sid = 0) {
-    let num = 2 + (sid * 4 | 0);
-    let phi = Math.PI * 2 * x / w;
+function hash11(p) {
+    p = fract(p * .1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
 
+function initStr(xyzw, w, h, x, y, amps, sid = 0) {
+    let phi = Math.PI * 2 * x / w;
     let px = Math.cos(phi);
     let py = Math.sin(phi);
     let pz = 0;
-    let pw = 0.5;
+    let pw = 0;
 
     for (let s = 0; s < amps.length; s++) {
-        let arg = phi * num * s;
-        arg += 0.02 * Math.exp(-s);
+        let arg = phi * s;
         pz += amps[s] * Math.cos(arg);
-        pw += amps[s] * Math.sin(arg);
+        pw += amps[s] * Math.cos(arg + 0.1);
     }
 
     px *= Math.cos(pz);
@@ -79,30 +83,31 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j, dd, radius = 1) {
     let p = j * CW + i;
     let t = j / CH;
     let w = str4[p * 4 + 3];
-    let s = t / (1.1 + w);
+    let s = (1 - t) / (1.25 + w);
     let x = s * str4[p * 4 + 0];
     let y = s * str4[p * 4 + 1];
     let z = s * str4[p * 4 + 2];
     let r = radius * s;
 
     xyzw[p * 4 + 0] = x;
-    xyzw[p * 4 + 1] = y;
-    xyzw[p * 4 + 2] = z;
+    xyzw[p * 4 + 1] = -z;
+    xyzw[p * 4 + 2] = y;
     xyzw[p * 4 + 3] = r / Math.hypot(CW, CH); // size
 
-    rgba[p * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[0]));
-    rgba[p * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[1]));
-    rgba[p * 4 + 2] = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (t + dd[2]));
+    rgba[p * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 1.5 * (w + dd[0]));
+    rgba[p * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 1.5 * (w + dd[1]));
+    rgba[p * 4 + 2] = 0.5 + 0.5 * Math.cos(Math.PI * 1.5 * (w + dd[2]));
     rgba[p * 4 + 3] = 1.0; // opacity
 }
 
 export function createMesh(w, h, { sid, r, rgb } = {}) {
     let str4 = new Float32Array(w * h * 4);
-    let amps = new Float32Array(5);
+    let amps = new Float32Array(60);
 
-    for (let s = 1; s < amps.length; s++) {
-        let rnd = fract(Math.sin((sid - 0.5) * s * Math.PI * 2)) - 0.5;
-        amps[s] = 2 * rnd / s;
+    for (let s = 0; s < amps.length; s++) {
+        amps[s] = hash11(sid / 3.14 ** s) - 0.5;
+        amps[s] /= 0.3 * 2 ** (s / 3);
+        amps[s] /= 10 ** (s % 3 ? 1 : 0);
     }
 
     console.debug('String amps:', [...amps].map(a => a.toFixed(2)).join(','));

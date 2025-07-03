@@ -29,7 +29,7 @@
   <script id="splat-glsl" type="x-shader/x-fragment">
     void mainSplatModifier(inout Gsplat gs) {
       gs.rgba *= vec4(1);
-      gs.center.yz = gs.center.zy;
+      gs.center *= vec3(1);
       gs.scales *= vec3(1);
       gs.quaternion *= vec4(1);
     }

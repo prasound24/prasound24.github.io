@@ -3,7 +3,7 @@ const isEmbedded = uargs.get('iframe') == '1';
 const [CW, CH] = (uargs.get('n') || '200x200').split('x').map(x => +x);
 const SM = +uargs.get('sm') || 5;
 const sid = parseFloat('0.' + (uargs.get('sid') || '')) || Math.random();
-const sphRadius = +uargs.get('r') || 1.5;
+const sphRadius = +uargs.get('r') || 1.0;
 const camDist = +uargs.get('cam') || 1.5;
 const colRGB = (uargs.get('c') || '0.15,0.27,0.33').split(',').map(x => +x || Math.random());
 const imgSize = (uargs.get('i') || '0x0').split('x').map(x => +x);
@@ -43,6 +43,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, preserveDrawingB
 renderer.setSize(img.width, img.height, false);
 
 const spark = new SparkRenderer({ renderer });
+spark.maxStdDev = 4;
 scene.add(spark);
 
 window.scene = scene;
@@ -347,7 +348,11 @@ async function downloadMesh() {
     check(ply.size > 0);
 
     let file = new File([ply], 'soundform.ply');
-    console.log(URL.createObjectURL(file));
+    let a = document.createElement('a');
+    let url = URL.createObjectURL(file);
+    a.href = url;
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
@@ -417,7 +422,7 @@ function packSplats({ xyzw, rgba }) {
         bytes[i * 16 + 14] = logs; //  Z scale
     }
 
-    if (sbig > 1500)
+    if (sbig > 5000)
         throw new Error('Too many big splats: ' + sbig);
 
     return new Uint32Array(data.buffer);
