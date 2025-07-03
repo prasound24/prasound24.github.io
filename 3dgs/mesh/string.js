@@ -17,7 +17,7 @@ function initStr(xyzw, w, h, x, y, amps, sid = 0) {
     for (let s = 0; s < amps.length; s++) {
         let arg = phi * s;
         pz += amps[s] * Math.cos(arg);
-        pw += amps[s] * Math.cos(arg + 0.1);
+        pw += amps[s] * Math.sin(arg);
     }
 
     px *= Math.cos(pz);
@@ -87,27 +87,27 @@ function genMesh(xyzw, rgba, str4, CW, CH, i, j, dd, radius = 1) {
     let x = s * str4[p * 4 + 0];
     let y = s * str4[p * 4 + 1];
     let z = s * str4[p * 4 + 2];
-    let r = radius * s;
+    let r = s * radius;
 
     xyzw[p * 4 + 0] = x;
-    xyzw[p * 4 + 1] = -z;
+    xyzw[p * 4 + 1] = z;
     xyzw[p * 4 + 2] = y;
-    xyzw[p * 4 + 3] = r / Math.hypot(CW, CH); // size
+    xyzw[p * 4 + 3] = r / CW; // size
 
     rgba[p * 4 + 0] = 0.5 + 0.5 * Math.cos(Math.PI * 1.5 * (w + dd[0]));
     rgba[p * 4 + 1] = 0.5 + 0.5 * Math.cos(Math.PI * 1.5 * (w + dd[1]));
     rgba[p * 4 + 2] = 0.5 + 0.5 * Math.cos(Math.PI * 1.5 * (w + dd[2]));
-    rgba[p * 4 + 3] = 1.0; // opacity
+    rgba[p * 4 + 3] = 0.01; // opacity
 }
 
 export function createMesh(w, h, { sid, r, rgb } = {}) {
     let str4 = new Float32Array(w * h * 4);
-    let amps = new Float32Array(60);
+    let amps = new Float32Array(120);
 
     for (let s = 0; s < amps.length; s++) {
         amps[s] = hash11(sid / 3.14 ** s) - 0.5;
-        amps[s] /= 0.3 * 2 ** (s / 3);
-        amps[s] /= 10 ** (s % 3 ? 1 : 0);
+        if (s > 0) amps[s] /= s**0.5;
+        //amps[s] /= 3 ** (s % 3 ? 1 : 0);
     }
 
     console.debug('String amps:', [...amps].map(a => a.toFixed(2)).join(','));

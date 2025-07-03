@@ -93,31 +93,8 @@
   <script id="vignette-glsl" type="x-shader/x-fragment">
     in vec2 vUv;
     uniform sampler2D tDiffuse;
-    uniform float iBgScale;
-    uniform float iBgBrightness;
-
-    const int samples = 75,
-              LOD = 2,         // gaussian done on MIPmap at scale LOD
-              sLOD = 1 << LOD; // tile size = 2^LOD
-    const float sigma = float(samples) * 0.25;
-    const float PI = radians(180.);
-
-    float gaussian(vec2 i) {
-        float sigma2 = sigma*sigma;
-        return exp(-0.5/sigma2*dot(i,i))/(PI*2.0*sigma2);
-    }
-
-    vec4 blur(sampler2D sp, vec2 U, vec2 scale) {
-        vec4 O = vec4(0);  
-        int s = samples/sLOD;
-        
-        for ( int i = 0; i < s*s; i++ ) {
-            vec2 d = vec2(i%s, i/s)*float(sLOD) - float(samples)/2.;
-            O += gaussian(d) * textureLod( sp, U + scale * d , float(LOD) );
-        }
-        
-        return O / O.a;
-    }
+    uniform sampler2D tImageLogo;
+    uniform sampler2D tSignature;
 
     float vignette() {
         vec2 uv = vUv;
@@ -126,15 +103,27 @@
         return pow(v, 0.125);
     }
 
-    void main() {
-      ivec2 size = textureSize(tDiffuse, 0);
-      vec2 uv2 = mix(vec2(0.5), vUv, iBgScale); 
-      vec4 bg = blur( tDiffuse, uv2, 1./vec2(size) );
-      bg *= iBgBrightness;
+    void addImageLogo(inout vec4 o, vec2 p, sampler2D logo,
+      float alpha, vec2 offset, mat2 lsmat) {
+        vec2 ls = vec2(textureSize(logo, 0));
+        vec2 bl = offset + ls*lsmat;
+        vec2 p2 = p - bl;
 
-      vec4 fg = texture(tDiffuse, vUv);
-      gl_FragColor = mix(bg, fg, fg.a)*vignette();
-      gl_FragColor.a = 1.0;
+        if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.) {
+            vec4 col = texelFetch(logo, ivec2(p2), 0);
+            float gray = (col.r + col.g + col.b) / 3.0;
+            o.rgb = mix(o.rgb, vec3(gray), col.a * alpha);
+        }
+    }
+
+    void main() {
+      vec2 wh = vec2(textureSize(tDiffuse, 0));
+      vec2 p = vUv * wh;
+      vec4 o = texture(tDiffuse, vUv);
+      addImageLogo(o, p, tImageLogo, 0.2, vec2(0), mat2(0.25));
+      addImageLogo(o, p, tSignature, 0.8, vec2(wh.x, 0), mat2(-1, -1, 0, 1));
+      o *= vignette();
+      gl_FragColor = vec4(o.rgb, 1);
     }
   </script>
 

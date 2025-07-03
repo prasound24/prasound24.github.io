@@ -8,6 +8,7 @@ const camDist = +uargs.get('cam') || 1.5;
 const colRGB = (uargs.get('c') || '0.15,0.27,0.33').split(',').map(x => +x || Math.random());
 const imgSize = (uargs.get('i') || '0x0').split('x').map(x => +x);
 const imgBrightness = +uargs.get('b') || 1.0;
+const signature = uargs.get('l') || 'prasound.com';
 
 import * as THREE from "three";
 import Stats from 'three/addons/libs/stats.module.js';
@@ -43,7 +44,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, preserveDrawingB
 renderer.setSize(img.width, img.height, false);
 
 const spark = new SparkRenderer({ renderer });
-spark.maxStdDev = 4;
+//spark.maxStdDev = 4;
 scene.add(spark);
 
 window.scene = scene;
@@ -79,34 +80,7 @@ const objectModifier = dyno.dynoBlock(
 );
 
 const composer = new EffectComposer(renderer);
-const tonemappingPass = new ShaderPass({
-    uniforms: {
-        tDiffuse: { value: null },
-    },
-    vertexShader: $('#vert-glsl').textContent,
-    fragmentShader: $('#tonemapping-glsl').textContent,
-});
-const sunraysPass = new ShaderPass({
-    uniforms: {
-        tDiffuse: { value: null },
-        iTime: { value: 0 },
-    },
-    vertexShader: $('#vert-glsl').textContent,
-    fragmentShader: $('#sunrays-glsl').textContent,
-});
-const vignettePass = new ShaderPass({
-    uniforms: {
-        tDiffuse: { value: null },
-        iBgScale: { value: 0.1 },
-        iBgBrightness: { value: 0.0 },
-    },
-    vertexShader: $('#vert-glsl').textContent,
-    fragmentShader: $('#vignette-glsl').textContent,
-});
 composer.addPass(new RenderPass(scene, camera));
-//composer.addPass(tonemappingPass);
-//composer.addPass(sunraysPass);
-composer.addPass(vignettePass);
 
 const controls = new OrbitControls(camera, canvas);
 controls.minDistance = 0;
@@ -235,6 +209,35 @@ $('#download').onclick = () => downloadMesh();
 
 console.log('Scene size:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
 
+const tonemappingPass = new ShaderPass({
+    uniforms: {
+        tDiffuse: { value: null },
+    },
+    vertexShader: $('#vert-glsl').textContent,
+    fragmentShader: $('#tonemapping-glsl').textContent,
+});
+const sunraysPass = new ShaderPass({
+    uniforms: {
+        tDiffuse: { value: null },
+        iTime: { value: 0 },
+    },
+    vertexShader: $('#vert-glsl').textContent,
+    fragmentShader: $('#sunrays-glsl').textContent,
+});
+const vignettePass = new ShaderPass({
+    uniforms: {
+        tDiffuse: { value: null },
+        tSignature: { value: new THREE.DataTexture(null, 1, 1) },
+        tImageLogo: { value: new THREE.DataTexture(null, 1, 1) },
+    },
+    vertexShader: $('#vert-glsl').textContent,
+    fragmentShader: $('#vignette-glsl').textContent,
+});
+
+//composer.addPass(tonemappingPass);
+//composer.addPass(sunraysPass);
+composer.addPass(vignettePass);
+
 function resizeCanvas() {
     const w = img.width, h = img.height;
 
@@ -257,7 +260,7 @@ renderer.setAnimationLoop((time) => {
     controls.update();
     statsUI.update();
     //renderer.render(scene, camera);
-    sunraysPass.uniforms.iTime.value = time / 1000;
+    //sunraysPass.uniforms.iTime.value = time / 1000;
     composer.render();
 });
 
@@ -265,6 +268,8 @@ window.addEventListener('resize', () => {
     setTimeout(resizeCanvas, 50);
 });
 
+initImageLogoTexture();
+initSignatureTexture();
 initSceneBackground();
 initCodeMirror();
 
@@ -454,4 +459,38 @@ async function initSceneBackground() {
     let loader = new THREE.TextureLoader();
     let texture = await loader.load('/img/nature2.jpg');
     scene.background = texture;
+}
+
+async function initSignatureTexture(text = signature, em = 25) {
+    const font = new FontFace("DancingScript", "url(/create/DancingScript-Regular.ttf)");
+    document.fonts.add(font);
+    await font.load();
+    //await document.fonts.ready;
+
+    let canvas = document.createElement('canvas');
+    let ctx2d = canvas.getContext('2d');
+    let ch = em; // tm.actualBoundingBoxAscent - tm.actualBoundingBoxDescent;
+    let cw = em * 20; // tm.width;
+    canvas.height = ch;
+    canvas.width = cw;
+    ctx2d.font = em + 'px DancingScript';
+    ctx2d.textBaseline = 'middle';
+    let tm = ctx2d.measureText(text);
+    //console.debug(tm);
+    canvas.width = tm.width + em;
+
+    //ctx2d.fillStyle = '#000';
+    //ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+    ctx2d.font = em + 'px DancingScript';
+    ctx2d.fillStyle = '#fff';
+    ctx2d.textBaseline = 'middle';
+    ctx2d.fillText(text, em / 2, ch / 2);
+
+    //document.body.append(canvas);
+    vignettePass.uniforms.tSignature.value = new THREE.CanvasTexture(canvas);
+}
+
+async function initImageLogoTexture() {
+    let loader = new THREE.TextureLoader();
+    vignettePass.uniforms.tImageLogo.value = await loader.load('/img/favicon.png');
 }
