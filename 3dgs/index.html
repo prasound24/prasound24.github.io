@@ -120,7 +120,7 @@
       vec2 wh = vec2(textureSize(tDiffuse, 0));
       vec2 p = vUv * wh;
       vec4 o = texture(tDiffuse, vUv);
-      addImageLogo(o, p, tImageLogo, 0.2, vec2(0), mat2(0.25));
+      addImageLogo(o, p, tImageLogo, 0.2, vec2(0), mat2(0.5));
       addImageLogo(o, p, tSignature, 0.8, vec2(wh.x, 0), mat2(-1, -1, 0, 1));
       o *= vignette();
       gl_FragColor = vec4(o.rgb, 1);

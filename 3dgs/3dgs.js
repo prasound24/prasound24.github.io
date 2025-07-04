@@ -9,6 +9,7 @@ const colRGB = (uargs.get('c') || '0.15,0.27,0.33').split(',').map(x => +x || Ma
 const imgSize = (uargs.get('i') || '0x0').split('x').map(x => +x);
 const imgBrightness = +uargs.get('b') || 1.0;
 const signature = uargs.get('l') || 'prasound.com';
+const quality = +uargs.get('q') || 0.0;
 
 import * as THREE from "three";
 import Stats from 'three/addons/libs/stats.module.js';
@@ -40,12 +41,18 @@ const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, img.width / img.height, 0.001, 1000);
 camera.position.set(camDist, camDist, camDist);
-const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, preserveDrawingBuffer: true });
+const renderer = new THREE.WebGLRenderer(
+    { canvas, alpha: true, antialias: false, preserveDrawingBuffer: true });
 renderer.setSize(img.width, img.height, false);
 
 const spark = new SparkRenderer({ renderer });
-//spark.maxStdDev = 4;
 scene.add(spark);
+
+if (quality == 1) {
+    spark.maxStdDev = 4;
+    spark.apertureAngle = Math.PI / 150;
+    spark.focalDistance = 0;
+}
 
 window.scene = scene;
 window.spark = spark;
@@ -254,11 +261,17 @@ renderer.setAnimationLoop((time) => {
     if (isEmbedded)
         scene.rotation.y = -time / 1000 * 0.1;
 
+    if (quality == 1) {
+        let p = camera.position;
+        spark.focalDistance = Math.hypot(p.x, p.y, p.z);
+    }
+
     animateTime.value = time / 1000;
     scene.children.map(m => m.soundform && m.updateVersion());
     resizeCanvas();
     controls.update();
     statsUI.update();
+
     //renderer.render(scene, camera);
     //sunraysPass.uniforms.iTime.value = time / 1000;
     composer.render();
@@ -268,8 +281,10 @@ window.addEventListener('resize', () => {
     setTimeout(resizeCanvas, 50);
 });
 
-initImageLogoTexture();
-initSignatureTexture();
+if (!isEmbedded) {
+    initImageLogoTexture();
+    initSignatureTexture();
+}
 initSceneBackground();
 initCodeMirror();
 
