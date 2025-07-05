@@ -12,8 +12,8 @@ self.onmessage = async (e) => {
     meshes[name] = meshes[name] ||
         await import('./mesh/' + name + '.js');
 
-    let { xyzw, rgba } = meshes[name].createMesh(cw, ch, args);
+    let { str4, xyzw, rgba } = meshes[name].createMesh(cw, ch, args);
     
-    postMessage({ txid, xyzw, rgba },
-        [xyzw.buffer, rgba.buffer]);
+    postMessage({ txid, str4, xyzw, rgba },
+        [str4.buffer, xyzw.buffer, rgba.buffer]);
 };

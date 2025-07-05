@@ -32,6 +32,17 @@
       gs.center *= vec3(1);
       gs.scales *= vec3(1);
       gs.quaternion *= vec4(1);
+      
+      return;
+      ivec2 wh = textureSize(iMesh, 0);
+      int i = gs.index, w = wh.x, h = wh.y;
+      vec2 p = vec2(i%w, i/w)/vec2(wh);
+      //p.x += time/float(h);
+      vec4 pos = texture(iMesh, p);
+      float s = (1. - p.y) / (1.1 + pos.w);
+      gs.center = s*pos.xzy;
+      gs.scales = s/vec3(w);
+      gs.rgba.rgb = 0.5 + 0.5*cos(PI*2.*(pos.w/2. + vec3(0.15,0.27,0.33)));
     }
   </script>
 

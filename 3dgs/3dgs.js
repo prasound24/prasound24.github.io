@@ -19,7 +19,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { SparkRenderer, SplatMesh, PackedSplats, dyno } from "@sparkjsdev/spark";
 
-import { $, mix, clamp, check, fract, selectAudioFile, decodeAudioFile2, DEBUG } from '../lib/utils.js'
+import { $, mix, clamp, check, dcheck, fract, selectAudioFile, decodeAudioFile2, DEBUG } from '../lib/utils.js'
 import { exportPLY } from "../lib/ply.js";
 
 if (!isEmbedded) {
@@ -39,7 +39,7 @@ console.debug('Color palette:', colRGB.map(x => x.toFixed(2)).join(','));
 const stats = { numSplats: 0 };
 const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, img.width / img.height, 0.001, 1000);
+const camera = new THREE.PerspectiveCamera(90, img.width / img.height, 0.001, 1000);
 camera.position.set(camDist, camDist, camDist);
 const renderer = new THREE.WebGLRenderer(
     { canvas, alpha: true, antialias: false, preserveDrawingBuffer: true });
@@ -54,6 +54,7 @@ if (quality == 1) {
     spark.focalDistance = 0;
 }
 
+window.camera = camera;
 window.scene = scene;
 window.spark = spark;
 
@@ -63,25 +64,31 @@ const editor = {
         editor.view.state.doc.toString() : $('#splat-glsl').textContent),
 };
 
+const textureMesh = dyno.dynoSampler2D();
 const animateTime = dyno.dynoFloat(0);
 const objectModifier = dyno.dynoBlock(
     { gsplat: dyno.Gsplat },
     { gsplat: dyno.Gsplat },
     ({ gsplat }) => {
         const d = new dyno.Dyno({
-            inTypes: { gsplat: dyno.Gsplat, time: "float" },
+            inTypes: {
+                gsplat: dyno.Gsplat,
+                time: "float",
+                iMesh: dyno.Sampler2D,
+            },
             outTypes: { gsplat: dyno.Gsplat },
-            globals: () => [
-                'float time = 0.;',
+            globals: ({ inputs }) => [
+                `#define iMesh ${inputs.iMesh}`,
+                `#define time ${inputs.time}`,
+                `const int numSplats = ${stats.numSplats};`,
                 dyno.unindent(editor.text())
             ],
             statements: ({ inputs, outputs }) => dyno.unindentLines(`
-                time = ${inputs.time};
                 ${outputs.gsplat} = ${inputs.gsplat};
                 mainSplatModifier(${outputs.gsplat});
             `),
         });
-        gsplat = d.apply({ gsplat, time: animateTime }).gsplat;
+        gsplat = d.apply({ gsplat, time: animateTime, iMesh: textureMesh }).gsplat;
         return { gsplat };
     },
 );
@@ -111,6 +118,12 @@ const worker = new Worker('./worker.js', { type: 'module' });
 let gsm0 = await generateSplats('string');
 addInterpolatedMeshes(gsm0);
 console.log('Mesh size:', CW + 'x' + CH + 'x' + SM);
+textureMesh.value = new THREE.DataTexture(
+    gsm0.str4, CW, CH * SM, THREE.RGBAFormat, THREE.FloatType);
+textureMesh.value.wrapS = THREE.RepeatWrapping;
+textureMesh.value.minFilter = THREE.LinearFilter;
+textureMesh.value.magFilter = THREE.LinearFilter;
+textureMesh.value.needsUpdate = true;
 
 async function addFog() {
     const fog = await generateSplatsFn((pos, col) => {
@@ -234,8 +247,8 @@ const sunraysPass = new ShaderPass({
 const vignettePass = new ShaderPass({
     uniforms: {
         tDiffuse: { value: null },
-        tSignature: { value: new THREE.DataTexture(null, 1, 1) },
-        tImageLogo: { value: new THREE.DataTexture(null, 1, 1) },
+        tSignature: { value: new THREE.DataTexture },
+        tImageLogo: { value: new THREE.DataTexture },
     },
     vertexShader: $('#vert-glsl').textContent,
     fragmentShader: $('#vignette-glsl').textContent,
@@ -305,7 +318,7 @@ async function initCodeMirror() {
     });
 
     editor.view.dom.addEventListener('focusout', (e) => {
-        console.log('Updating SplatMesh GLSL...');
+        //console.log('Updating SplatMesh GLSL...');
         scene.children.map(m => m.soundform && m.updateGenerator());
         controls.enabled = true;
     });
@@ -351,19 +364,40 @@ function interpolateY(res, src, w, h, a = 0) {
 }
 
 async function downloadMesh() {
-    let size = gsm0.xyzw.length, gsm2 = {};
+    let gsm = {};
+    console.log('Enumerating splats...');
+    gsm.xyzw = new Float32Array(stats.numSplats * 4);
+    gsm.rgba = new Float32Array(stats.numSplats * 4);
+    let index = 0;
 
-    gsm2.xyzw = new Float32Array(stats.numSplats * 4);
-    gsm2.rgba = new Float32Array(stats.numSplats * 4);
+    for (let mesh of scene.children) {
+        if (!mesh.numSplats)
+            continue;
+        mesh.forEachSplat((splatId, center, scales, quaternion, opacity, color) => {
+            let i = index++;
+            if (i >= gsm.rgba.length / 4)
+                return;
 
-    enumerateMeshes(gsm0, (gsm, i) => {
-        gsm2.xyzw.set(gsm.xyzw, i * size);
-        gsm2.rgba.set(gsm.rgba, i * size);
-        console.log('Generated mesh', i + 1, 'out of', SM);
-    });
+            gsm.xyzw[4 * i + 0] = center.x;
+            gsm.xyzw[4 * i + 1] = -center.y;
+            gsm.xyzw[4 * i + 2] = center.z;
+            gsm.xyzw[4 * i + 3] = scales.x;
+
+            gsm.rgba[4 * i + 0] = color.r;
+            gsm.rgba[4 * i + 1] = color.g;
+            gsm.rgba[4 * i + 2] = color.b;
+            gsm.rgba[4 * i + 3] = opacity;
+        });
+    }
+
+    //enumerateMeshes(gsm0, (gsm, i) => {
+    //    gsm2.xyzw.set(gsm.xyzw, i * size);
+    //    gsm2.rgba.set(gsm.rgba, i * size);
+    //    console.log('Generated mesh', i + 1, 'out of', SM);
+    //});
 
     console.log('Creating a .ply file...');
-    const ply = exportPLY(gsm2.xyzw.length / 4, 1, gsm2.xyzw, gsm2.rgba);
+    const ply = exportPLY(gsm.xyzw.length / 4, 1, gsm.xyzw, gsm.rgba);
     console.log('.ply file size:', (ply.size / 1e6).toFixed(1), 'MB');
     check(ply.size > 0);
 
@@ -380,14 +414,15 @@ async function generateSplats(name = 'sphere', cw = CW, ch = CH) {
         let ts = Date.now();
         worker.postMessage({ type: 'mesh', name, cw, ch, args: { sid, audio, r: sphRadius, rgb: colRGB } });
         worker.onmessage = (e) => {
-            let { xyzw, rgba } = e.data;
+            let { str4, xyzw, rgba } = e.data;
+            str4 = new Float32Array(str4);
             xyzw = new Float32Array(xyzw);
             rgba = new Float32Array(rgba);
             check(xyzw.length == cw * ch * 4);
             check(rgba.length == cw * ch * 4);
             console.debug('generateSplats:', Date.now() - ts, 'ms',
                 (rgba.length / 4e6).toFixed(1), 'M splats, SID:', sid);
-            resolve({ xyzw, rgba });
+            resolve({ str4, xyzw, rgba });
         };
     });
 }
@@ -507,5 +542,6 @@ async function initSignatureTexture(text = signature, em = 25) {
 
 async function initImageLogoTexture() {
     let loader = new THREE.TextureLoader();
-    vignettePass.uniforms.tImageLogo.value = await loader.load('/img/favicon.png');
+    let tex = await loader.load('/img/favicon.png');
+    vignettePass.uniforms.tImageLogo.value = tex;
 }
